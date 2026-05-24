@@ -82,6 +82,10 @@ annotationProcessor "org.littletonrobotics.akit:akit-autolog:$akitJson.version"
 test {
     useJUnitPlatform()
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+    // Always re-run tests so "WPILib: Test Robot Code" never silently skips
+    // them as UP-TO-DATE. Gradle still caches compiled classes; only the test
+    // execution itself is forced to re-run.
+    outputs.upToDateWhen { false }
 }
 
 // Simulation configuration (e.g. environment variables).

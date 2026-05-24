@@ -1,0 +1,57 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Primary test task — bound to Ctrl+Shift+T (or Cmd+Shift+T on Mac).
+      // Equivalent to the WPILib "Test Robot Code" button but always forces
+      // test execution even when Gradle considers classes up-to-date.
+      "label": "Run Unit Tests",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["test", "--info"],
+      "windows": { "command": "gradlew.bat" },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      // Force a completely clean test run — useful when the build cache or
+      // generated annotation-processor output gets out of sync.
+      "label": "Run Unit Tests (clean)",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["cleanTest", "test", "--info"],
+      "windows": { "command": "gradlew.bat" },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      // Extracts WPILib native .dll/.so files to build/jni/release so the
+      // VS Code Java Test Runner (▶ gutter buttons) can find the HAL.
+      // Run this once after a clean checkout before using the gutter runner.
+      "label": "Extract Native Libraries",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["extractReleaseNative"],
+      "windows": { "command": "gradlew.bat" },
+      "group": "build",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
