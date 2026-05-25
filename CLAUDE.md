@@ -243,6 +243,19 @@ AdvantageKit's annotation processor generates logging code that expects primitiv
 
 ---
 
+## Contribution rules
+
+**Before committing any change to the common library (`src/main/java/org/frc5010/common/...`):**
+
+1. Update any affected slash command in `.claude/commands/` (e.g. `new-sim-test`, `new-robot-profile`).
+2. Update the relevant `docs/` page (`configuration`, `architecture`, `testing`, `simulation`, or `robot-profiles`).
+3. Update `CLAUDE.md` if a gotcha, file location, or architecture section is no longer accurate.
+4. If a new reusable pattern was introduced, consider whether it warrants a new slash command or docs page.
+
+The code, the docs, and the agent skills must stay in sync — stale guidance causes the next contributor to repeat solved problems.
+
+---
+
 ## Slash commands available
 
 - `/new-sim-test` — step-by-step playbook for adding a Layer 2 or Layer 3 sim test
