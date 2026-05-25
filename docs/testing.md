@@ -151,6 +151,125 @@ Watch the robot in AdvantageScope or the Glass **Field2d** widget. The sequence 
 
 ---
 
-## Adding a new test
+## Regression workflow (agent checklist)
+
+After any change to `src/main/java/org/frc5010/common/`:
+
+```powershell
+.\gradlew.bat test
+```
+
+All 48 tests must pass before committing. If a test fails, diagnose the failure in the HTML report (`build/reports/tests/test/index.html`) before proceeding. Never disable or weaken an assertion to make a test pass — fix the root cause.
+
+To force a full re-run even if Gradle thinks nothing changed:
+
+```powershell
+.\gradlew.bat cleanTest test
+```
+
+---
+
+## Team-specific tests
+
+Teams extending this library can add their own test classes alongside the library tests. The recommended location is `src/test/java/frc/robot/` — Gradle picks up all test classes under `src/test/java/` automatically.
+
+Team tests use the same infrastructure as library tests:
+
+```java
+package frc.robot;
+
+import static org.junit.jupiter.api.Assertions.*;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import org.frc5010.common.drive.swerve.SwerveConstants;
+import org.frc5010.common.drive.swerve.SwerveConstants.GyroType;
+import org.frc5010.common.drive.swerve.SwerveConstants.ModuleType;
+import org.frc5010.common.drive.swerve.SwerveFactory;
+import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
+import org.frc5010.common.robot.Mode;
+import org.frc5010.common.robot.RobotMode;
+import org.frc5010.common.util.SimTestBase;
+import org.junit.jupiter.api.*;
+
+class MyRobotTest extends SimTestBase {
+
+  // Use your real robot's constants so the test matches real behavior
+  private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
+      .moduleType(ModuleType.SIM)   // SIM regardless — hardware IO not available in tests
+      .gyroType(GyroType.SIM)
+      .trackWidth(Inches.of(22.75)) // same values as RealRobotProfile
+      .wheelBase(Inches.of(22.75))
+      .wheelRadius(Inches.of(2.0))
+      .build();
+
+  private AkitSwerveDrive drive;
+
+  @BeforeEach @Override
+  public void simSetup() {
+    super.simSetup();
+    RobotMode.set(Mode.SIM);
+    drive = SwerveFactory.buildWithoutPhysics(CONSTANTS);
+  }
+
+  @AfterEach @Override
+  public void simTeardown() {
+    RobotMode.resetForTesting();
+    super.simTeardown();
+  }
+
+  @Test
+  void myRobotSpecificBehavior() {
+    enableTeleop();
+    // ... test something specific to your robot
+  }
+}
+```
+
+Use `buildWithoutPhysics()` for speed; use `build()` (+ the `SimulatedArena` teardown pattern from Layer 3) when you need IronMaple physics accuracy. See the `/new-sim-test` slash command for full skeletons.
+
+---
+
+## Log analysis
+
+Every sim run writes a `.wpilog` file to `logs/` (set up in `Robot.java`'s `Logger` configuration). Replay runs write to `logs/<original>_sim.wpilog`.
+
+### Quick summary (agent-readable)
+
+```powershell
+# Analyze the most recent log
+.\gradlew.bat logSummary
+
+# Analyze a specific log
+.\gradlew.bat logSummary -PlogFile=logs/FRC_20260525_143022.wpilog
+```
+
+Output sections:
+- **All Entries** — every logged signal with its type; use this to discover what's available
+- **Numeric Statistics** — min/max/count for every `double` signal
+- **Anomaly Flags** — loop overruns (> 25 ms), gyro disconnects, motor current spikes (> 60 A)
+
+### Replay mode (re-run code against a recorded log)
+
+```powershell
+.\gradlew.bat replayWatch   # opens a file picker; select a .wpilog
+```
+
+The robot code re-runs against the log at full speed. Output is written to `<original>_sim.wpilog`. Open both in AdvantageScope to compare logged vs. re-computed state — useful for validating a code fix against a previously recorded failure.
+
+### Key AdvantageKit signal paths
+
+| Signal | Path in log |
+|--------|------------|
+| Robot pose (x, y, heading) | `RealOutputs/Drive/Pose` (`double[]`) |
+| Chassis speeds (commanded) | `RealOutputs/Drive/ChassisSpeeds/...` |
+| Module drive velocity | `RealOutputs/Drive/Module0DriveVelocityRadPerSec` … `Module3` |
+| Module drive current | `RealOutputs/Drive/Module0DriveCurrentAmps` … `Module3` |
+| Module steer angle | `RealOutputs/Drive/Module0TurnPosition` … `Module3` |
+| Gyro connected | `RealOutputs/Drive/GyroConnected` |
+| Gyro yaw | `RealOutputs/Drive/GyroYawPositionRad` |
+
+Signal paths use the `@AutoLogOutput` key attribute set in `AkitSwerveDrive` and the `@AutoLog`-generated field names from `ModuleIOInputs` / `GyroIOInputs`.
+
+### Adding a new test
 
 See the `/new-sim-test` slash command in Claude Code for a step-by-step playbook with copy-paste skeletons for both Layer 2 and Layer 3.

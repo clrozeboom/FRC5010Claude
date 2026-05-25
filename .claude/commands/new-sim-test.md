@@ -159,7 +159,64 @@ class MyNewTest extends SimTestBase {
 
 ---
 
-## Running the tests
+## Team-specific tests (in frc.robot package)
+
+Tests for robot-specific behavior (your game piece logic, auto routines, etc.) belong in
+`src/test/java/frc/robot/`. They use exactly the same `SimTestBase` infrastructure:
+
+```java
+package frc.robot;
+
+import static edu.wpi.first.units.Units.*;
+import static org.junit.jupiter.api.Assertions.*;
+import org.frc5010.common.drive.swerve.SwerveConstants;
+import org.frc5010.common.drive.swerve.SwerveConstants.*;
+import org.frc5010.common.drive.swerve.SwerveFactory;
+import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
+import org.frc5010.common.robot.Mode;
+import org.frc5010.common.robot.RobotMode;
+import org.frc5010.common.util.SimTestBase;
+import org.junit.jupiter.api.*;
+
+class MyRobotTest extends SimTestBase {
+
+  // Match your real robot's geometry so the sim reflects actual behavior
+  private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
+      .moduleType(ModuleType.SIM)
+      .gyroType(GyroType.SIM)
+      .trackWidth(Inches.of(22.75))
+      .wheelBase(Inches.of(22.75))
+      .wheelRadius(Inches.of(2.0))
+      .build();
+
+  private AkitSwerveDrive drive;
+
+  @BeforeEach @Override
+  public void simSetup() {
+    super.simSetup();
+    RobotMode.set(Mode.SIM);
+    drive = SwerveFactory.buildWithoutPhysics(CONSTANTS); // or build() for Layer 3
+  }
+
+  @AfterEach @Override
+  public void simTeardown() {
+    RobotMode.resetForTesting();
+    super.simTeardown();
+  }
+
+  @Test
+  void myTeamBehavior() {
+    enableTeleop();
+    // ...
+  }
+}
+```
+
+For Layer 3 (IronMaple physics), add the `SimulatedArena` teardown — see the Layer 3 skeleton above.
+
+---
+
+## Regression gate — run before every commit
 
 ```powershell
 # Windows PowerShell (always use this — WSL cannot reach C:\workspace)
@@ -168,5 +225,7 @@ cd C:\workspace\FRC5010Claude
 
 # Or the VS Code task: Ctrl+Shift+P → "Tasks: Run Test Task" → "Run Unit Tests"
 ```
+
+All tests must pass. Fix root causes — never weaken assertions. If Gradle skips tests because nothing changed, use `.\gradlew.bat cleanTest test`.
 
 Test report: `build/reports/tests/test/index.html`

@@ -226,12 +226,43 @@ AdvantageKit's annotation processor generates logging code that expects primitiv
 | Physics module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSimPhysics.java` |
 | Physics gyro IO | `src/main/java/org/frc5010/common/drive/swerve/akit/GyroIOSimPhysics.java` |
 | DCMotorSim module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSim.java` |
+| Log summary utility (agent-readable) | `src/main/java/org/frc5010/common/util/LogSummary.java` |
 | Odometry timestamp helper | `src/main/java/org/frc5010/common/drive/swerve/akit/util/PhoenixUtil.java` |
 | Sim test base class | `src/test/java/org/frc5010/common/util/SimTestBase.java` |
 | Layer 2 tests | `src/test/java/org/frc5010/common/subsystem/AkitSwerveDriveTest.java` |
 | Layer 3 tests | `src/test/java/org/frc5010/common/subsystem/AkitSwerveDriveSimPhysicsTest.java` |
 | Layer 4 robot program | `src/main/java/frc/robot/Robot.java`, `RobotContainer.java` |
 | IronMaple sources (read-only reference) | `yagsl_src_tmp/swervelib/simulation/ironmaple/` |
+
+---
+
+## Log analysis
+
+Every `simulateJava` run writes a `.wpilog` to the `logs/` directory (configured in `Robot.java`). Replay runs write `<original>_sim.wpilog` alongside the source log.
+
+**Agent-readable summary:**
+```powershell
+.\gradlew.bat logSummary                              # most recent log in logs/
+.\gradlew.bat logSummary -PlogFile=logs/foo.wpilog    # specific file
+```
+Output: entry list, min/max per signal, anomaly flags (loop overruns > 25 ms, gyro disconnect, motor current > 60 A).
+
+**Replay (re-run code against a recorded log):**
+```powershell
+.\gradlew.bat replayWatch    # opens file picker; output written to <original>_sim.wpilog
+```
+
+**Key signal paths in the log** (from `@AutoLogOutput` and `@AutoLog`-generated fields):
+- `RealOutputs/Drive/Pose` — `double[]` [x, y, headingRad]
+- `RealOutputs/Drive/Module{0-3}DriveVelocityRadPerSec` — `double`
+- `RealOutputs/Drive/Module{0-3}DriveCurrentAmps` — `double`
+- `RealOutputs/Drive/Module{0-3}TurnPosition` — `double`
+- `RealOutputs/Drive/GyroConnected` — `boolean`
+- `RealOutputs/Drive/GyroYawPositionRad` — `double`
+
+Use `.\gradlew.bat logSummary` to discover the actual entry paths in any given log before searching for a specific signal.
+
+See `/diagnose-log` slash command for the full agent workflow.
 
 ---
 
@@ -247,16 +278,18 @@ AdvantageKit's annotation processor generates logging code that expects primitiv
 
 **Before committing any change to the common library (`src/main/java/org/frc5010/common/...`):**
 
-1. Update any affected slash command in `.claude/commands/` (e.g. `new-sim-test`, `new-robot-profile`).
-2. Update the relevant `docs/` page (`configuration`, `architecture`, `testing`, `simulation`, or `robot-profiles`).
-3. Update `CLAUDE.md` if a gotcha, file location, or architecture section is no longer accurate.
-4. If a new reusable pattern was introduced, consider whether it warrants a new slash command or docs page.
+1. **Run the full test suite** — `.\gradlew.bat test` — all 48 tests must pass. Never weaken an assertion to force a pass; fix the root cause.
+2. Update any affected slash command in `.claude/commands/` (e.g. `new-sim-test`, `new-robot-profile`, `diagnose-log`).
+3. Update the relevant `docs/` page (`configuration`, `architecture`, `testing`, `simulation`, or `robot-profiles`).
+4. Update `CLAUDE.md` if a gotcha, file location, or architecture section is no longer accurate.
+5. If a new reusable pattern was introduced, consider whether it warrants a new slash command or docs page.
 
-The code, the docs, and the agent skills must stay in sync — stale guidance causes the next contributor to repeat solved problems.
+The code, the tests, the docs, and the agent skills must stay in sync — stale guidance causes the next contributor to repeat solved problems.
 
 ---
 
 ## Slash commands available
 
-- `/new-sim-test` — step-by-step playbook for adding a Layer 2 or Layer 3 sim test
+- `/new-sim-test` — step-by-step playbook for adding a Layer 2 or Layer 3 sim test (includes team-specific test location)
 - `/new-robot-profile` — step-by-step guide for wiring a real robot's hardware IO into `RealRobotProfile`
+- `/diagnose-log` — agent workflow for reading `.wpilog` files, interpreting anomaly flags, replay, and performance comparison

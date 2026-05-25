@@ -124,6 +124,20 @@ task(replayWatch, type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
 }
 
+// Analyze a .wpilog file and print a summary of key swerve signals.
+// Usage:
+//   .\gradlew.bat logSummary                          # most recent log in logs/
+//   .\gradlew.bat logSummary -PlogFile=logs/foo.wpilog # specific file
+task(logSummary, type: JavaExec) {
+    group = 'FRC5010'
+    description = 'Print a diagnostic summary of a .wpilog file'
+    mainClass = "org.frc5010.common.util.LogSummary"
+    classpath = sourceSets.main.runtimeClasspath
+    if (project.hasProperty('logFile')) {
+        args = [project.logFile]
+    }
+}
+
 // Configure string concat to always inline compile
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
