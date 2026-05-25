@@ -1,8 +1,5 @@
 package org.frc5010.common.drive.swerve;
 
-import static edu.wpi.first.units.Units.Kilograms;
-import static edu.wpi.first.units.Units.Meters;
-
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import org.frc5010.common.drive.swerve.SwerveConstants.GyroType;
@@ -49,7 +46,8 @@ public class SwerveFactory {
   // ---------------------------------------------------------------------------
 
   /**
-   * Builds an {@link AkitSwerveDrive} with full IronMaple physics simulation in SIM mode.
+   * Builds an {@link AkitSwerveDrive} with full IronMaple physics simulation in SIM mode,
+   * spawning the physics body at {@code Pose2d.kZero}.
    *
    * <p>In SIM mode the physics engine ({@link SwerveDriveSimulation}) drives the robot's motion.
    * {@link AkitSwerveDrive#simulationPeriodic()} automatically advances the arena each loop.
@@ -62,10 +60,27 @@ public class SwerveFactory {
    * @return a fully constructed and wired drivetrain subsystem
    */
   public static AkitSwerveDrive build(SwerveConstants constants) {
+    return build(constants, Pose2d.kZero);
+  }
+
+  /**
+   * Builds an {@link AkitSwerveDrive} with full IronMaple physics simulation in SIM mode,
+   * spawning the physics body at the specified field pose.
+   *
+   * <p>Use this overload to place the robot at a valid in-field position so the dyn4j
+   * constraint solver starts from a clean state (no initial wall penetration).
+   *
+   * <p>In REAL and REPLAY modes {@code initialPose} is ignored.
+   *
+   * @param constants    the robot's swerve configuration
+   * @param initialPose  starting pose for the IronMaple physics body
+   * @return a fully constructed and wired drivetrain subsystem
+   */
+  public static AkitSwerveDrive build(SwerveConstants constants, Pose2d initialPose) {
     Mode mode = RobotMode.get();
 
     if (mode == Mode.SIM) {
-      return buildWithPhysicsSim(constants);
+      return buildWithPhysicsSim(constants, initialPose);
     }
 
     GyroIO gyro = buildGyro(constants, mode);
@@ -93,16 +108,15 @@ public class SwerveFactory {
   // Physics-enabled SIM build
   // ---------------------------------------------------------------------------
 
-  private static AkitSwerveDrive buildWithPhysicsSim(SwerveConstants c) {
+  private static AkitSwerveDrive buildWithPhysicsSim(SwerveConstants c, Pose2d initialPose) {
     DriveTrainSimulationConfig simConfig =
         DriveTrainSimulationConfig.Default()
-            .withRobotMass(Kilograms.of(c.robotMassKg))
-            .withBumperSize(Meters.of(c.bumperLengthMeters), Meters.of(c.bumperWidthMeters))
-            .withTrackLengthTrackWidth(
-                Meters.of(c.wheelBaseMeters), Meters.of(c.trackWidthMeters));
+            .withRobotMass(c.robotMass)
+            .withBumperSize(c.bumperLength, c.bumperWidth)
+            .withTrackLengthTrackWidth(c.wheelBase, c.trackWidth);
 
     SwerveDriveSimulation swerveDriveSim =
-        new SwerveDriveSimulation(simConfig, Pose2d.kZero);
+        new SwerveDriveSimulation(simConfig, initialPose);
     SimulatedArena.getInstance().addDriveTrainSimulation(swerveDriveSim);
 
     GyroIO gyro = new GyroIOSimPhysics(swerveDriveSim.getGyroSimulation());

@@ -7,6 +7,7 @@ import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -19,11 +20,14 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.units.Units;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
+import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -134,7 +138,7 @@ public class AkitSwerveDrive extends SubsystemBase {
     for (int i = 0; i < 4; i++) {
       modules[i] = new Module(
           moduleIOs[i], i,
-          constants.wheelRadiusMeters,
+          constants.wheelRadius.in(Units.Meters),
           translations[i].getX(),
           translations[i].getY());
     }
@@ -213,8 +217,29 @@ public class AkitSwerveDrive extends SubsystemBase {
     // Update gyro disconnect alert — only warn on real hardware
     gyroDisconnectedAlert.set(!gyroInputs.connected && !RobotBase.isSimulation());
 
-    // Update Field2d for SmartDashboard / simulation visualization
-    field2d.setRobotPose(getPose());
+    // Update Field2d for SmartDashboard / simulation visualization.
+    // In IronMaple physics mode, use the ground-truth physics body pose so the widget
+    // shows the physics-constrained position rather than odometry that may have drifted
+    // from wheel slip (e.g. when the robot is pressed against a wall).
+    field2d.setRobotPose(
+        swerveDriveSimulation != null
+            ? swerveDriveSimulation.getSimulatedDriveTrainPose()
+            : getPose());
+
+    // Feed the IronMaple physics body's ground-truth pose into the pose estimator as a
+    // near-perfect "vision" measurement.  This must happen AFTER updateWithTime() so the
+    // pose buffer's last key is current — addVisionMeasurement() silently discards
+    // measurements with timestamps newer than the buffer's latest key.
+    //
+    // Standard deviations of 1e-4 m/rad give the physics pose essentially full weight
+    // over wheel odometry, so getPose() always reflects the physics-constrained position
+    // (correct even when wheel slip drifts the encoders while the robot is against a wall).
+    if (swerveDriveSimulation != null) {
+      poseEstimator.addVisionMeasurement(
+          swerveDriveSimulation.getSimulatedDriveTrainPose(),
+          Timer.getTimestamp(),
+          VecBuilder.fill(1e-4, 1e-4, 1e-4));
+    }
   }
 
   @Override
@@ -237,7 +262,7 @@ public class AkitSwerveDrive extends SubsystemBase {
   public void runVelocity(ChassisSpeeds speeds, Current[] torqueCurrents) {
     ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, 0.02);
     SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
-    SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, constants.maxLinearSpeedMps);
+    SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, constants.maxLinearSpeed.in(Units.MetersPerSecond));
 
     Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
     Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
@@ -387,6 +412,37 @@ public class AkitSwerveDrive extends SubsystemBase {
   }
 
   /**
+   * Returns the true physics-body pose from the IronMaple simulation, or empty when not running
+   * with physics (buildWithoutPhysics, REAL, or REPLAY mode).
+   *
+   * <p>Use this instead of {@link #getPose()} when you need ground-truth position in sim —
+   * particularly for boundary-enforcement tests where wheel slip causes odometry to drift
+   * significantly while the robot is pinned against a wall by the physics engine.
+   */
+  public java.util.Optional<Pose2d> getSimulatedPose() {
+    if (swerveDriveSimulation != null) {
+      return java.util.Optional.of(swerveDriveSimulation.getSimulatedDriveTrainPose());
+    }
+    return java.util.Optional.empty();
+  }
+
+  /**
+   * Returns the true physics-body field-relative chassis speeds from IronMaple, or empty when
+   * not in physics mode.
+   *
+   * <p>Use this to check whether the robot was physically stopped by a wall: when the robot is
+   * commanded into a boundary, wheel encoders keep spinning (odometry drifts), but the physics
+   * body's actual velocity drops to near zero.
+   */
+  public java.util.Optional<ChassisSpeeds> getSimulatedChassisSpeeds() {
+    if (swerveDriveSimulation != null) {
+      return java.util.Optional.of(
+          swerveDriveSimulation.getDriveTrainSimulatedChassisSpeedsFieldRelative());
+    }
+    return java.util.Optional.empty();
+  }
+
+  /**
    * Resets the pose estimator to the given pose.
    * Also resets the simulated gyro if running in simulation.
    */
@@ -396,6 +452,24 @@ public class AkitSwerveDrive extends SubsystemBase {
     }
     rawGyroRotation = pose.getRotation();
     poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
+  }
+
+  /**
+   * Teleports both the IronMaple physics body and the pose estimator to the given pose.
+   *
+   * <p>Unlike {@link #setPose}, which only resets the odometry estimator, this method
+   * also moves the dyn4j physics body so that {@link #getSimulatedPose()} reflects the
+   * new position immediately. Use this in visual-test sequences or interactive sim whenever
+   * you need physics and odometry to agree after a teleport.
+   *
+   * <p>Has no effect on the physics body when not in IronMaple physics mode
+   * ({@code buildWithoutPhysics()}, REAL, or REPLAY).
+   */
+  public void resetSimulationPose(Pose2d pose) {
+    if (swerveDriveSimulation != null) {
+      swerveDriveSimulation.setSimulationWorldPose(pose);
+    }
+    setPose(pose);
   }
 
   /**
@@ -447,14 +521,14 @@ public class AkitSwerveDrive extends SubsystemBase {
     return ChassisSpeeds.fromRobotRelativeSpeeds(getChassisSpeeds(), getRotation());
   }
 
-  /** Returns the maximum configured linear speed in meters per second. */
-  public double getMaxLinearSpeedMetersPerSec() {
-    return constants.maxLinearSpeedMps;
+  /** Returns the maximum configured linear speed. */
+  public LinearVelocity getMaxLinearSpeed() {
+    return constants.maxLinearSpeed;
   }
 
-  /** Returns the maximum configured angular speed in radians per second. */
-  public double getMaxAngularSpeedRadPerSec() {
-    return constants.maxAngularSpeedRadps;
+  /** Returns the maximum configured angular speed. */
+  public AngularVelocity getMaxAngularSpeed() {
+    return constants.maxAngularSpeed;
   }
 
   /** Returns the Field2d object for SmartDashboard / sim visualization. */

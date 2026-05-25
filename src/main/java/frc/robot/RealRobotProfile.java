@@ -1,0 +1,83 @@
+package frc.robot;
+
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.Pounds;
+
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.RobotBase;
+import org.frc5010.common.drive.swerve.RobotProfile;
+import org.frc5010.common.drive.swerve.SwerveConstants;
+import org.frc5010.common.drive.swerve.SwerveConstants.GyroType;
+import org.frc5010.common.drive.swerve.SwerveConstants.ModuleType;
+import org.frc5010.common.drive.swerve.SwerveFactory;
+import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
+
+/**
+ * Robot profile for the real competition robot.
+ *
+ * <p>Fill in the actual CAN IDs, hardware types, and physical measurements below.
+ * This profile is used in three contexts:
+ * <ol>
+ *   <li><strong>Real hardware</strong> — {@code createDrive()} wires the real IO implementations.</li>
+ *   <li><strong>Real-robot simulation</strong> — {@code createDrive()} falls through to
+ *       {@code SwerveFactory.build()}, which creates IronMaple physics using this profile's
+ *       physical constants (mass, bumper size, wheel geometry) for accurate simulation.</li>
+ *   <li><strong>Replay</strong> — handled automatically by {@code SwerveFactory.build()}.</li>
+ * </ol>
+ *
+ * <p>This profile is selected by default when running from VSCode's "Simulate Robot Code" menu
+ * ({@code ./gradlew simulateJava}). Automated testing agents use {@code -PtestSim} instead to
+ * get the lightweight {@link org.frc5010.common.drive.swerve.SimRobotProfile}.
+ */
+public class RealRobotProfile extends RobotProfile {
+
+  // TODO: Replace with actual robot measurements and CAN IDs.
+  private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
+      .moduleType(ModuleType.TALON_FX)   // or SPARK_TALON
+      .gyroType(GyroType.PIGEON2)        // or NAVX
+      .gyroCanId(0)
+      .trackWidth(Inches.of(22.75))
+      .wheelBase(Inches.of(22.75))
+      .wheelRadius(Inches.of(2.0))
+      .robotMass(Pounds.of(125))
+      .bumperLength(Inches.of(30))
+      .bumperWidth(Inches.of(30))
+      .frontLeftIds(1, 2, 3)
+      .frontRightIds(4, 5, 6)
+      .backLeftIds(7, 8, 9)
+      .backRightIds(10, 11, 12)
+      .build();
+
+  // TODO: Set the actual Blue-alliance starting pose for this year's game.
+  private static final Pose2d BLUE_START = new Pose2d(1.5, 2.0, new Rotation2d());
+
+  @Override
+  public AkitSwerveDrive createDrive() {
+    if (RobotBase.isReal()) {
+      // TODO: Wire hardware IO here.
+      // SwerveFactory.build() throws UnsupportedOperationException for TALON_FX in REAL mode
+      // because it cannot construct ModuleIOTalonFXReal without CTRE TunerX SwerveModuleConstants.
+      // Replace the placeholder below with the real wiring:
+      //
+      //   GyroIO gyro = new GyroIOPigeon2(CONSTANTS);
+      //   ModuleIO[] modules = {
+      //     new ModuleIOTalonFXReal(CONSTANTS, TunerConstants.FrontLeft),
+      //     new ModuleIOTalonFXReal(CONSTANTS, TunerConstants.FrontRight),
+      //     new ModuleIOTalonFXReal(CONSTANTS, TunerConstants.BackLeft),
+      //     new ModuleIOTalonFXReal(CONSTANTS, TunerConstants.BackRight),
+      //   };
+      //   return new AkitSwerveDrive(CONSTANTS, gyro, modules);
+      throw new UnsupportedOperationException(
+          "RealRobotProfile.createDrive() not yet implemented for REAL mode. "
+          + "See the TODO comments in this file.");
+    }
+    // In simulation: IronMaple uses the real robot's mass/geometry for accurate physics.
+    return SwerveFactory.build(CONSTANTS, BLUE_START);
+  }
+
+  @Override
+  public Pose2d getBlueAllianceStartPose() {
+    return BLUE_START;
+  }
+}

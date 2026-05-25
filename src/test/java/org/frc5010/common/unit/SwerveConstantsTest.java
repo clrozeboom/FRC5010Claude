@@ -1,11 +1,15 @@
 package org.frc5010.common.unit;
 
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.Kilograms;
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.frc5010.common.drive.swerve.SwerveConstants;
-import org.frc5010.common.drive.swerve.SwerveConstants.ModuleType;
 import org.frc5010.common.drive.swerve.SwerveConstants.GyroType;
-import edu.wpi.first.math.util.Units;
+import org.frc5010.common.drive.swerve.SwerveConstants.ModuleType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -17,11 +21,11 @@ class SwerveConstantsTest {
   /** A valid baseline config used across multiple tests. */
   private SwerveConstants.Builder validBuilder() {
     return new SwerveConstants.Builder()
-        .trackWidthMeters(Units.inchesToMeters(22.75))
-        .wheelBaseMeters(Units.inchesToMeters(22.75))
-        .wheelRadiusMeters(Units.inchesToMeters(2.0))
-        .maxLinearSpeedMps(4.5)
-        .maxAngularSpeedRadps(2 * Math.PI)
+        .trackWidth(Inches.of(22.75))
+        .wheelBase(Inches.of(22.75))
+        .wheelRadius(Inches.of(2.0))
+        .maxLinearSpeed(MetersPerSecond.of(4.5))
+        .maxAngularSpeed(RadiansPerSecond.of(2 * Math.PI))
         .moduleType(ModuleType.SIM)
         .gyroType(GyroType.SIM)
         .frontLeftIds(1, 2, 3)
@@ -43,15 +47,15 @@ class SwerveConstantsTest {
 
   @Test
   void moduleTranslationsReflectGeometry() {
-    double trackWidth = Units.inchesToMeters(22.75);
-    double wheelBase  = Units.inchesToMeters(22.75);
+    double trackWidthM = Inches.of(22.75).in(Meters);
+    double wheelBaseM  = Inches.of(22.75).in(Meters);
     SwerveConstants c = validBuilder()
-        .trackWidthMeters(trackWidth)
-        .wheelBaseMeters(wheelBase)
+        .trackWidth(Inches.of(22.75))
+        .wheelBase(Inches.of(22.75))
         .build();
 
-    double expectedX = wheelBase / 2.0;
-    double expectedY = trackWidth / 2.0;
+    double expectedX = wheelBaseM / 2.0;
+    double expectedY = trackWidthM / 2.0;
 
     // Front Left: (+x, +y)
     assertEquals( expectedX, c.moduleTranslations[0].getX(), 1e-6);
@@ -70,25 +74,25 @@ class SwerveConstantsTest {
   @Test
   void zeroTrackWidthThrows() {
     assertThrows(IllegalArgumentException.class,
-        () -> validBuilder().trackWidthMeters(0).build());
+        () -> validBuilder().trackWidth(Meters.of(0)).build());
   }
 
   @Test
   void negativeWheelBaseThrows() {
     assertThrows(IllegalArgumentException.class,
-        () -> validBuilder().wheelBaseMeters(-0.1).build());
+        () -> validBuilder().wheelBase(Meters.of(-0.1)).build());
   }
 
   @Test
   void zeroWheelRadiusThrows() {
     assertThrows(IllegalArgumentException.class,
-        () -> validBuilder().wheelRadiusMeters(0).build());
+        () -> validBuilder().wheelRadius(Meters.of(0)).build());
   }
 
   @Test
   void zeroMaxSpeedThrows() {
     assertThrows(IllegalArgumentException.class,
-        () -> validBuilder().maxLinearSpeedMps(0).build());
+        () -> validBuilder().maxLinearSpeed(MetersPerSecond.of(0)).build());
   }
 
   @Test
@@ -114,46 +118,46 @@ class SwerveConstantsTest {
   @Test
   void physicsFieldsHaveCorrectDefaults() {
     SwerveConstants c = new SwerveConstants.Builder().build();
-    assertEquals(45.0,  c.robotMassKg,        1e-6, "default robot mass");
-    assertEquals(0.76,  c.bumperLengthMeters,  1e-6, "default bumper length");
-    assertEquals(0.76,  c.bumperWidthMeters,   1e-6, "default bumper width");
+    assertEquals(45.0, c.robotMass.in(Kilograms),    1e-6, "default robot mass");
+    assertEquals(0.76, c.bumperLength.in(Meters),     1e-6, "default bumper length");
+    assertEquals(0.76, c.bumperWidth.in(Meters),      1e-6, "default bumper width");
   }
 
   @Test
   void customPhysicsFieldsAreStored() {
     SwerveConstants c = validBuilder()
-        .robotMassKg(60.0)
-        .bumperLengthMeters(0.9)
-        .bumperWidthMeters(0.85)
+        .robotMass(Kilograms.of(60.0))
+        .bumperLength(Meters.of(0.9))
+        .bumperWidth(Meters.of(0.85))
         .build();
-    assertEquals(60.0,  c.robotMassKg,        1e-6);
-    assertEquals(0.9,   c.bumperLengthMeters,  1e-6);
-    assertEquals(0.85,  c.bumperWidthMeters,   1e-6);
+    assertEquals(60.0, c.robotMass.in(Kilograms),   1e-6);
+    assertEquals(0.9,  c.bumperLength.in(Meters),    1e-6);
+    assertEquals(0.85, c.bumperWidth.in(Meters),     1e-6);
   }
 
   @Test
   void robotMassBelowMinThrows() {
     // IronMaple lower bound is 10 kg
     assertThrows(IllegalArgumentException.class,
-        () -> validBuilder().robotMassKg(9.9).build());
+        () -> validBuilder().robotMass(Kilograms.of(9.9)).build());
   }
 
   @Test
   void robotMassAboveMaxThrows() {
     // IronMaple upper bound is 80 kg (FRC weight limit with bumpers is ~68 kg)
     assertThrows(IllegalArgumentException.class,
-        () -> validBuilder().robotMassKg(80.1).build());
+        () -> validBuilder().robotMass(Kilograms.of(80.1)).build());
   }
 
   @Test
   void bumperTooSmallThrows() {
     assertThrows(IllegalArgumentException.class,
-        () -> validBuilder().bumperLengthMeters(0.49).build());
+        () -> validBuilder().bumperLength(Meters.of(0.49)).build());
   }
 
   @Test
   void bumperTooLargeThrows() {
     assertThrows(IllegalArgumentException.class,
-        () -> validBuilder().bumperWidthMeters(1.51).build());
+        () -> validBuilder().bumperWidth(Meters.of(1.51)).build());
   }
 }

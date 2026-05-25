@@ -82,15 +82,25 @@ annotationProcessor "org.littletonrobotics.akit:akit-autolog:$akitJson.version"
 test {
     useJUnitPlatform()
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
-    // Always re-run tests so "WPILib: Test Robot Code" never silently skips
-    // them as UP-TO-DATE. Gradle still caches compiled classes; only the test
-    // execution itself is forced to re-run.
-    outputs.upToDateWhen { false }
 }
 
 // Simulation configuration (e.g. environment variables).
 wpi.sim.addGui().defaultEnabled = true
 wpi.sim.addDriverstation()
+
+// Forward simulation flags to the JVM as system properties so Robot code can read them.
+// Usage:
+//   ./gradlew simulateJava -PvisualTest   → runs Layer 4 automated visual-test sequence
+//   ./gradlew simulateJava -PtestSim      → uses SimRobotProfile (lightweight test robot, no real CAN IDs)
+// Default (no flag): uses RealRobotProfile with IronMaple physics — matches VSCode "Simulate Robot Code".
+tasks.withType(JavaExec).configureEach {
+    if (project.hasProperty('visualTest')) {
+        systemProperty 'visualTest', 'true'
+    }
+    if (project.hasProperty('testSim')) {
+        systemProperty 'testSim', 'true'
+    }
+}
 
 // Setting up my Jar File. In this case, adding all libraries into the main jar ('fat jar')
 // in order to make them all available at runtime. Also adding the manifest so WPILib

@@ -95,9 +95,9 @@ public class TalonFXOdometryThread extends OdometryThread {
     signalsLock.lock();
     try {
       if (isCANFD && phoenixSignals.length > 0) {
-        BaseStatusSignal.waitForAll(2.0 / swerveConfig.odometryFrequencyHz, phoenixSignals);
+        BaseStatusSignal.waitForAll(2.0 / swerveConfig.odometryFrequency.in(edu.wpi.first.units.Units.Hertz), phoenixSignals);
       } else {
-        Thread.sleep((long) (1000.0 / swerveConfig.odometryFrequencyHz));
+        Thread.sleep((long) (1000.0 / swerveConfig.odometryFrequency.in(edu.wpi.first.units.Units.Hertz)));
         if (phoenixSignals.length > 0) BaseStatusSignal.refreshAll(phoenixSignals);
       }
     } catch (InterruptedException e) {

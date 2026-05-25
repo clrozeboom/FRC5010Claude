@@ -3,6 +3,7 @@ package org.frc5010.common.subsystem;
 import static org.junit.jupiter.api.Assertions.*;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import org.frc5010.common.drive.swerve.SwerveConstants;
 import org.frc5010.common.drive.swerve.SwerveConstants.GyroType;
@@ -54,6 +55,14 @@ class AkitSwerveDriveSimPhysicsTest extends SimTestBase {
           .gyroType(GyroType.SIM)
           .build();
 
+  /**
+   * Physics spawn position — well inside the field so the dyn4j constraint solver starts
+   * from a clean state with no wall penetration at (0,0).  Starting in the corner pins the
+   * body against two walls simultaneously; strafing would not advance the physics body even
+   * with correct motor commands, producing false-negative test results under physics injection.
+   */
+  private static final Pose2d SPAWN = new Pose2d(2.0, 2.0, new Rotation2d());
+
   private AkitSwerveDrive drive;
 
   @BeforeEach
@@ -62,7 +71,7 @@ class AkitSwerveDriveSimPhysicsTest extends SimTestBase {
     super.simSetup();
     RobotMode.set(Mode.SIM);
     // build() creates SwerveDriveSimulation and registers it with SimulatedArena.getInstance()
-    drive = SwerveFactory.build(CONSTANTS);
+    drive = SwerveFactory.build(CONSTANTS, SPAWN);
   }
 
   @AfterEach
@@ -119,12 +128,15 @@ class AkitSwerveDriveSimPhysicsTest extends SimTestBase {
   }
 
   @Test
-  void initialPoseIsAtOrigin() {
-    step(); // one full cycle to read initial physics state
+  void initialPoseIsAtSpawn() {
+    // With physics pose injection the estimator converges from its initial state (odometry
+    // seeded at origin) toward the physics spawn position within a few idle cycles.
+    // Run 5 cycles to allow the Kalman filter to settle before asserting.
+    for (int i = 0; i < 5; i++) step();
     Pose2d pose = drive.getPose();
-    assertEquals(0.0, pose.getX(),                    1e-4, "X starts at 0");
-    assertEquals(0.0, pose.getY(),                    1e-4, "Y starts at 0");
-    assertEquals(0.0, pose.getRotation().getRadians(), 1e-4, "Heading starts at 0°");
+    assertEquals(SPAWN.getX(), pose.getX(),                    0.01, "X settles to spawn X");
+    assertEquals(SPAWN.getY(), pose.getY(),                    0.01, "Y settles to spawn Y");
+    assertEquals(0.0,          pose.getRotation().getRadians(), 1e-4, "Heading starts at 0°");
   }
 
   // ---------------------------------------------------------------------------
@@ -155,10 +167,13 @@ class AkitSwerveDriveSimPhysicsTest extends SimTestBase {
       stepOneCycle();
     }
     double x = drive.getPose().getX();
+    // With physics injection, getPose() tracks the physics body. Without simulationPeriodic()
+    // the physics body stays at SPAWN.X — the injection holds the estimator there rather than
+    // letting wheel-odometry drift forward.  The key invariant is: no forward displacement.
     assertEquals(
-        0.0, x, 0.01,
-        "Without simulationPeriodic() IronMaple module caches stay at zero; X must remain 0, got "
-            + x);
+        SPAWN.getX(), x, 0.05,
+        "Without simulationPeriodic() physics body stays at spawn; X must not advance beyond "
+            + "spawn (" + SPAWN.getX() + "), got " + x);
   }
 
   // ---------------------------------------------------------------------------
@@ -177,8 +192,8 @@ class AkitSwerveDriveSimPhysicsTest extends SimTestBase {
     }
     double x = drive.getPose().getX();
     assertTrue(
-        x > 0.1,
-        "Physics forward command for 1 s should advance X > 0.1 m; got " + x);
+        x > SPAWN.getX() + 0.1,
+        "Physics forward command for 1 s should advance X > spawn + 0.1 m; got " + x);
   }
 
   @Test
@@ -195,8 +210,8 @@ class AkitSwerveDriveSimPhysicsTest extends SimTestBase {
     }
     double y = drive.getPose().getY();
     assertTrue(
-        y > 0.05,
-        "Physics strafe command for 1 s should advance Y > 0.05 m; got " + y);
+        y > SPAWN.getY() + 0.05,
+        "Physics strafe command for 1 s should advance Y > spawn + 0.05 m; got " + y);
   }
 
   @Test
@@ -220,33 +235,35 @@ class AkitSwerveDriveSimPhysicsTest extends SimTestBase {
   // ---------------------------------------------------------------------------
 
   @Test
-  void setPoseResetsPhysicsState() {
-    // Drive forward for 25 cycles to establish non-zero displacement, then
-    // hard-reset the pose to origin. After the reset the physics body position
-    // is unchanged (dyn4j body coordinates are not altered by setPose), but the
-    // odometry estimator is re-anchored. Subsequent disabled cycles must not
-    // drift the estimated pose significantly beyond the coast-down distance.
+  void setPoseResetsOdometryEstimatorTracksPhysics() {
+    // Drive forward for 25 cycles to establish displacement, then hard-reset the
+    // odometry estimator to origin.  Because AkitSwerveDrive injects the IronMaple
+    // physics body pose as a near-perfect "vision" measurement every simulationPeriodic()
+    // cycle, the estimator immediately starts re-tracking the physics body position
+    // (which was NOT moved by setPose()).  After 50 coast-down cycles the estimated
+    // pose should be close to the physics body's true position, NOT near origin.
     enableTeleop();
     for (int i = 0; i < 25; i++) {
       drive.runVelocity(new ChassisSpeeds(1.0, 0.0, 0.0));
       step();
     }
-    assertTrue(drive.getPose().getX() > 0.1, "Should have moved before reset");
+    assertTrue(drive.getPose().getX() > SPAWN.getX() + 0.1, "Should have moved before reset");
 
     drive.setPose(Pose2d.kZero);
     disable();
 
-    // 50 coast-down cycles (>> motor time constant). The physics body decelerates
-    // naturally; odometry tracks from the reset origin, so the final X should
-    // remain well under the pre-reset displacement.
+    // 50 coast-down cycles (>> motor time constant). The physics body decelerates;
+    // the physics injection pulls the estimator toward the physics body truth.
     for (int i = 0; i < 50; i++) {
       step();
     }
 
-    Pose2d after = drive.getPose();
+    Pose2d physPose = drive.getSimulatedPose().orElseThrow();
+    Pose2d estPose  = drive.getPose();
+    double err = physPose.getTranslation().getDistance(estPose.getTranslation());
     assertTrue(
-        Math.abs(after.getX()) < 0.5,
-        "After reset and coast-down, X should remain near origin; got " + after.getX());
-    assertEquals(0.0, after.getY(), 0.1, "Y should stay near 0 (only forward motion was commanded)");
+        err < 0.15,
+        "After reset and coast-down, estimator should track physics body within 0.15 m; "
+            + "physics=" + physPose + " estimated=" + estPose + " err=" + err);
   }
 }

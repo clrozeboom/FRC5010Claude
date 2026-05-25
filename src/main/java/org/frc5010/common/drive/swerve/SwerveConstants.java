@@ -1,23 +1,34 @@
 package org.frc5010.common.drive.swerve;
 
+import static edu.wpi.first.units.Units.Hertz;
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.Kilograms;
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.Distance;
+import edu.wpi.first.units.measure.Frequency;
+import edu.wpi.first.units.measure.LinearVelocity;
+import edu.wpi.first.units.measure.Mass;
 
 /**
  * Immutable configuration record for a swerve drivetrain.
  *
  * <p>Students fill this out once per robot in their Constants.java and pass it
- * to SwerveFactory. All physical dimensions are in meters, all angles in radians,
- * all speeds in meters per second unless noted.
+ * to SwerveFactory. All dimensions accept arbitrary WPILib units — the library
+ * converts internally.
  *
  * <p>Example usage:
  * <pre>{@code
  * public static final SwerveConstants DRIVE = new SwerveConstants.Builder()
- *     .trackWidthMeters(Units.inchesToMeters(22.75))
- *     .wheelBaseMeters(Units.inchesToMeters(22.75))
- *     .wheelRadiusMeters(Units.inchesToMeters(2.0))
- *     .maxLinearSpeedMps(4.5)
- *     .maxAngularSpeedRadps(2 * Math.PI)
+ *     .trackWidth(Inches.of(22.75))
+ *     .wheelBase(Inches.of(22.75))
+ *     .wheelRadius(Inches.of(2.0))
+ *     .maxLinearSpeed(MetersPerSecond.of(4.5))
+ *     .maxAngularSpeed(RadiansPerSecond.of(2 * Math.PI))
  *     .moduleType(ModuleType.TALON_FX)
  *     .gyroType(GyroType.PIGEON2)
  *     .gyroCanId(0)
@@ -46,13 +57,13 @@ public final class SwerveConstants {
   }
 
   // --- Physical geometry ---
-  public final double trackWidthMeters;
-  public final double wheelBaseMeters;
-  public final double wheelRadiusMeters;
+  public final Distance trackWidth;
+  public final Distance wheelBase;
+  public final Distance wheelRadius;
 
   // --- Performance limits ---
-  public final double maxLinearSpeedMps;
-  public final double maxAngularSpeedRadps;
+  public final LinearVelocity maxLinearSpeed;
+  public final AngularVelocity maxAngularSpeed;
 
   // --- Hardware selection ---
   public final ModuleType moduleType;
@@ -68,55 +79,54 @@ public final class SwerveConstants {
   // --- CAN bus and odometry ---
   /** Phoenix CANivore bus name. Use {@code ""} for the default RIO bus. */
   public final String canBusName;
-  /** High-frequency odometry update rate in Hz (e.g., 100 for typical CAN, 250 for CANivore). */
-  public final double odometryFrequencyHz;
+  /** High-frequency odometry update rate (e.g., {@code Hertz.of(100)} for typical CAN, {@code Hertz.of(250)} for CANivore). */
+  public final Frequency odometryFrequency;
 
   // --- Physics simulation parameters ---
   /**
-   * Total robot mass in kilograms, including bumpers and battery.
-   * Used by the IronMaple physics engine in SIM mode.
-   * Valid range: 10–80 kg (FRC robot weight limits; IronMaple enforces this).
+   * Total robot mass including bumpers and battery.
+   * Used by the IronMaple physics engine in SIM mode. Valid range: 10–80 kg.
    */
-  public final double robotMassKg;
+  public final Mass robotMass;
   /**
-   * Bumper length in meters — full outside-to-outside dimension from front to back.
+   * Bumper length — full outside-to-outside dimension from front to back.
    * Used by the IronMaple physics engine for collision geometry in SIM mode.
    * Valid range: 0.5–1.5 m.
    */
-  public final double bumperLengthMeters;
+  public final Distance bumperLength;
   /**
-   * Bumper width in meters — full outside-to-outside dimension from left to right.
+   * Bumper width — full outside-to-outside dimension from left to right.
    * Used by the IronMaple physics engine for collision geometry in SIM mode.
    * Valid range: 0.5–1.5 m.
    */
-  public final double bumperWidthMeters;
+  public final Distance bumperWidth;
 
   // --- Derived geometry (computed once at construction) ---
   public final Translation2d[] moduleTranslations;
 
   private SwerveConstants(Builder b) {
-    this.trackWidthMeters   = b.trackWidthMeters;
-    this.wheelBaseMeters    = b.wheelBaseMeters;
-    this.wheelRadiusMeters  = b.wheelRadiusMeters;
-    this.maxLinearSpeedMps  = b.maxLinearSpeedMps;
-    this.maxAngularSpeedRadps = b.maxAngularSpeedRadps;
-    this.moduleType         = b.moduleType;
-    this.gyroType           = b.gyroType;
-    this.gyroCanId          = b.gyroCanId;
-    this.frontLeftIds       = b.frontLeftIds;
-    this.frontRightIds      = b.frontRightIds;
-    this.backLeftIds        = b.backLeftIds;
-    this.backRightIds       = b.backRightIds;
-    this.canBusName         = b.canBusName;
-    this.odometryFrequencyHz = b.odometryFrequencyHz;
-    this.robotMassKg        = b.robotMassKg;
-    this.bumperLengthMeters = b.bumperLengthMeters;
-    this.bumperWidthMeters  = b.bumperWidthMeters;
+    this.trackWidth      = b.trackWidth;
+    this.wheelBase       = b.wheelBase;
+    this.wheelRadius     = b.wheelRadius;
+    this.maxLinearSpeed  = b.maxLinearSpeed;
+    this.maxAngularSpeed = b.maxAngularSpeed;
+    this.moduleType      = b.moduleType;
+    this.gyroType        = b.gyroType;
+    this.gyroCanId       = b.gyroCanId;
+    this.frontLeftIds    = b.frontLeftIds;
+    this.frontRightIds   = b.frontRightIds;
+    this.backLeftIds     = b.backLeftIds;
+    this.backRightIds    = b.backRightIds;
+    this.canBusName      = b.canBusName;
+    this.odometryFrequency = b.odometryFrequency;
+    this.robotMass       = b.robotMass;
+    this.bumperLength    = b.bumperLength;
+    this.bumperWidth     = b.bumperWidth;
 
     // Compute module positions relative to robot center.
     // Order matches WPILib convention: FL, FR, BL, BR.
-    double x = wheelBaseMeters / 2.0;
-    double y = trackWidthMeters / 2.0;
+    double x = wheelBase.in(Meters) / 2.0;
+    double y = trackWidth.in(Meters) / 2.0;
     this.moduleTranslations = new Translation2d[] {
       new Translation2d( x,  y),  // Front Left
       new Translation2d( x, -y),  // Front Right
@@ -132,16 +142,16 @@ public final class SwerveConstants {
    * @throws IllegalArgumentException if any value is out of range
    */
   private void validate() {
-    if (trackWidthMeters <= 0)
-      throw new IllegalArgumentException("trackWidthMeters must be > 0, got: " + trackWidthMeters);
-    if (wheelBaseMeters <= 0)
-      throw new IllegalArgumentException("wheelBaseMeters must be > 0, got: " + wheelBaseMeters);
-    if (wheelRadiusMeters <= 0)
-      throw new IllegalArgumentException("wheelRadiusMeters must be > 0, got: " + wheelRadiusMeters);
-    if (maxLinearSpeedMps <= 0)
-      throw new IllegalArgumentException("maxLinearSpeedMps must be > 0, got: " + maxLinearSpeedMps);
-    if (maxAngularSpeedRadps <= 0)
-      throw new IllegalArgumentException("maxAngularSpeedRadps must be > 0, got: " + maxAngularSpeedRadps);
+    if (trackWidth.in(Meters) <= 0)
+      throw new IllegalArgumentException("trackWidth must be > 0, got: " + trackWidth);
+    if (wheelBase.in(Meters) <= 0)
+      throw new IllegalArgumentException("wheelBase must be > 0, got: " + wheelBase);
+    if (wheelRadius.in(Meters) <= 0)
+      throw new IllegalArgumentException("wheelRadius must be > 0, got: " + wheelRadius);
+    if (maxLinearSpeed.in(MetersPerSecond) <= 0)
+      throw new IllegalArgumentException("maxLinearSpeed must be > 0, got: " + maxLinearSpeed);
+    if (maxAngularSpeed.in(RadiansPerSecond) <= 0)
+      throw new IllegalArgumentException("maxAngularSpeed must be > 0, got: " + maxAngularSpeed);
     if (moduleType == null)
       throw new IllegalArgumentException("moduleType must not be null");
     if (gyroType == null)
@@ -154,46 +164,49 @@ public final class SwerveConstants {
       throw new IllegalArgumentException("backLeftIds must have at least [driveId, steerId]");
     if (backRightIds == null || backRightIds.length < 2)
       throw new IllegalArgumentException("backRightIds must have at least [driveId, steerId]");
-    if (robotMassKg < 10 || robotMassKg > 80)
+    double massKg = robotMass.in(Kilograms);
+    if (massKg < 10 || massKg > 80)
       throw new IllegalArgumentException(
-          "robotMassKg must be 10–80 kg (FRC weight limits), got: " + robotMassKg);
-    if (bumperLengthMeters < 0.5 || bumperLengthMeters > 1.5)
+          "robotMass must be 10–80 kg (FRC weight limits), got: " + robotMass);
+    double bumpLenM = bumperLength.in(Meters);
+    if (bumpLenM < 0.5 || bumpLenM > 1.5)
       throw new IllegalArgumentException(
-          "bumperLengthMeters must be 0.5–1.5 m, got: " + bumperLengthMeters);
-    if (bumperWidthMeters < 0.5 || bumperWidthMeters > 1.5)
+          "bumperLength must be 0.5–1.5 m, got: " + bumperLength);
+    double bumpWidM = bumperWidth.in(Meters);
+    if (bumpWidM < 0.5 || bumpWidM > 1.5)
       throw new IllegalArgumentException(
-          "bumperWidthMeters must be 0.5–1.5 m, got: " + bumperWidthMeters);
+          "bumperWidth must be 0.5–1.5 m, got: " + bumperWidth);
   }
 
   /** Fluent builder for SwerveConstants. */
   public static class Builder {
-    private double trackWidthMeters   = Units.inchesToMeters(24);
-    private double wheelBaseMeters    = Units.inchesToMeters(24);
-    private double wheelRadiusMeters  = Units.inchesToMeters(2);
-    private double maxLinearSpeedMps  = 4.5;
-    private double maxAngularSpeedRadps = 2 * Math.PI;
-    private ModuleType moduleType     = ModuleType.SIM;
-    private GyroType gyroType         = GyroType.SIM;
-    private int gyroCanId             = 0;
-    private int[] frontLeftIds        = {1, 2, 3};
-    private int[] frontRightIds       = {4, 5, 6};
-    private int[] backLeftIds         = {7, 8, 9};
-    private int[] backRightIds        = {10, 11, 12};
-    private String canBusName         = "";
-    private double odometryFrequencyHz = 100.0;
+    private Distance trackWidth      = Inches.of(24);
+    private Distance wheelBase       = Inches.of(24);
+    private Distance wheelRadius     = Inches.of(2);
+    private LinearVelocity maxLinearSpeed  = MetersPerSecond.of(4.5);
+    private AngularVelocity maxAngularSpeed = RadiansPerSecond.of(2 * Math.PI);
+    private ModuleType moduleType    = ModuleType.SIM;
+    private GyroType gyroType        = GyroType.SIM;
+    private int gyroCanId            = 0;
+    private int[] frontLeftIds       = {1, 2, 3};
+    private int[] frontRightIds      = {4, 5, 6};
+    private int[] backLeftIds        = {7, 8, 9};
+    private int[] backRightIds       = {10, 11, 12};
+    private String canBusName        = "";
+    private Frequency odometryFrequency = Hertz.of(100.0);
     // Physics simulation — defaults match IronMaple's DriveTrainSimulationConfig.Default()
-    private double robotMassKg        = 45.0;
-    private double bumperLengthMeters = 0.76;
-    private double bumperWidthMeters  = 0.76;
+    private Mass robotMass           = Kilograms.of(45.0);
+    private Distance bumperLength    = Meters.of(0.76);
+    private Distance bumperWidth     = Meters.of(0.76);
 
-    public Builder trackWidthMeters(double v)     { trackWidthMeters = v; return this; }
-    public Builder wheelBaseMeters(double v)      { wheelBaseMeters = v; return this; }
-    public Builder wheelRadiusMeters(double v)    { wheelRadiusMeters = v; return this; }
-    public Builder maxLinearSpeedMps(double v)    { maxLinearSpeedMps = v; return this; }
-    public Builder maxAngularSpeedRadps(double v) { maxAngularSpeedRadps = v; return this; }
-    public Builder moduleType(ModuleType v)       { moduleType = v; return this; }
-    public Builder gyroType(GyroType v)           { gyroType = v; return this; }
-    public Builder gyroCanId(int v)               { gyroCanId = v; return this; }
+    public Builder trackWidth(Distance v)       { trackWidth = v; return this; }
+    public Builder wheelBase(Distance v)        { wheelBase = v; return this; }
+    public Builder wheelRadius(Distance v)      { wheelRadius = v; return this; }
+    public Builder maxLinearSpeed(LinearVelocity v)  { maxLinearSpeed = v; return this; }
+    public Builder maxAngularSpeed(AngularVelocity v) { maxAngularSpeed = v; return this; }
+    public Builder moduleType(ModuleType v)     { moduleType = v; return this; }
+    public Builder gyroType(GyroType v)         { gyroType = v; return this; }
+    public Builder gyroCanId(int v)             { gyroCanId = v; return this; }
 
     /** Set drive, steer, and encoder CAN IDs for front-left module. */
     public Builder frontLeftIds(int drive, int steer, int encoder) {
@@ -223,25 +236,27 @@ public final class SwerveConstants {
     }
     /** Phoenix CANivore bus name. Use {@code ""} for the default RIO bus. */
     public Builder canBusName(String v) { canBusName = v; return this; }
-    /** High-frequency odometry rate in Hz (100 for standard CAN, 250 for CANivore). */
-    public Builder odometryFrequencyHz(double v) { odometryFrequencyHz = v; return this; }
+    /** High-frequency odometry rate (e.g., {@code Hertz.of(100)} for standard CAN, {@code Hertz.of(250)} for CANivore). */
+    public Builder odometryFrequency(Frequency v) { odometryFrequency = v; return this; }
 
     /**
-     * Total robot mass in kilograms, including bumpers and battery (10–80 kg).
+     * Total robot mass including bumpers and battery (10–80 kg).
      * Passed to the IronMaple physics engine so the sim reflects actual robot weight.
-     * Default: 45 kg.
+     * Default: 45 kg. Example: {@code Kilograms.of(55)} or {@code Pounds.of(120)}.
      */
-    public Builder robotMassKg(double v) { robotMassKg = v; return this; }
+    public Builder robotMass(Mass v) { robotMass = v; return this; }
     /**
-     * Full bumper length in meters, front to back outside-to-outside (0.5–1.5 m).
+     * Full bumper length, front to back outside-to-outside (0.5–1.5 m).
      * Used for physics collision geometry. Default: 0.76 m (~30 in).
+     * Example: {@code Inches.of(30)} or {@code Meters.of(0.76)}.
      */
-    public Builder bumperLengthMeters(double v) { bumperLengthMeters = v; return this; }
+    public Builder bumperLength(Distance v) { bumperLength = v; return this; }
     /**
-     * Full bumper width in meters, left to right outside-to-outside (0.5–1.5 m).
+     * Full bumper width, left to right outside-to-outside (0.5–1.5 m).
      * Used for physics collision geometry. Default: 0.76 m (~30 in).
+     * Example: {@code Inches.of(30)} or {@code Meters.of(0.76)}.
      */
-    public Builder bumperWidthMeters(double v) { bumperWidthMeters = v; return this; }
+    public Builder bumperWidth(Distance v) { bumperWidth = v; return this; }
 
     public SwerveConstants build() {
       SwerveConstants c = new SwerveConstants(this);

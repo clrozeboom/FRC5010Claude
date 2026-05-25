@@ -3,18 +3,18 @@
 ## What this project is
 WPILib 2026.2.1 FRC robot **swerve drive library**. Teams configure one `SwerveConstants` record, call `SwerveFactory.build()`, and get a fully wired `AkitSwerveDrive` subsystem that works in REAL, SIM, and REPLAY modes with AdvantageKit.
 
-**Build system:** Gradle + GradleRIO 2026.2.1 · **Java 17** · `./gradlew test` (Windows: `gradlew.bat test`)
+**Build system:** Gradle + GradleRIO 2026.2.1 · **Java 17** · `.\gradlew.bat test` (Windows PowerShell — never `./gradlew` via Bash; WSL cannot reach `C:\workspace`)
 
 ---
 
 ## Architecture in one diagram
 
 ```
-SwerveConstants (immutable record, Builder)
+SwerveConstants (immutable record, Builder — all fields typed WPILib units)
         │
         ▼
-SwerveFactory.build()              ← SIM: IronMaple physics (SwerveDriveSimulation)
-SwerveFactory.buildWithoutPhysics() ← SIM: WPILib DCMotorSim (no YAGSL overhead)
+SwerveFactory.build()               ← SIM: IronMaple physics (SwerveDriveSimulation)
+SwerveFactory.buildWithoutPhysics() ← SIM: WPILib DCMotorSim (lighter, for unit tests)
         │
         ▼
 AkitSwerveDrive (SubsystemBase)
@@ -25,6 +25,15 @@ AkitSwerveDrive (SubsystemBase)
       └── ModuleIO ──► ModuleIOSim (DCMotorSim, buildWithoutPhysics)
                        ModuleIOSimPhysics (IronMaple GenericMotorController, build)
                        ModuleIOTalonFXReal / ModuleIOSparkTalon (REAL)
+
+RobotProfile (abstract) ──► SimRobotProfile (library CI/dev)
+                             RealRobotProfile (frc.robot — team's robot)
+        │
+        ▼
+SwerveRobotContainer (abstract) ← keyboard drive, alliance pose, visual-test auto
+        │
+        ▼
+frc.robot.RobotContainer (concrete — extends SwerveRobotContainer)
 ```
 
 **Critical distinction — `instanceof GyroIOSim` in `AkitSwerveDrive.periodic()`:**
@@ -33,15 +42,17 @@ AkitSwerveDrive (SubsystemBase)
 
 ---
 
-## Test pyramid (48/48 passing as of 2026-05-24)
+## Test pyramid (48/48 passing as of 2026-05-25)
 
 | Layer | Class | Factory method | IO impl | Tests |
 |-------|-------|----------------|---------|-------|
 | 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest` | — | — | 33 |
 | 2 — subsystem sim | `AkitSwerveDriveTest` | `buildWithoutPhysics()` | `ModuleIOSim` | 8 |
 | 3 — physics integration | `AkitSwerveDriveSimPhysicsTest` | `build()` | `ModuleIOSimPhysics` | 7 |
+| 4 — visual / interactive | `RobotContainer` visual-test sequence | `build()` | `ModuleIOSimPhysics` | visual |
 
-All tests extend `SimTestBase` (deterministic FPGA clock via `SimHooks`).
+Layers 1–3 extend `SimTestBase` (deterministic FPGA clock via `SimHooks`).
+Layer 4 runs as a full robot program via `./gradlew simulateJava`; it is **never** in CI.
 
 ---
 
@@ -57,6 +68,20 @@ stepOneCycle();              // 4. advance FPGA clock 20 ms
 **Wrong order = stale data.** `periodic()` reads IronMaple module position caches. Those caches are only refreshed by `simulationPeriodic()` sub-ticks. If you call `periodic()` first, it reads the zero-filled initial caches and no motion appears.
 
 Layer 2 tests (`buildWithoutPhysics`) don't need `simulationPeriodic()` — `ModuleIOSim.updateInputs()` calls `driveSim.update(0.02)` internally.
+
+## Per-cycle call order — Layer 4 robot program
+
+`CommandScheduler.run()` (called from `Robot.robotPeriodic()`) handles everything automatically:
+
+```
+robotPeriodic()
+  └─ CommandScheduler.run()
+       ├─ drive.periodic()           // read sensors → odometry → Field2d
+       ├─ drive.simulationPeriodic() // advance IronMaple physics (sim only)
+       └─ command.execute()          // runVelocityFieldRelative() or visual-test step
+```
+
+There is a 1-cycle lag between commanding a velocity and seeing pose displacement — this is normal for a real-time system. **Do not add a separate `drive.simulationPeriodic()` call in `Robot.simulationPeriodic()`**; the scheduler already calls it and a double-call would advance the physics engine twice per loop.
 
 ---
 
@@ -74,6 +99,81 @@ f.set(null, null);                               // null the singleton → next 
 
 ---
 
+## WPILib units conventions
+
+All `SwerveConstants` fields use typed WPILib unit measures. **Never** pass raw doubles to the builder; always pass a typed measure so the caller controls units.
+
+```java
+new SwerveConstants.Builder()
+    .trackWidth(Inches.of(22.75))
+    .wheelBase(Inches.of(22.75))
+    .wheelRadius(Inches.of(2.0))
+    .maxLinearSpeed(MetersPerSecond.of(4.5))
+    .maxAngularSpeed(RadiansPerSecond.of(2 * Math.PI))
+    .robotMass(Pounds.of(125))        // or Kilograms.of(45)
+    .bumperLength(Inches.of(30))      // or Meters.of(0.76)
+    .bumperWidth(Inches.of(30))
+    .odometryFrequency(Hertz.of(250)) // 250 Hz for CANivore, 100 Hz default
+    .build();
+```
+
+Public fields on `SwerveConstants` are typed: `Distance trackWidth`, `LinearVelocity maxLinearSpeed`, `Mass robotMass`, `Frequency odometryFrequency`, etc. Consumers call `.in(unit)` at the point of use.
+
+**Do NOT convert `@AutoLog` inner-class fields to `Measure<>`.**
+AdvantageKit's logging serializer requires primitive `double` fields in `@AutoLog`-annotated classes (`ModuleIOInputs`, `GyroIOInputs`). These must stay `double`.
+
+### `AkitSwerveDrive` speed accessors
+
+```java
+LinearVelocity  v = drive.getMaxLinearSpeed();   // returns constants.maxLinearSpeed directly
+AngularVelocity w = drive.getMaxAngularSpeed();  // returns constants.maxAngularSpeed directly
+// To extract a raw double: v.in(MetersPerSecond), w.in(RadiansPerSecond)
+```
+
+### `RobotProfile` / `SwerveRobotContainer` field length
+
+```java
+Distance len = profile.getFieldLength();            // default: Meters.of(16.540988) — Arena2026Rebuilt
+Distance len = container.getFieldLength();          // same; delegates to profile when one was provided
+```
+
+---
+
+## Robot profiles and simulation scenarios
+
+Three scenarios, two profile classes:
+
+| Scenario | Profile | How to run |
+|----------|---------|------------|
+| CI / library dev | `SimRobotProfile` | `.\gradlew.bat test -PtestSim` or automated test agents |
+| VSCode "Simulate Robot Code" | `RealRobotProfile` | `.\gradlew simulateJava` (default) |
+| Real hardware | `RealRobotProfile` | Deploy to RoboRIO |
+
+`RobotContainer.selectProfile()` picks the profile:
+```java
+if (RobotBase.isReal()) return new RealRobotProfile();
+if (Boolean.getBoolean("testSim")) return new SimRobotProfile();
+return new RealRobotProfile();  // default for VSCode sim
+```
+
+`RealRobotProfile.createDrive()` branches on `RobotBase.isReal()`:
+- **REAL**: wire hardware IO (`GyroIOPigeon2`, `ModuleIOTalonFXReal`, …) — must be done manually; factory throws for `TALON_FX` in REAL mode by design.
+- **SIM**: call `SwerveFactory.build(CONSTANTS, BLUE_START)` — IronMaple uses the real robot's mass/geometry for accurate physics even in simulation.
+
+See `/new-robot-profile` for the step-by-step wiring guide.
+
+### Gradle simulation flags
+
+```powershell
+.\gradlew.bat simulateJava                  # default — RealRobotProfile + IronMaple
+.\gradlew.bat simulateJava -PtestSim        # SimRobotProfile (lightweight, no real CAN IDs)
+.\gradlew.bat simulateJava -PvisualTest     # RealRobotProfile + automated visual-test sequence
+```
+
+Both flags are forwarded to the JVM as system properties via `tasks.withType(JavaExec)` in `build.gradle`.
+
+---
+
 ## Key gotchas (hard-won debugging lessons)
 
 ### 1. `physicsMotionRequiresSimulationPeriodic` is the Layer 3 contract test
@@ -88,19 +188,25 @@ Modules start facing forward (0°). A forward command works immediately. A straf
 ### 4. Initial heading has physics noise
 After one sub-tick, `initialPoseIsAtOrigin` sees a heading of ~1.5e-6 rad (sub-micro-radian numerical noise from dyn4j). Use tolerance `1e-4`, not `1e-6`.
 
-### 5. Gradle UP-TO-DATE silently skips tests
-Without `outputs.upToDateWhen { false }` in `build.gradle`, Gradle considers `:test` UP-TO-DATE when no source files changed. The WPILib "Test Robot Code" button does nothing. **Already fixed** — the line is present in `build.gradle`.
-
-### 6. Running tests from Windows vs WSL
-There is **no WSL access** to `C:\workspace`. Always use `gradlew.bat` via `PowerShell`:
+### 5. Running tests on Windows
+There is **no WSL access** to `C:\workspace`. Always use `gradlew.bat` via PowerShell:
 ```powershell
 cd C:\workspace\FRC5010Claude
 .\gradlew.bat test
 ```
 `./gradlew test` via Bash will fail (`/mnt/c` not mounted).
 
-### 7. REAL mode factory throws by design
+### 6. `setPose()` needs one extra cycle before measuring — Layer 4 sequence
+`AkitSwerveDrive.setPose()` re-anchors the pose estimator immediately, but the Field2d widget and subsequent `getPose()` calls won't reflect the new value until `periodic()` runs again (next scheduler tick). Always insert `Commands.waitSeconds(0.05)` after a `setPose()` call inside a command sequence before asserting position, or you'll compare against the old pose.
+
+### 7. DriverStation must be enabled for IronMaple motors to move — Layer 4
+`AkitSwerveDrive.periodic()` calls `module.stop()` for every module when `DriverStation.isDisabled()`. In `simulateJava` mode, the robot starts disabled. The visual-test sequence auto-enables via `DriverStationSim` in `simulationInit()` when `-PvisualTest` is set. For interactive use, click **Enable** in the Glass Driver Station panel.
+
+### 8. REAL mode factory throws by design
 `SwerveFactory.build()` and `buildWithoutPhysics()` throw `UnsupportedOperationException` for `TALON_FX`/`SPARK_TALON` in REAL mode. Teams must instantiate `ModuleIOTalonFXReal`/`ModuleIOSparkTalon` directly with their CTRE TunerX `SwerveModuleConstants`. This is intentional — the factory can't construct motor specs without full TunerX gear/gain configuration.
+
+### 9. `@AutoLog` fields must stay `double` — never `Measure<>`
+AdvantageKit's annotation processor generates logging code that expects primitive `double` fields inside `@AutoLog`-annotated inner classes. Converting `GyroIOInputs` or `ModuleIOInputs` fields to `Measure<Distance>` etc. will cause a compile error or silent logging failure. Always extract the raw value with `.in(unit)` *before* assigning to an inputs struct field.
 
 ---
 
@@ -111,6 +217,12 @@ cd C:\workspace\FRC5010Claude
 | Swerve config record | `src/main/java/org/frc5010/common/drive/swerve/SwerveConstants.java` |
 | Factory (build/buildWithoutPhysics) | `src/main/java/org/frc5010/common/drive/swerve/SwerveFactory.java` |
 | Subsystem (periodic, simulationPeriodic) | `src/main/java/org/frc5010/common/drive/swerve/akit/AkitSwerveDrive.java` |
+| Base robot container (keyboard drive, auto, alliance pose) | `src/main/java/org/frc5010/common/drive/swerve/SwerveRobotContainer.java` |
+| Visual auto test sequence | `src/main/java/org/frc5010/common/drive/swerve/SwerveVisualTest.java` |
+| Robot profile interface | `src/main/java/org/frc5010/common/drive/swerve/RobotProfile.java` |
+| Sim robot profile (CI / library dev) | `src/main/java/org/frc5010/common/drive/swerve/SimRobotProfile.java` |
+| Real robot profile placeholder | `src/main/java/frc/robot/RealRobotProfile.java` |
+| Top-level robot container | `src/main/java/frc/robot/RobotContainer.java` |
 | Physics module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSimPhysics.java` |
 | Physics gyro IO | `src/main/java/org/frc5010/common/drive/swerve/akit/GyroIOSimPhysics.java` |
 | DCMotorSim module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSim.java` |
@@ -118,23 +230,8 @@ cd C:\workspace\FRC5010Claude
 | Sim test base class | `src/test/java/org/frc5010/common/util/SimTestBase.java` |
 | Layer 2 tests | `src/test/java/org/frc5010/common/subsystem/AkitSwerveDriveTest.java` |
 | Layer 3 tests | `src/test/java/org/frc5010/common/subsystem/AkitSwerveDriveSimPhysicsTest.java` |
+| Layer 4 robot program | `src/main/java/frc/robot/Robot.java`, `RobotContainer.java` |
 | IronMaple sources (read-only reference) | `yagsl_src_tmp/swervelib/simulation/ironmaple/` |
-
----
-
-## SwerveConstants physics fields (added for IronMaple)
-
-```java
-new SwerveConstants.Builder()
-    .moduleType(ModuleType.SIM)
-    .gyroType(GyroType.SIM)
-    .robotMassKg(45.0)           // 10–80 kg, default 45.0
-    .bumperLengthMeters(0.76)    // 0.5–1.5 m, default 0.76
-    .bumperWidthMeters(0.76)     // 0.5–1.5 m, default 0.76
-    .build();
-```
-
-These are passed to `DriveTrainSimulationConfig` in `SwerveFactory.buildWithPhysicsSim()`.
 
 ---
 
@@ -149,3 +246,4 @@ These are passed to `DriveTrainSimulationConfig` in `SwerveFactory.buildWithPhys
 ## Slash commands available
 
 - `/new-sim-test` — step-by-step playbook for adding a Layer 2 or Layer 3 sim test
+- `/new-robot-profile` — step-by-step guide for wiring a real robot's hardware IO into `RealRobotProfile`

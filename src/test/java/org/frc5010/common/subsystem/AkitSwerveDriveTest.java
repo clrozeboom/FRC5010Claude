@@ -1,5 +1,7 @@
 package org.frc5010.common.subsystem;
 
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static org.junit.jupiter.api.Assertions.*;
 
 import edu.wpi.first.math.geometry.Pose2d;
@@ -70,8 +72,8 @@ class AkitSwerveDriveTest extends SimTestBase {
 
   @Test
   void maxSpeedAccessorsMatchConstants() {
-    assertEquals(CONSTANTS.maxLinearSpeedMps,    drive.getMaxLinearSpeedMetersPerSec(), 1e-9);
-    assertEquals(CONSTANTS.maxAngularSpeedRadps, drive.getMaxAngularSpeedRadPerSec(),   1e-9);
+    assertEquals(CONSTANTS.maxLinearSpeed.in(MetersPerSecond),  drive.getMaxLinearSpeed().in(MetersPerSecond), 1e-9);
+    assertEquals(CONSTANTS.maxAngularSpeed.in(RadiansPerSecond), drive.getMaxAngularSpeed().in(RadiansPerSecond), 1e-9);
   }
 
   // ---------------------------------------------------------------------------

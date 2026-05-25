@@ -156,7 +156,7 @@ public class ModuleIOSparkTalon implements ModuleIO {
     turnConfig
         .signals
         .absoluteEncoderPositionAlwaysOn(true)
-        .absoluteEncoderPositionPeriodMs((int) (1000.0 / swerveConfig.odometryFrequencyHz))
+        .absoluteEncoderPositionPeriodMs((int) (1000.0 / swerveConfig.odometryFrequency.in(edu.wpi.first.units.Units.Hertz)))
         .absoluteEncoderVelocityAlwaysOn(true)
         .absoluteEncoderVelocityPeriodMs(20)
         .appliedOutputPeriodMs(20)
