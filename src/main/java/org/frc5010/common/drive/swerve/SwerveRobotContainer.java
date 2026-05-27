@@ -4,16 +4,15 @@ import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import org.frc5010.common.vision.Vision;
 
@@ -58,7 +57,8 @@ public abstract class SwerveRobotContainer {
   //   axis 0 — A(dec) / D(inc)  →  strafe
   //   axis 1 — W(dec) / S(inc)  →  forward/back (W = negative axis)
   //   axis 2 — E(dec) / R(inc)  →  rotation
-  private final CommandJoystick joystick;
+  /** The primary driver controller. Accessible to subclasses for additional bindings. */
+  protected final ConfigurableController controller;
 
   /** The swerve drive subsystem. Available to subclasses for commands and bindings. */
   protected final AkitSwerveDrive drive;
@@ -95,7 +95,7 @@ public abstract class SwerveRobotContainer {
     this.profile  = profile;
     this.drive    = profile.createDrive();
     this.vision   = profile.createVision(this.drive);
-    this.joystick = new CommandJoystick(controllerPort);
+    this.controller = new ConfigurableController(controllerPort);
     configureBindings();
   }
 
@@ -123,7 +123,7 @@ public abstract class SwerveRobotContainer {
   protected SwerveRobotContainer(AkitSwerveDrive drive, int controllerPort) {
     this.profile  = null;
     this.drive    = drive;
-    this.joystick = new CommandJoystick(controllerPort);
+    this.controller = new ConfigurableController(controllerPort);
     configureBindings();
   }
 
@@ -183,22 +183,23 @@ public abstract class SwerveRobotContainer {
    * {@code super.configureBindings()} first preserves the keyboard drive while adding new bindings.
    */
   protected void configureBindings() {
+    JoystickAxis forward  = controller.axis(1).negate().deadzone(0.05);
+    JoystickAxis strafe   = controller.axis(0).negate().deadzone(0.05);
+    JoystickAxis rotation = controller.axis(2).negate().deadzone(0.05);
+    DriveVector translate = DriveVector.of(forward, strafe).unitCircle();
+
     drive.setDefaultCommand(
         Commands.run(
             () -> {
-              double flipFactor =
+              double flip =
                   DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
                       ? -1.0 : 1.0;
+              Translation2d xy = translate.get();
               drive.runVelocityFieldRelative(
                   new ChassisSpeeds(
-                      flipFactor
-                          * -MathUtil.applyDeadband(joystick.getRawAxis(1), 0.05)
-                          * drive.getMaxLinearSpeed().in(MetersPerSecond),
-                      flipFactor
-                          * -MathUtil.applyDeadband(joystick.getRawAxis(0), 0.05)
-                          * drive.getMaxLinearSpeed().in(MetersPerSecond),
-                      -MathUtil.applyDeadband(joystick.getRawAxis(2), 0.05)
-                          * drive.getMaxAngularSpeed().in(RadiansPerSecond)
+                      flip * xy.getX() * drive.getMaxLinearSpeed().in(MetersPerSecond),
+                      flip * xy.getY() * drive.getMaxLinearSpeed().in(MetersPerSecond),
+                      rotation.getAsDouble() * drive.getMaxAngularSpeed().in(RadiansPerSecond)
                   )
               );
             },
