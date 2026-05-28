@@ -287,6 +287,26 @@ See `/diagnose-log` slash command for the full agent workflow.
 - **Codespaces:** `.devcontainer/` — Java 17 bookworm + xvfb; `postCreateCommand` pre-warms Gradle; forwards ports 5810 (NT4), 5800, 1735
 - **Sim sharing:** `xvfb-run ./gradlew simulateJava` in Codespace → VS Code auto-forwards port 5810 → AdvantageScope connects live
 
+### Trusted domains for Claude Code on the web
+
+When creating a new environment at [claude.ai/code](https://claude.ai/code), set the **network policy** to allow these domains so the Gradle build and vendordep downloads succeed. See [environment configuration docs](https://code.claude.com/docs/en/claude-code-on-the-web) for how to set the allowed-domains list.
+
+| Domain | Purpose |
+|--------|---------|
+| `services.gradle.org` | Gradle wrapper distribution (`gradle-8.11-bin.zip`) |
+| `plugins.gradle.org` | Gradle Plugin Portal — GradleRIO plugin |
+| `frcmaven.wpi.edu` | WPILib Maven — WPILib libraries + AdvantageKit |
+| `repo1.maven.org` | Maven Central — JUnit, YAGSL transitive deps |
+| `maven.ctr-electronics.com` | CTRE Phoenix 6 |
+| `maven.revrobotics.com` | REV Robotics |
+| `maven.reduxrobotics.com` | Redux Robotics |
+| `docs.home.thethriftybot.com` | ThriftyBot library |
+| `maven.photonvision.org` | PhotonVision |
+| `yet-another-software-suite.github.io` | YAGSL |
+| `3015rangerrobotics.github.io` | PathPlannerLib |
+| `pypi.org` | Python packages for the `frc-docs` MCP server (`uvx first-agentic-csa`) |
+| `files.pythonhosted.org` | Python package downloads for `frc-docs` MCP server |
+
 ---
 
 ## Contribution rules

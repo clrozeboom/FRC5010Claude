@@ -72,6 +72,28 @@ xvfb-run ./gradlew simulateJava
 
 ---
 
+## Claude Code on the web — required allowed domains
+
+When creating an environment at [claude.ai/code](https://claude.ai/code), add these domains to the **network policy** so the Gradle build and all vendordep downloads succeed. See the [environment configuration docs](https://code.claude.com/docs/en/claude-code-on-the-web) for how to configure the allowed-domains list.
+
+| Domain | Purpose |
+|--------|---------|
+| `services.gradle.org` | Gradle wrapper distribution |
+| `plugins.gradle.org` | Gradle Plugin Portal — GradleRIO plugin |
+| `frcmaven.wpi.edu` | WPILib Maven — WPILib libraries + AdvantageKit |
+| `repo1.maven.org` | Maven Central — JUnit, YAGSL transitive deps |
+| `maven.ctr-electronics.com` | CTRE Phoenix 6 |
+| `maven.revrobotics.com` | REV Robotics |
+| `maven.reduxrobotics.com` | Redux Robotics |
+| `docs.home.thethriftybot.com` | ThriftyBot library |
+| `maven.photonvision.org` | PhotonVision |
+| `yet-another-software-suite.github.io` | YAGSL |
+| `3015rangerrobotics.github.io` | PathPlannerLib |
+| `pypi.org` | Python packages for `frc-docs` MCP server (`uvx first-agentic-csa`) |
+| `files.pythonhosted.org` | Python package downloads for `frc-docs` MCP server |
+
+---
+
 ## How the physics engine is driven
 
 `SwerveFactory.build()` creates a `SwerveDriveSimulation` body and registers it with `SimulatedArena`. Each robot loop, `AkitSwerveDrive.simulationPeriodic()` advances the arena by one 20 ms period (5 sub-ticks × 4 ms each). The updated wheel positions and gyro readings are read back by `ModuleIOSimPhysics` and `GyroIOSimPhysics` during the following `periodic()` call.
