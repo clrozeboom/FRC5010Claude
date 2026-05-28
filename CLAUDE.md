@@ -287,6 +287,13 @@ See `/diagnose-log` slash command for the full agent workflow.
 - **Codespaces:** `.devcontainer/` — Java 17 bookworm + xvfb; `postCreateCommand` pre-warms Gradle; forwards ports 5810 (NT4), 5800, 1735
 - **Sim sharing:** `xvfb-run ./gradlew simulateJava` in Codespace → VS Code auto-forwards port 5810 → AdvantageScope connects live
 
+### Setting up Claude Code on the web
+
+To use this repo in a [claude.ai/code](https://claude.ai/code) web session:
+
+1. **Install the Claude Code GitHub App** — go to [github.com/apps/claude](https://github.com/apps/claude), click **Install**, and grant it read/write access to this repository. Without write access the agent cannot push commits or create branches.
+2. **Allow the required domains** — when creating a new environment, set the **network policy** to allow the domains listed below so the Gradle build and vendordep downloads succeed. See the [environment configuration docs](https://code.claude.com/docs/en/claude-code-on-the-web) for how to set the allowed-domains list.
+
 ### Trusted domains for Claude Code on the web
 
 When creating a new environment at [claude.ai/code](https://claude.ai/code), set the **network policy** to allow these domains so the Gradle build and vendordep downloads succeed. See [environment configuration docs](https://code.claude.com/docs/en/claude-code-on-the-web) for how to set the allowed-domains list.

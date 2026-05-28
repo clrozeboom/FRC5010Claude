@@ -72,9 +72,14 @@ xvfb-run ./gradlew simulateJava
 
 ---
 
-## Claude Code on the web — required allowed domains
+## Claude Code on the web — setup
 
-When creating an environment at [claude.ai/code](https://claude.ai/code), add these domains to the **network policy** so the Gradle build and all vendordep downloads succeed. See the [environment configuration docs](https://code.claude.com/docs/en/claude-code-on-the-web) for how to configure the allowed-domains list.
+To use this repo in a [claude.ai/code](https://claude.ai/code) web session:
+
+1. **Install the Claude Code GitHub App** — go to [github.com/apps/claude](https://github.com/apps/claude), click **Install**, and grant it read/write access to this repository. Without write access the agent cannot push commits or create branches.
+2. **Allow the required domains** — when creating a new environment, add the domains in the table below to the **network policy** so the Gradle build and all vendordep downloads succeed. See the [environment configuration docs](https://code.claude.com/docs/en/claude-code-on-the-web) for how to configure the allowed-domains list.
+
+### Required allowed domains
 
 | Domain | Purpose |
 |--------|---------|
