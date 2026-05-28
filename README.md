@@ -53,6 +53,7 @@ private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
 
 | Topic | Link |
 |-------|------|
+| **New team? Start here** — fork, measure, configure, simulate, deploy | [Student Setup Guide](docs/student-setup.md) |
 | All `SwerveConstants` fields, defaults, and valid ranges | [Configuration](docs/configuration.md) |
 | Simulation scenarios, Gradle flags, AdvantageScope | [Simulation](docs/simulation.md) |
 | `RobotProfile` pattern, wiring hardware IO | [Robot Profiles](docs/robot-profiles.md) |
