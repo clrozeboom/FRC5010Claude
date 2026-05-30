@@ -53,8 +53,9 @@ public class WebDriveController {
     private final AtomicBoolean[] buttons = new AtomicBoolean[6]; // A,B,X,Y,LB,RB
     private final AtomicLong lastCommandMs = new AtomicLong(0);
 
-    // Pending DriverStation control — written by HTTP, applied on robot thread
-    private final AtomicBoolean pendingEnabled = new AtomicBoolean(false);
+    // Pending DriverStation control — written by HTTP, applied on robot thread.
+    // Nullable: null means "not set in this POST" so the robot thread skips that field.
+    private final AtomicReference<Boolean> pendingEnabled = new AtomicReference<>(null);
     private final AtomicReference<String> pendingAlliance = new AtomicReference<>(null);
     private final AtomicBoolean controlPending = new AtomicBoolean(false);
 
@@ -111,12 +112,14 @@ public class WebDriveController {
             allianceBuf.set(alliance);
             resetPose.run();
         }
-        boolean enabled = pendingEnabled.get();
-        DriverStationSim.setEnabled(enabled);
-        DriverStationSim.setAutonomous(false);
-        DriverStationSim.setTest(false);
+        Boolean enabled = pendingEnabled.getAndSet(null);
+        if (enabled != null) {
+            DriverStationSim.setEnabled(enabled);
+            DriverStationSim.setAutonomous(false);
+            DriverStationSim.setTest(false);
+            enabledBuf.set(enabled);
+        }
         DriverStationSim.notifyNewData();
-        enabledBuf.set(enabled);
     }
 
     /**
@@ -223,7 +226,10 @@ public class WebDriveController {
         if (!"POST".equalsIgnoreCase(ex.getRequestMethod()))   { ex.sendResponseHeaders(405, -1); return; }
         try {
             String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            pendingEnabled.set(body.contains("\"enabled\":true"));
+            // Only update each field when it is present in the request body.
+            if (body.contains("\"enabled\":")) {
+                pendingEnabled.set(body.contains("\"enabled\":true"));
+            }
             if      (body.contains("\"alliance\":\"Red\""))  pendingAlliance.set("Red");
             else if (body.contains("\"alliance\":\"Blue\"")) pendingAlliance.set("Blue");
             controlPending.set(true);

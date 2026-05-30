@@ -203,40 +203,50 @@ document.querySelectorAll('.game-btn').forEach(btn => {
 // ---- Alliance & Enable ----
 let currentAlliance = 'Blue';
 let currentEnabled  = false;
+let hasInitialized  = false;
+
+// Called once on first successful /api/state response to seed UI from server state.
+function initFromState(s) {
+  if (hasInitialized) return;
+  hasInitialized = true;
+  currentAlliance = s.alliance || 'Blue';
+  currentEnabled  = s.enabled  || false;
+  updateAllianceBtns();
+  updateEnableBtn();
+}
 
 function selectAlliance(a) {
   currentAlliance = a;
-  document.getElementById('btn-blue').className = 'alliance-btn' + (a === 'Blue' ? ' active-blue' : '');
-  document.getElementById('btn-red').className  = 'alliance-btn' + (a === 'Red'  ? ' active-red'  : '');
-  postControl();
+  updateAllianceBtns();
+  // Send only alliance — no enabled field, so the backend won't touch DriverStation enabled state.
+  fetch('/api/control', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ alliance: currentAlliance })
+  }).catch(() => {});
 }
 
 function toggleEnable() {
   currentEnabled = !currentEnabled;
   updateEnableBtn();
-  postControl();
+  // Send only enabled — no alliance field, so the backend won't call resetToAllianceStart().
+  fetch('/api/control', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ enabled: currentEnabled })
+  }).catch(() => {});
+}
+
+function updateAllianceBtns() {
+  const a = currentAlliance;
+  document.getElementById('btn-blue').className = 'alliance-btn' + (a === 'Blue' ? ' active-blue' : '');
+  document.getElementById('btn-red').className  = 'alliance-btn' + (a === 'Red'  ? ' active-red'  : '');
 }
 
 function updateEnableBtn() {
   const btn = document.getElementById('enable-btn');
   btn.textContent = currentEnabled ? 'DISABLE' : 'ENABLE';
   btn.className = currentEnabled ? 'enabled' : '';
-}
-
-function postControl() {
-  fetch('/api/control', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ enabled: currentEnabled, alliance: currentAlliance })
-  }).catch(() => {});
-}
-
-// ---- Sync enable/alliance from state ----
-function syncControlsFromState() {
-  if (currentEnabled !== state.enabled) {
-    currentEnabled = state.enabled;
-    updateEnableBtn();
-  }
 }
 
 // ---- Field Canvas rendering ----
@@ -327,7 +337,7 @@ setInterval(async () => {
     const resp = await fetch('/api/state');
     const s = await resp.json();
     Object.assign(state, s);
-    syncControlsFromState();
+    initFromState(s);
     updateStatus(vx, vy, omega);
     drawField();
   } catch (e) {
