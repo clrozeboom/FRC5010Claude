@@ -373,7 +373,7 @@ function drawObstacles(ctx, W, H) {
     { fx: 11.9149, fy: 6.6385 },  // red-far (library bug duplicates blue-near here)
   ];
   for (const t of trenches) {
-    fieldRect(ctx, t.fx, t.fy, trW, trH, W, H, 'rgba(110,114,124,0.85)', '#9aa0ac');
+    fieldRect(ctx, t.fx, t.fy, trW, trH, W, H, 'rgba(58,62,72,0.95)', '#c4c8d4');
   }
   fieldLabel(ctx, trenches[0].fx, trenches[0].fy, 'Trench',
       Math.max(8, Math.round(mToPx(0.22, W, H))), W, H);
@@ -405,7 +405,7 @@ function drawObstacles(ctx, W, H) {
     { fx: 15.4686, fy: 4.318  },
   ];
   for (const t of towers) {
-    fieldRect(ctx, t.fx, t.fy, twW, twH, W, H, 'rgba(150,154,168,0.9)', '#c4c8d4');
+    fieldRect(ctx, t.fx, t.fy, twW, twH, W, H, 'rgba(58,62,72,0.95)', '#c4c8d4');
     fieldLabel(ctx, t.fx, t.fy, 'Tower', Math.max(8, Math.round(mToPx(0.2, W, H))), W, H);
   }
 }
@@ -497,21 +497,29 @@ function drawField() {
   if (W < 1 || H < 1) return;
   const ctx = canvas.getContext('2d');
 
-  // Background
-  ctx.fillStyle = '#1a2e1a';
+  // Background — field-floor grey (matches the game render)
+  ctx.fillStyle = '#6a6a6d';
   ctx.fillRect(0, 0, W, H);
 
-  // Centre line
   const { alliance } = state;
   const isRed = alliance === 'Red';
-  ctx.strokeStyle = '#2a4a2a'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
 
-  // Alliance zones
-  const ownClr = isRed ? 'rgba(180,0,0,0.25)'   : 'rgba(0,60,180,0.25)';
-  const oppClr = isRed ? 'rgba(0,60,180,0.25)'  : 'rgba(180,0,0,0.25)';
-  ctx.fillStyle = ownClr; ctx.fillRect(0, H * 0.82, W, H * 0.18);
-  ctx.fillStyle = oppClr; ctx.fillRect(0, 0,         W, H * 0.18);
+  // Alliance zones end at the trench/hub wall-side line: X = 4.6251 - 53"/2 = 3.952 m
+  // from each alliance wall (symmetric), i.e. ~23.9 % of the field length inward.
+  const zoneFrac = 3.952 / state.fieldWidth;
+  const ownClr = isRed ? 'rgba(180,0,0,0.30)'  : 'rgba(0,60,200,0.30)';
+  const oppClr = isRed ? 'rgba(0,60,200,0.30)' : 'rgba(180,0,0,0.30)';
+  ctx.fillStyle = ownClr; ctx.fillRect(0, H * (1 - zoneFrac), W, H * zoneFrac);
+  ctx.fillStyle = oppClr; ctx.fillRect(0, 0,                   W, H * zoneFrac);
+
+  // Fine zone-boundary lines (the trench/hub bottom line, across the whole field)
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, H * (1 - zoneFrac)); ctx.lineTo(W, H * (1 - zoneFrac)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, H * zoneFrac);       ctx.lineTo(W, H * zoneFrac);       ctx.stroke();
+
+  // White centre line
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
 
   // ---- Arena2026Rebuilt obstacles ----
   drawObstacles(ctx, W, H);
@@ -535,8 +543,8 @@ function drawField() {
   ctx.fillStyle = state.connected ? (isRed ? '#aa2222' : '#2244aa') : '#555';
   ctx.fillRect(-robotPx / 2, -robotPx / 2, robotPx, robotPx);
 
-  // Heading arrow (yellow triangle pointing "forward" = up after rotate)
-  ctx.fillStyle = '#ffee00';
+  // Heading arrow (light-green triangle pointing "forward" = up after rotate)
+  ctx.fillStyle = '#90ee90';
   const aw = robotPx * 0.28, ah = robotPx * 0.4;
   ctx.beginPath();
   ctx.moveTo(0,      -robotPx / 2 - ah);
