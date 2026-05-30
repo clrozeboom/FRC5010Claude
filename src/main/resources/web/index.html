@@ -327,10 +327,10 @@ function fieldLabel(ctx, fx, fy, text, px, W, H) {
 //   Trench (anonymous): 53"×12" = 1.35m×0.30m bars at the four corners around centre.
 //   Tower  (anonymous, near each alliance wall): 2"×47" = 0.05m×1.19m thin walls.
 // GoalRadius (0.5969m) is the circular scoring target, inscribed in the 47" square.
-// NOTE: the library has a copy-paste bug — the 4th trench is duplicated at the
-// blue-near corner instead of the red-far corner (11.915,6.639). We draw all four
-// at their symmetric real-field positions so the field looks correct; be aware the
-// physics engine does NOT actually collide at the red-far corner.
+// NOTE: the library has a copy-paste bug — the 4th trench was duplicated at the
+// blue-near corner instead of the red-far corner (11.915,6.639). Arena2026Patch
+// (applied in SwerveFactory) injects the missing red-far body into the physics
+// world, so all four bars drawn here now match the actual collision bodies.
 function drawObstacles(ctx, W, H) {
   const M = 0.0254;  // inches → metres
 

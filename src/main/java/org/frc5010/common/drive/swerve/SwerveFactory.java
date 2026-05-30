@@ -118,6 +118,8 @@ public class SwerveFactory {
     SwerveDriveSimulation swerveDriveSim =
         new SwerveDriveSimulation(simConfig, initialPose);
     SimulatedArena.getInstance().addDriveTrainSimulation(swerveDriveSim);
+    // Restore the red-far TRENCH obstacle that Arena2026Rebuilt omits (see Arena2026Patch).
+    Arena2026Patch.applyMissingRedFarTrench();
 
     GyroIO gyro = new GyroIOSimPhysics(swerveDriveSim.getGyroSimulation());
 
