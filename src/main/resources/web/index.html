@@ -496,13 +496,13 @@ function drawAprilTags(ctx, W, H) {
 // Pieces move when the robot collides with them.
 function drawGamePieces(ctx, W, H) {
   const rPx = Math.max(4, mToPx(0.075, W, H));
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.strokeStyle = 'rgba(120,90,0,0.8)';
   ctx.lineWidth = 1;
   for (const p of gamePieces) {
     const { cx, cy } = fieldPt(p.x, p.y, W, H);
     ctx.beginPath();
     ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(200,200,215,0.90)';
+    ctx.fillStyle = 'rgba(245,210,40,0.95)';  // Fuel yellow (game-accurate)
     ctx.fill();
     ctx.stroke();
   }
