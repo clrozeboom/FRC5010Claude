@@ -492,10 +492,33 @@ function drawAprilTags(ctx, W, H) {
 }
 
 function drawField() {
-  const W = canvas.width  = canvas.clientWidth;
-  const H = canvas.height = canvas.clientHeight;
-  if (W < 1 || H < 1) return;
   const ctx = canvas.getContext('2d');
+  const cw = canvas.width  = canvas.clientWidth;
+  const ch = canvas.height = canvas.clientHeight;
+  if (cw < 1 || ch < 1) return;
+
+  // ---- Preserve the field's TRUE aspect ratio (no horizontal stretch) ----
+  // The view is portrait: canvas width maps to the field's short Y-axis
+  // (fieldHeight m) and canvas height maps to the long X-axis (fieldWidth m).
+  // Target backing-store aspect W/H = fieldHeight/fieldWidth (< 1). Fit that
+  // rectangle inside the available element box and letterbox the remainder.
+  const aspect = state.fieldHeight / state.fieldWidth;
+  let W, H, offX, offY;
+  if (cw / ch > aspect) {           // element is wider than the field → pillar-box
+    H = ch; W = Math.round(ch * aspect);
+    offX = Math.round((cw - W) / 2); offY = 0;
+  } else {                          // element is taller than the field → letter-box
+    W = cw; H = Math.round(cw / aspect);
+    offX = 0; offY = Math.round((ch - H) / 2);
+  }
+
+  // Dark fill behind the letterbox bars (matches the page background).
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Everything below draws in field-render space (W×H), offset into the element.
+  ctx.save();
+  ctx.translate(offX, offY);
 
   // Background — field-floor grey (matches the game render)
   ctx.fillStyle = '#6a6a6d';
@@ -553,7 +576,9 @@ function drawField() {
   ctx.closePath();
   ctx.fill();
 
-  ctx.restore();
+  ctx.restore();   // robot transform
+
+  ctx.restore();   // field-render offset (letterbox)
 }
 
 // ---- Communication loop (50 ms) ----
