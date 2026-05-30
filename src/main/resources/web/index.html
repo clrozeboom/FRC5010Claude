@@ -329,7 +329,9 @@ function drawObstacles(ctx, W, H) {
   const M = 0.0254;  // inches → metres
 
   // ---- Hubs (Blue 4.597,4.035 ; Red 11.938,4.035) ----
+  // Outer rectangle (47"×217") = collision boundary; inner circle (GoalRadius=0.5969m) = scoring target.
   const hubW = 47 * M, hubH = 217 * M;
+  const goalRadius = 0.5969;  // metres — RebuiltHub.GoalRadius
   const hubs = [
     { fx: 4.5974, fy: 4.0345, team: 'Blue' },
     { fx: 11.938, fy: 4.0345, team: 'Red'  },
@@ -338,6 +340,16 @@ function drawObstacles(ctx, W, H) {
     const fill   = h.team === 'Blue' ? 'rgba(0,50,180,0.45)' : 'rgba(180,0,0,0.45)';
     const stroke = h.team === 'Blue' ? '#88aaff' : '#ff8888';
     fieldRect(ctx, h.fx, h.fy, hubW, hubH, W, H, fill, stroke);
+    // Scoring target circle
+    const { cx, cy } = fieldPt(h.fx, h.fy, W, H);
+    const rPx = mToPx(goalRadius, W, H);
+    ctx.beginPath();
+    ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
     fieldLabel(ctx, h.fx, h.fy, 'Hub', Math.max(10, Math.round(mToPx(0.4, W, H))), W, H);
   }
 

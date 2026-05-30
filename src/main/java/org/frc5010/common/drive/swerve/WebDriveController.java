@@ -36,8 +36,10 @@ import static edu.wpi.first.units.Units.RadiansPerSecond;
 public class WebDriveController {
 
     private static final int PORT = 5800;
-    private static final long WATCHDOG_MS = 500;
-    private static final long CONNECTED_MS = 2000;
+    // Physics stalls (obstacle collisions) can cause loop overruns up to ~500 ms.
+    // Use 1500 ms before flagging stale so transient stalls don't stop the robot.
+    private static final long WATCHDOG_MS = 1500;
+    private static final long CONNECTED_MS = 5000;
 
     private final AkitSwerveDrive drive;
     private final double maxLinearMps;
@@ -74,7 +76,7 @@ public class WebDriveController {
     /** Starts the HTTP server. Silently skips if the port is already bound. */
     public void start() {
         try {
-            executor = Executors.newFixedThreadPool(2);
+            executor = Executors.newFixedThreadPool(4);
             server = HttpServer.create(new InetSocketAddress(PORT), 0);
             server.createContext("/api/state",   this::handleState);
             server.createContext("/api/drive",   this::handleDrive);
@@ -104,26 +106,30 @@ public class WebDriveController {
      * @param resetPose called when alliance changes to re-anchor the start pose
      */
     public void applyPendingControl(Runnable resetPose) {
-        if (!controlPending.compareAndSet(true, false)) return;
-        String alliance = pendingAlliance.getAndSet(null);
-        if (alliance != null) {
-            DriverStationSim.setAllianceStationId(
-                "Red".equals(alliance) ? AllianceStationID.Red1 : AllianceStationID.Blue1);
-            allianceBuf.set(alliance);
-            resetPose.run();
+        if (controlPending.compareAndSet(true, false)) {
+            String alliance = pendingAlliance.getAndSet(null);
+            if (alliance != null) {
+                DriverStationSim.setAllianceStationId(
+                    "Red".equals(alliance) ? AllianceStationID.Red1 : AllianceStationID.Blue1);
+                allianceBuf.set(alliance);
+                resetPose.run();
+            }
+            Boolean enabled = pendingEnabled.getAndSet(null);
+            if (enabled != null) {
+                // DriverStation.isEnabled() == controlWord.getEnabled() && getDSAttached().
+                // Without DS-attached the enabled bit is ignored and the robot stays
+                // disabled — AkitSwerveDrive.periodic() then stops every module. Mark the
+                // (virtual) DS attached so the web Enable button actually takes effect.
+                DriverStationSim.setDsAttached(true);
+                DriverStationSim.setEnabled(enabled);
+                DriverStationSim.setAutonomous(false);
+                DriverStationSim.setTest(false);
+                enabledBuf.set(enabled);
+            }
         }
-        Boolean enabled = pendingEnabled.getAndSet(null);
-        if (enabled != null) {
-            // DriverStation.isEnabled() == controlWord.getEnabled() && getDSAttached().
-            // Without DS-attached the enabled bit is ignored and the robot stays
-            // disabled — AkitSwerveDrive.periodic() then stops every module. Mark the
-            // (virtual) DS attached so the web Enable button actually takes effect.
-            DriverStationSim.setDsAttached(true);
-            DriverStationSim.setEnabled(enabled);
-            DriverStationSim.setAutonomous(false);
-            DriverStationSim.setTest(false);
-            enabledBuf.set(enabled);
-        }
+        // Always notify every cycle so the sim DS treats the connection as alive.
+        // Without periodic notifications some WPILib builds auto-disable after the
+        // initial setEnabled() call ages out (matches real DS 20 ms packet rate).
         DriverStationSim.notifyNewData();
     }
 
