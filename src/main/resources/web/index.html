@@ -16,20 +16,20 @@
   /* ---- controls row ---- */
   #controls {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px; height: 200px; gap: 8px; flex-shrink: 0;
+    padding: 8px; height: 200px; gap: 6px; flex-shrink: 0;
   }
 
   /* ---- thumbsticks ---- */
-  .stick-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .stick-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
   .stick-label { font-size: 11px; color: #888; }
   .stick-base {
     position: relative; border-radius: 50%; background: #2a2a2a;
-    border: 2px solid #444; width: 140px; height: 140px; touch-action: none;
+    border: 2px solid #444; width: 120px; height: 120px; touch-action: none;
     flex-shrink: 0;
   }
   .stick-knob {
     position: absolute; border-radius: 50%; background: #666; border: 2px solid #999;
-    width: 52px; height: 52px; top: 50%; left: 50%;
+    width: 46px; height: 46px; top: 50%; left: 50%;
     transform: translate(-50%, -50%); pointer-events: none;
     transition: background 0.1s;
   }
@@ -37,8 +37,8 @@
 
   /* ---- center panel ---- */
   #center-panel {
-    display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1;
-    min-width: 120px;
+    display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1;
+    min-width: 0; overflow: hidden;
   }
 
   /* alliance selector */
@@ -64,8 +64,8 @@
     display: flex; gap: 6px; justify-content: center;
   }
   .game-btn {
-    width: 44px; height: 44px; border-radius: 8px; border: 2px solid #555;
-    background: #2a2a2a; color: #ccc; cursor: pointer; font-size: 13px; font-weight: bold;
+    width: 36px; height: 36px; border-radius: 7px; border: 2px solid #555;
+    background: #2a2a2a; color: #ccc; cursor: pointer; font-size: 12px; font-weight: bold;
     user-select: none; touch-action: none; transition: filter 0.1s;
     display: flex; align-items: center; justify-content: center;
   }
@@ -74,7 +74,16 @@
   .btn-b  { background: #4a1a1a; border-color: #cc4444; color: #f88; }
   .btn-x  { background: #1a1a4a; border-color: #4444cc; color: #88f; }
   .btn-y  { background: #4a3a00; border-color: #ccaa00; color: #ff8; }
-  .btn-lb, .btn-rb { width: 54px; background: #252525; border-color: #666; }
+  .btn-lb, .btn-rb { width: 46px; background: #252525; border-color: #666; }
+
+  /* Narrow phones: shrink sticks further so they never overlap the buttons. */
+  @media (max-width: 460px) {
+    .stick-base { width: 96px; height: 96px; }
+    .stick-knob { width: 38px; height: 38px; }
+    .game-btn   { width: 32px; height: 32px; font-size: 11px; }
+    .btn-lb, .btn-rb { width: 40px; }
+    #controls   { height: 180px; gap: 4px; padding: 6px; }
+  }
 
   /* status bar */
   #status {
@@ -279,77 +288,83 @@ function fieldAngle(rad) {
   return state.alliance === 'Red' ? -rad + Math.PI / 2 : -rad - Math.PI / 2;
 }
 
-// Average pixels-per-metre scale (used for obstacle sizing).
+// Average pixels-per-metre scale (used for label sizing only).
 function mToPx(m, W, H) {
   return m * (W / state.fieldHeight + H / state.fieldWidth) / 2;
 }
 
-// ---- Arena2026Rebuilt obstacle geometry (from IronMaple bytecode) ----
-// Hubs:    circular at (4.597, 4.035) Blue and (11.938, 4.035) Red, radius ~0.65 m
-// Outpost: near-wall platforms at (1.07, 4.04) Blue and (15.47, 4.32) Red
-// Center:  4 rectangular solid obstacles (53"×12" ≈ 1.35m×0.30m) at (8.27, 4.04)
-function drawObstacles(ctx, W, H) {
-  const isRed = state.alliance === 'Red';
+// Draw a field-axis-aligned rectangle (rotation 0 in field frame) by mapping its
+// four corners through fieldPt — correct for both alliance views automatically.
+function fieldRect(ctx, fx, fy, dx, dy, W, H, fill, stroke) {
+  const c = [
+    fieldPt(fx - dx / 2, fy - dy / 2, W, H),
+    fieldPt(fx + dx / 2, fy - dy / 2, W, H),
+    fieldPt(fx + dx / 2, fy + dy / 2, W, H),
+    fieldPt(fx - dx / 2, fy + dy / 2, W, H),
+  ];
+  ctx.beginPath();
+  ctx.moveTo(c[0].cx, c[0].cy);
+  for (let i = 1; i < 4; i++) ctx.lineTo(c[i].cx, c[i].cy);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+}
 
-  // ---- Hubs ----
-  const hubR = mToPx(0.65, W, H);
+function fieldLabel(ctx, fx, fy, text, px, W, H) {
+  const { cx, cy } = fieldPt(fx, fy, W, H);
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${px}px monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, cx, cy);
+}
+
+// ---- Arena2026Rebuilt obstacle geometry (decoded from IronMaple YAGSL bytecode) ----
+// All obstacles are axis-aligned (Rotation2d.kZero) in the WPILib field frame.
+//   Hub   (named RebuiltHub.blue/redHubPose): 47"×217" = 1.19m×5.51m walls
+//   Trench (anonymous): 53"×12" = 1.35m×0.30m bars flanking each hub in Y
+//   Tower  (anonymous, near each alliance wall): 2"×47" = 0.05m×1.19m thin walls
+// NOTE: the 4th trench bar is a copy-paste duplicate of the 1st in the library
+// (both at (4.625,1.431)); there is genuinely NO obstacle at (11.915,6.639).
+function drawObstacles(ctx, W, H) {
+  const M = 0.0254;  // inches → metres
+
+  // ---- Hubs (Blue 4.597,4.035 ; Red 11.938,4.035) ----
+  const hubW = 47 * M, hubH = 217 * M;
   const hubs = [
-    { fx: 4.597,  fy: 4.035, team: 'Blue' },
-    { fx: 11.938, fy: 4.035, team: 'Red'  },
+    { fx: 4.5974, fy: 4.0345, team: 'Blue' },
+    { fx: 11.938, fy: 4.0345, team: 'Red'  },
   ];
   for (const h of hubs) {
-    const { cx, cy } = fieldPt(h.fx, h.fy, W, H);
-    ctx.beginPath();
-    ctx.arc(cx, cy, hubR, 0, 2 * Math.PI);
-    ctx.fillStyle   = h.team === 'Blue' ? 'rgba(0,50,180,0.55)'   : 'rgba(180,0,0,0.55)';
-    ctx.strokeStyle = h.team === 'Blue' ? '#88aaff' : '#ff8888';
-    ctx.lineWidth = 2;
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.max(9, Math.round(hubR * 0.4))}px monospace`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('Hub', cx, cy);
+    const fill   = h.team === 'Blue' ? 'rgba(0,50,180,0.45)' : 'rgba(180,0,0,0.45)';
+    const stroke = h.team === 'Blue' ? '#88aaff' : '#ff8888';
+    fieldRect(ctx, h.fx, h.fy, hubW, hubH, W, H, fill, stroke);
+    fieldLabel(ctx, h.fx, h.fy, 'Hub', Math.max(10, Math.round(mToPx(0.4, W, H))), W, H);
   }
 
-  // ---- Outposts (~1.3 m × 0.5 m) ----
-  const opW = mToPx(1.3, W, H), opH = mToPx(0.5, W, H);
-  const outposts = [
-    { fx: 1.067,  fy: 4.039, team: 'Blue' },
-    { fx: 15.469, fy: 4.318, team: 'Red'  },
+  // ---- Trench bars (53"×12") ----
+  const trW = 53 * M, trH = 12 * M;
+  const trenches = [
+    { fx: 4.6251,  fy: 1.4315 },
+    { fx: 11.9149, fy: 1.4315 },
+    { fx: 4.6251,  fy: 6.6385 },
+    { fx: 4.6251,  fy: 1.4315 },  // library duplicate — see note above
   ];
-  for (const op of outposts) {
-    const { cx, cy } = fieldPt(op.fx, op.fy, W, H);
-    ctx.fillStyle   = op.team === 'Blue' ? 'rgba(0,50,180,0.55)'  : 'rgba(180,0,0,0.55)';
-    ctx.strokeStyle = op.team === 'Blue' ? '#88aaff' : '#ff8888';
-    ctx.lineWidth = 1;
-    ctx.fillRect(cx - opW / 2, cy - opH / 2, opW, opH);
-    ctx.strokeRect(cx - opW / 2, cy - opH / 2, opW, opH);
-    ctx.fillStyle = '#ddd';
-    ctx.font = `${Math.max(7, Math.round(opH * 0.5))}px monospace`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('Outpost', cx, cy);
+  for (const t of trenches) {
+    fieldRect(ctx, t.fx, t.fy, trW, trH, W, H, 'rgba(150,120,40,0.6)', '#d4b34d');
   }
+  fieldLabel(ctx, trenches[0].fx, trenches[0].fy, 'Trench',
+      Math.max(8, Math.round(mToPx(0.22, W, H))), W, H);
 
-  // ---- Central structure (4 solid rects, 53"×12" ≈ 1.35m×0.30m, field angles 0/45/90/135°) ----
-  const { cx: ccx, cy: ccy } = fieldPt(8.27, 4.035, W, H);
-  const rHalfLong  = mToPx(1.346 / 2, W, H);
-  const rHalfShort = mToPx(0.305 / 2, W, H);
-  ctx.fillStyle   = 'rgba(140,140,60,0.50)';
-  ctx.strokeStyle = '#cccc66';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 4; i++) {
-    const a = fieldAngle(i * Math.PI / 4);
-    ctx.save();
-    ctx.translate(ccx, ccy);
-    ctx.rotate(a);
-    ctx.fillRect(-rHalfLong, -rHalfShort, 2 * rHalfLong, 2 * rHalfShort);
-    ctx.strokeRect(-rHalfLong, -rHalfShort, 2 * rHalfLong, 2 * rHalfShort);
-    ctx.restore();
+  // ---- Tower walls (2"×47", near each alliance wall) ----
+  const twW = 2 * M, twH = 47 * M;
+  const towers = [
+    { fx: 1.0668,  fy: 4.0386 },
+    { fx: 15.4686, fy: 4.318  },
+  ];
+  for (const t of towers) {
+    fieldRect(ctx, t.fx, t.fy, twW, twH, W, H, 'rgba(120,120,130,0.7)', '#bbbbcc');
+    fieldLabel(ctx, t.fx, t.fy, 'Tower', Math.max(8, Math.round(mToPx(0.2, W, H))), W, H);
   }
-  ctx.fillStyle = '#cccc88';
-  ctx.font = `${Math.max(7, Math.round(rHalfShort))}px monospace`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('Center', ccx, ccy);
 }
 
 function drawField() {
