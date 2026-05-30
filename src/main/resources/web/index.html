@@ -386,6 +386,87 @@ function drawObstacles(ctx, W, H) {
   }
 }
 
+// ---- AprilTags (2026 Rebuilt Welded layout, from WPILib apriltag-java 2026.2.1) ----
+// fx,fy in metres (WPILib field frame); yaw = tag facing direction (CCW from +X).
+const aprilTags = [
+  {id: 1, fx:11.878, fy:7.425, yaw:3.1416},
+  {id: 2, fx:11.915, fy:4.638, yaw:1.5708},
+  {id: 3, fx:11.312, fy:4.390, yaw:3.1416},
+  {id: 4, fx:11.312, fy:4.035, yaw:3.1416},
+  {id: 5, fx:11.915, fy:3.431, yaw:-1.5708},
+  {id: 6, fx:11.878, fy:0.644, yaw:3.1416},
+  {id: 7, fx:11.953, fy:0.644, yaw:0.0000},
+  {id: 8, fx:12.271, fy:3.431, yaw:-1.5708},
+  {id: 9, fx:12.519, fy:3.679, yaw:0.0000},
+  {id:10, fx:12.519, fy:4.035, yaw:0.0000},
+  {id:11, fx:12.271, fy:4.638, yaw:1.5708},
+  {id:12, fx:11.953, fy:7.425, yaw:0.0000},
+  {id:13, fx:16.533, fy:7.403, yaw:3.1416},
+  {id:14, fx:16.533, fy:6.972, yaw:3.1416},
+  {id:15, fx:16.533, fy:4.324, yaw:3.1416},
+  {id:16, fx:16.533, fy:3.892, yaw:3.1416},
+  {id:17, fx:4.663,  fy:0.644, yaw:0.0000},
+  {id:18, fx:4.626,  fy:3.431, yaw:-1.5708},
+  {id:19, fx:5.229,  fy:3.679, yaw:0.0000},
+  {id:20, fx:5.229,  fy:4.035, yaw:0.0000},
+  {id:21, fx:4.626,  fy:4.638, yaw:1.5708},
+  {id:22, fx:4.663,  fy:7.425, yaw:0.0000},
+  {id:23, fx:4.588,  fy:7.425, yaw:3.1416},
+  {id:24, fx:4.270,  fy:4.638, yaw:1.5708},
+  {id:25, fx:4.022,  fy:4.390, yaw:3.1416},
+  {id:26, fx:4.022,  fy:4.035, yaw:3.1416},
+  {id:27, fx:4.270,  fy:3.431, yaw:-1.5708},
+  {id:28, fx:4.588,  fy:0.644, yaw:3.1416},
+  {id:29, fx:0.008,  fy:0.666, yaw:0.0000},
+  {id:30, fx:0.008,  fy:1.098, yaw:0.0000},
+  {id:31, fx:0.008,  fy:3.746, yaw:0.0000},
+  {id:32, fx:0.008,  fy:4.178, yaw:0.0000},
+];
+const tagImages = {};
+for (const t of aprilTags) {
+  const img = new Image();
+  img.src = '/tags/AT' + t.id + '.png';
+  tagImages[t.id] = img;
+}
+
+// Draw each AprilTag as a screen-aligned fiducial billboard with a facing-direction
+// tick and its ID. Top-down a tag is edge-on, so we billboard the image for legibility
+// and use the tick to convey which way it faces.
+function drawAprilTags(ctx, W, H) {
+  const sz = Math.max(13, mToPx(0.32, W, H));
+  for (const t of aprilTags) {
+    const { cx, cy } = fieldPt(t.fx, t.fy, W, H);
+    const a = fieldAngle(t.yaw);
+
+    // Facing tick (rotated to the tag's heading)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(a);
+    ctx.strokeStyle = 'rgba(0,230,170,0.95)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -sz * 0.85); ctx.stroke();
+    ctx.restore();
+
+    // Fiducial billboard (screen-aligned) + ID label
+    ctx.save();
+    ctx.translate(cx, cy);
+    const img = tagImages[t.id];
+    if (img && img.complete && img.naturalWidth) {
+      ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
+    } else {
+      ctx.fillStyle = '#000'; ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+    }
+    ctx.strokeStyle = 'rgba(0,230,170,0.95)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz / 2, -sz / 2, sz, sz);
+    ctx.fillStyle = '#0fc';
+    ctx.font = `bold ${Math.max(8, Math.round(sz * 0.5))}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(t.id, 0, sz / 2 + 1);
+    ctx.restore();
+  }
+}
+
 function drawField() {
   const W = canvas.width  = canvas.clientWidth;
   const H = canvas.height = canvas.clientHeight;
@@ -414,6 +495,9 @@ function drawField() {
 
   // ---- Arena2026Rebuilt obstacles ----
   drawObstacles(ctx, W, H);
+
+  // ---- AprilTags ----
+  drawAprilTags(ctx, W, H);
 
   // ---- Robot ----
   const { cx, cy, canvasAngle } = fieldToCanvas(W, H);

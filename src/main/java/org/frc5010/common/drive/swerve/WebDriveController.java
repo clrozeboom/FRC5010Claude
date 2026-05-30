@@ -81,6 +81,7 @@ public class WebDriveController {
             server.createContext("/api/state",   this::handleState);
             server.createContext("/api/drive",   this::handleDrive);
             server.createContext("/api/control", this::handleControl);
+            server.createContext("/tags/",       this::handleTagImage);
             server.createContext("/",            this::handleRoot);
             server.setExecutor(executor);
             server.start();
@@ -185,6 +186,23 @@ public class WebDriveController {
             byte[] body = in.readAllBytes();
             addCors(ex);
             ex.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+            ex.sendResponseHeaders(200, body.length);
+            try (OutputStream os = ex.getResponseBody()) { os.write(body); }
+        }
+    }
+
+    /** Serves AprilTag PNGs from the {@code /web/tags/} classpath resources. */
+    private void handleTagImage(HttpExchange ex) throws IOException {
+        addCors(ex);
+        if (!"GET".equalsIgnoreCase(ex.getRequestMethod())) { ex.sendResponseHeaders(405, -1); return; }
+        // Only allow simple "AT<n>.png" names — no path traversal.
+        String name = ex.getRequestURI().getPath().substring("/tags/".length());
+        if (!name.matches("AT\\d{1,2}\\.png")) { ex.sendResponseHeaders(404, -1); return; }
+        try (InputStream in = getClass().getResourceAsStream("/web/tags/" + name)) {
+            if (in == null) { ex.sendResponseHeaders(404, -1); return; }
+            byte[] body = in.readAllBytes();
+            ex.getResponseHeaders().set("Content-Type", "image/png");
+            ex.getResponseHeaders().set("Cache-Control", "max-age=86400");
             ex.sendResponseHeaders(200, body.length);
             try (OutputStream os = ex.getResponseBody()) { os.write(body); }
         }
