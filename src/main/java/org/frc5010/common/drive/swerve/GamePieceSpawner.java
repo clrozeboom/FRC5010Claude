@@ -10,12 +10,13 @@ import swervelib.simulation.ironmaple.simulation.seasonspecific.rebuilt2026.Rebu
  * <p>The default {@code Arena2026Rebuilt.placeGamePiecesOnField()} spawns ≥ 360 pieces
  * (a dense 12×30 center grid plus two depot grids), which is far more physics
  * load than needed for interactive simulation. This spawner clears the default
- * pieces and places 25 Fuel discs at hand-chosen positions that:
+ * pieces and places 40 Fuel discs in a layout that mirrors the real field:
  * <ul>
- *   <li>avoid hub footprints ({@code ±0.60 m} from each hub centre),
- *   <li>avoid trench bars and tower walls,
- *   <li>cover all four field quadrants so robots on either alliance have nearby pieces.
+ *   <li>a dense center-field rectangle (30 pieces, ~x 7.4–9.1, y 1.9–6.2), and
+ *   <li>two small depot clusters near the driver-station walls in opposite
+ *       corners (5 near the Blue wall, 5 near the Red wall),
  * </ul>
+ * while staying clear of hub footprints, trench bars, tower walls, and field edges.
  *
  * <p>Call {@link #spawnInitialFuel()} once after
  * {@link SimulatedArena#addDriveTrainSimulation} from
@@ -31,23 +32,22 @@ public final class GamePieceSpawner {
 
   private GamePieceSpawner() {}
 
-  // 25 curated {x, y} positions in metres (WPILib field frame: X toward Red wall,
-  // Y toward Blue driver's left). Chosen to cover all four quadrants while
-  // staying ≥ 0.3 m clear of hub footprints, trench bars, towers, and field edges.
+  // 40 curated {x, y} positions in metres (WPILib field frame: X toward Red wall,
+  // Y toward Blue driver's left). Mirrors the real field: a dense center-field
+  // rectangle plus two small depot clusters near the driver-station walls.
+  // All positions stay clear of hub footprints, trench bars, towers, and edges.
   private static final double[][] FUEL_POSITIONS = {
-    // ---- centre field ----
-    {  6.0,  2.0 }, {  6.0,  4.1 }, {  6.0,  6.2 },
-    {  7.5,  1.5 }, {  7.5,  3.2 }, {  7.5,  5.0 }, {  7.5,  6.8 },
-    {  9.0,  2.5 }, {  9.0,  4.1 }, {  9.0,  5.7 },
-    { 10.5,  1.8 }, { 10.5,  6.5 },
-    // ---- blue alliance zone ----
-    {  1.5,  2.0 }, {  1.5,  4.0 }, {  1.5,  6.2 },
-    {  3.0,  1.5 }, {  3.0,  6.8 },
-    // ---- red alliance zone ----
-    { 15.0,  2.0 }, { 15.0,  4.0 }, { 15.0,  6.2 },
-    { 13.5,  1.5 }, { 13.5,  6.8 },
-    // ---- centre line ----
-    {  8.27, 1.0 }, {  8.27, 7.2 }, {  8.27, 4.1 },
+    // ---- center-field rectangle: 5 columns × 6 rows, centred on (8.27, 4.035) ----
+    { 7.43, 1.91 }, { 7.85, 1.91 }, { 8.27, 1.91 }, { 8.69, 1.91 }, { 9.11, 1.91 },
+    { 7.43, 2.76 }, { 7.85, 2.76 }, { 8.27, 2.76 }, { 8.69, 2.76 }, { 9.11, 2.76 },
+    { 7.43, 3.61 }, { 7.85, 3.61 }, { 8.27, 3.61 }, { 8.69, 3.61 }, { 9.11, 3.61 },
+    { 7.43, 4.46 }, { 7.85, 4.46 }, { 8.27, 4.46 }, { 8.69, 4.46 }, { 9.11, 4.46 },
+    { 7.43, 5.31 }, { 7.85, 5.31 }, { 8.27, 5.31 }, { 8.69, 5.31 }, { 9.11, 5.31 },
+    { 7.43, 6.16 }, { 7.85, 6.16 }, { 8.27, 6.16 }, { 8.69, 6.16 }, { 9.11, 6.16 },
+    // ---- Blue-wall depot cluster (x≈0.7–1.0, high-y corner; clear of tower @4.04) ----
+    { 0.70, 5.30 }, { 1.00, 5.65 }, { 0.70, 6.00 }, { 1.00, 6.35 }, { 0.70, 6.70 },
+    // ---- Red-wall depot cluster (x≈15.5–16.0, low-y corner; clear of tower @4.32) ----
+    { 15.80, 1.50 }, { 15.50, 1.85 }, { 16.00, 2.20 }, { 15.80, 2.55 }, { 16.00, 1.30 },
   };
 
   /**
