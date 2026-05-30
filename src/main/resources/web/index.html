@@ -320,18 +320,24 @@ function fieldLabel(ctx, fx, fy, text, px, W, H) {
 
 // ---- Arena2026Rebuilt obstacle geometry (decoded from IronMaple YAGSL bytecode) ----
 // All obstacles are axis-aligned (Rotation2d.kZero) in the WPILib field frame.
-//   Hub   (named RebuiltHub.blue/redHubPose): 47"×217" = 1.19m×5.51m walls
-//   Trench (anonymous): 53"×12" = 1.35m×0.30m bars flanking each hub in Y
-//   Tower  (anonymous, near each alliance wall): 2"×47" = 0.05m×1.19m thin walls
-// NOTE: the 4th trench bar is a copy-paste duplicate of the 1st in the library
-// (both at (4.625,1.431)); there is genuinely NO obstacle at (11.915,6.639).
+// SimulatedArena.getInstance() builds Arena2026Rebuilt(false), so the ACTIVE
+// collision bodies are:
+//   Hub    (RebuiltHub.blue/redHubPose): 47"×47" = 1.19m square; the 217" "bump"
+//          variant only exists in the Arena2026Rebuilt(true) branch, which is unused.
+//   Trench (anonymous): 53"×12" = 1.35m×0.30m bars at the four corners around centre.
+//   Tower  (anonymous, near each alliance wall): 2"×47" = 0.05m×1.19m thin walls.
+// GoalRadius (0.5969m) is the circular scoring target, inscribed in the 47" square.
+// NOTE: the library has a copy-paste bug — the 4th trench is duplicated at the
+// blue-near corner instead of the red-far corner (11.915,6.639). We draw all four
+// at their symmetric real-field positions so the field looks correct; be aware the
+// physics engine does NOT actually collide at the red-far corner.
 function drawObstacles(ctx, W, H) {
   const M = 0.0254;  // inches → metres
 
   // ---- Hubs (Blue 4.597,4.035 ; Red 11.938,4.035) ----
-  // Outer rectangle (47"×217") = collision boundary; inner circle (GoalRadius=0.5969m) = scoring target.
-  const hubW = 47 * M, hubH = 217 * M;
-  const goalRadius = 0.5969;  // metres — RebuiltHub.GoalRadius
+  // 47"×47" square = collision boundary; inner circle (GoalRadius=0.5969m) = scoring target.
+  const hubSide = 47 * M;
+  const goalRadius = 0.5969;  // metres — RebuiltHub.GoalRadius (inscribed in the square)
   const hubs = [
     { fx: 4.5974, fy: 4.0345, team: 'Blue' },
     { fx: 11.938, fy: 4.0345, team: 'Red'  },
@@ -339,7 +345,7 @@ function drawObstacles(ctx, W, H) {
   for (const h of hubs) {
     const fill   = h.team === 'Blue' ? 'rgba(0,50,180,0.45)' : 'rgba(180,0,0,0.45)';
     const stroke = h.team === 'Blue' ? '#88aaff' : '#ff8888';
-    fieldRect(ctx, h.fx, h.fy, hubW, hubH, W, H, fill, stroke);
+    fieldRect(ctx, h.fx, h.fy, hubSide, hubSide, W, H, fill, stroke);
     // Scoring target circle
     const { cx, cy } = fieldPt(h.fx, h.fy, W, H);
     const rPx = mToPx(goalRadius, W, H);
@@ -350,16 +356,17 @@ function drawObstacles(ctx, W, H) {
     ctx.strokeStyle = 'rgba(255,255,255,0.75)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    fieldLabel(ctx, h.fx, h.fy, 'Hub', Math.max(10, Math.round(mToPx(0.4, W, H))), W, H);
+    fieldLabel(ctx, h.fx, h.fy, 'Hub', Math.max(10, Math.round(mToPx(0.32, W, H))), W, H);
   }
 
-  // ---- Trench bars (53"×12") ----
+  // ---- Trench bars (53"×12") at the four corners around field centre (8.27, 4.035) ----
+  // offsetX = (120+23.5)" = 3.6449m ; offsetY = (73+23.5+6)" = 2.6035m
   const trW = 53 * M, trH = 12 * M;
   const trenches = [
-    { fx: 4.6251,  fy: 1.4315 },
-    { fx: 11.9149, fy: 1.4315 },
-    { fx: 4.6251,  fy: 6.6385 },
-    { fx: 4.6251,  fy: 1.4315 },  // library duplicate — see note above
+    { fx: 4.6251,  fy: 1.4315 },  // blue-near
+    { fx: 11.9149, fy: 1.4315 },  // red-near
+    { fx: 4.6251,  fy: 6.6385 },  // blue-far
+    { fx: 11.9149, fy: 6.6385 },  // red-far (library bug duplicates blue-near here)
   ];
   for (const t of trenches) {
     fieldRect(ctx, t.fx, t.fy, trW, trH, W, H, 'rgba(150,120,40,0.6)', '#d4b34d');
