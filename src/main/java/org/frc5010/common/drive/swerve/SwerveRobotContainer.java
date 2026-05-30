@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
@@ -191,6 +192,15 @@ public abstract class SwerveRobotContainer {
     if (RobotBase.isSimulation()) {
       webController = new WebDriveController(drive);
       webController.start();
+
+      // Apply pending enable/alliance changes from the web interface on a command that
+      // runs even while the robot is disabled. The drive default command cannot do this:
+      // WPILib does not run subsystem default commands while disabled, so the very click
+      // that enables the robot would never be processed (catch-22).
+      CommandScheduler.getInstance().schedule(
+          Commands.run(() -> webController.applyPendingControl(this::resetToAllianceStart))
+              .ignoringDisable(true)
+              .withName("WebControlApply"));
     }
 
     JoystickAxis forward  = controller.axis(1).negate().deadzone(0.05);
@@ -201,10 +211,6 @@ public abstract class SwerveRobotContainer {
     drive.setDefaultCommand(
         Commands.run(
             () -> {
-              if (webController != null) {
-                webController.applyPendingControl(this::resetToAllianceStart);
-              }
-
               double flip =
                   DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
                       ? -1.0 : 1.0;

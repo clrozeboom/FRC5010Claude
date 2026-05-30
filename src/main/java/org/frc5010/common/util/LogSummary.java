@@ -77,7 +77,20 @@ public class LogSummary {
     long firstTs = Long.MAX_VALUE;
     long lastTs  = 0;
 
-    for (DataLogRecord rec : reader) {
+    // A log produced by a sim that was killed mid-write ends in a truncated record.
+    // The iterator throws when it tries to read past EOF; catch it and report what we
+    // managed to parse rather than failing the whole analysis.
+    java.util.Iterator<DataLogRecord> it = reader.iterator();
+    while (true) {
+      DataLogRecord rec;
+      try {
+        if (!it.hasNext()) break;
+        rec = it.next();
+      } catch (Exception truncated) {
+        System.out.println("  (note: log ends in a truncated record — "
+            + "likely a sim that was killed mid-write; reporting parsed data so far)");
+        break;
+      }
       long ts = rec.getTimestamp();
       if (ts < firstTs) firstTs = ts;
       if (ts > lastTs)  lastTs  = ts;

@@ -114,6 +114,11 @@ public class WebDriveController {
         }
         Boolean enabled = pendingEnabled.getAndSet(null);
         if (enabled != null) {
+            // DriverStation.isEnabled() == controlWord.getEnabled() && getDSAttached().
+            // Without DS-attached the enabled bit is ignored and the robot stays
+            // disabled — AkitSwerveDrive.periodic() then stops every module. Mark the
+            // (virtual) DS attached so the web Enable button actually takes effect.
+            DriverStationSim.setDsAttached(true);
             DriverStationSim.setEnabled(enabled);
             DriverStationSim.setAutonomous(false);
             DriverStationSim.setTest(false);

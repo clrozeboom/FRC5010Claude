@@ -214,6 +214,14 @@ This codebase is otherwise platform-agnostic — same JDK 17, same vendordeps, s
 ### 9. `@AutoLog` fields must stay `double` — never `Measure<>`
 AdvantageKit's annotation processor generates logging code that expects primitive `double` fields inside `@AutoLog`-annotated inner classes. Converting `GyroIOInputs` or `ModuleIOInputs` fields to `Measure<Distance>` etc. will cause a compile error or silent logging failure. Always extract the raw value with `.in(unit)` *before* assigning to an inputs struct field.
 
+### 10. Enabling the robot from sim code requires `setDsAttached(true)` AND a disable-tolerant caller
+Two non-obvious WPILib rules govern the web interface's Enable button (`WebDriveController` + `SwerveRobotContainer`):
+
+1. **`DriverStation.isEnabled()` is `controlWord.getEnabled() && controlWord.getDSAttached()`** (verified in the 2026.2.1 bytecode). Calling `DriverStationSim.setEnabled(true)` alone is *not* enough — without `DriverStationSim.setDsAttached(true)` the robot stays disabled and `AkitSwerveDrive.periodic()` stops every module (drive signals log once at 0, `n=1`). `Robot.simulationInit()` already pairs the two for `-PvisualTest`; `WebDriveController.applyPendingControl()` must do the same.
+2. **Default commands do not run while the robot is disabled.** The code that *enables* the robot therefore cannot live in the drive default command — it would never run while disabled (catch-22). `SwerveRobotContainer` schedules `applyPendingControl()` on a separate `Commands.run(...).ignoringDisable(true)` command so the enable click is processed even from the disabled state.
+
+Symptom if either is missing: the web Enable button appears to toggle but the robot never actually enables and never moves.
+
 ---
 
 ## Key file locations
