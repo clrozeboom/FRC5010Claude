@@ -318,6 +318,21 @@ function fieldLabel(ctx, fx, fy, text, px, W, H) {
   ctx.fillText(text, cx, cy);
 }
 
+// Draw a regular flat-top hexagon (radius R metres) centred at a field point.
+function fieldHexagon(ctx, fx, fy, R, W, H, fill, stroke) {
+  const pts = [];
+  for (let k = 0; k < 6; k++) {
+    const a = Math.PI / 6 + k * Math.PI / 3;
+    pts.push(fieldPt(fx + R * Math.cos(a), fy + R * Math.sin(a), W, H));
+  }
+  ctx.beginPath();
+  ctx.moveTo(pts[0].cx, pts[0].cy);
+  for (let i = 1; i < 6; i++) ctx.lineTo(pts[i].cx, pts[i].cy);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
 // ---- Arena2026Rebuilt obstacle geometry (decoded from IronMaple YAGSL bytecode) ----
 // All obstacles are axis-aligned (Rotation2d.kZero) in the WPILib field frame.
 // SimulatedArena.getInstance() builds Arena2026Rebuilt(false), so the ACTIVE
@@ -334,29 +349,18 @@ function fieldLabel(ctx, fx, fy, text, px, W, H) {
 function drawObstacles(ctx, W, H) {
   const M = 0.0254;  // inches → metres
 
-  // ---- Hubs (Blue 4.597,4.035 ; Red 11.938,4.035) ----
-  // 47"×47" square = collision boundary; inner circle (GoalRadius=0.5969m) = scoring target.
-  const hubSide = 47 * M;
-  const goalRadius = 0.5969;  // metres — RebuiltHub.GoalRadius (inscribed in the square)
   const hubs = [
     { fx: 4.5974, fy: 4.0345, team: 'Blue' },
     { fx: 11.938, fy: 4.0345, team: 'Red'  },
   ];
+
+  // ---- Hub structure band (47"×217") spanning between the two trenches ----
+  // The raised alliance structure that links the hub to its trench bars. Drawn
+  // faintly first so the hub and bars sit on top. (Cosmetic — not a collision body.)
+  const bandW = 47 * M, bandH = 217 * M;
   for (const h of hubs) {
-    const fill   = h.team === 'Blue' ? 'rgba(0,50,180,0.45)' : 'rgba(180,0,0,0.45)';
-    const stroke = h.team === 'Blue' ? '#88aaff' : '#ff8888';
-    fieldRect(ctx, h.fx, h.fy, hubSide, hubSide, W, H, fill, stroke);
-    // Scoring target circle
-    const { cx, cy } = fieldPt(h.fx, h.fy, W, H);
-    const rPx = mToPx(goalRadius, W, H);
-    ctx.beginPath();
-    ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    fieldLabel(ctx, h.fx, h.fy, 'Hub', Math.max(10, Math.round(mToPx(0.32, W, H))), W, H);
+    const band = h.team === 'Blue' ? 'rgba(0,50,180,0.18)' : 'rgba(180,0,0,0.18)';
+    fieldRect(ctx, h.fx, h.fy, bandW, bandH, W, H, band, 'rgba(255,255,255,0.10)');
   }
 
   // ---- Trench bars (53"×12") at the four corners around field centre (8.27, 4.035) ----
@@ -369,10 +373,30 @@ function drawObstacles(ctx, W, H) {
     { fx: 11.9149, fy: 6.6385 },  // red-far (library bug duplicates blue-near here)
   ];
   for (const t of trenches) {
-    fieldRect(ctx, t.fx, t.fy, trW, trH, W, H, 'rgba(150,120,40,0.6)', '#d4b34d');
+    fieldRect(ctx, t.fx, t.fy, trW, trH, W, H, 'rgba(110,114,124,0.85)', '#9aa0ac');
   }
   fieldLabel(ctx, trenches[0].fx, trenches[0].fy, 'Trench',
       Math.max(8, Math.round(mToPx(0.22, W, H))), W, H);
+
+  // ---- Hubs: hexagonal structure (47" footprint) + circular scoring target ----
+  // Collision body is the 47" square; the hexagon is the visual hub shape.
+  const hubR = 0.65;          // hexagon circumradius (≈ 47" half-diagonal), metres
+  const goalRadius = 0.5969;  // RebuiltHub.GoalRadius — scoring circle, metres
+  for (const h of hubs) {
+    const fill   = h.team === 'Blue' ? 'rgba(0,50,180,0.55)' : 'rgba(180,0,0,0.55)';
+    const stroke = h.team === 'Blue' ? '#88aaff' : '#ff8888';
+    fieldHexagon(ctx, h.fx, h.fy, hubR, W, H, fill, stroke);
+    const { cx, cy } = fieldPt(h.fx, h.fy, W, H);
+    const rPx = mToPx(goalRadius, W, H);
+    ctx.beginPath();
+    ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,255,255,0.20)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.80)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    fieldLabel(ctx, h.fx, h.fy, 'Hub', Math.max(10, Math.round(mToPx(0.30, W, H))), W, H);
+  }
 
   // ---- Tower walls (2"×47", near each alliance wall) ----
   const twW = 2 * M, twH = 47 * M;
@@ -381,7 +405,7 @@ function drawObstacles(ctx, W, H) {
     { fx: 15.4686, fy: 4.318  },
   ];
   for (const t of towers) {
-    fieldRect(ctx, t.fx, t.fy, twW, twH, W, H, 'rgba(120,120,130,0.7)', '#bbbbcc');
+    fieldRect(ctx, t.fx, t.fy, twW, twH, W, H, 'rgba(150,154,168,0.9)', '#c4c8d4');
     fieldLabel(ctx, t.fx, t.fy, 'Tower', Math.max(8, Math.round(mToPx(0.2, W, H))), W, H);
   }
 }
@@ -489,15 +513,15 @@ function drawField() {
   ctx.fillStyle = ownClr; ctx.fillRect(0, H * 0.82, W, H * 0.18);
   ctx.fillStyle = oppClr; ctx.fillRect(0, 0,         W, H * 0.18);
 
-  // Field border
-  ctx.strokeStyle = '#3a5a3a'; ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, W - 2, H - 2);
-
   // ---- Arena2026Rebuilt obstacles ----
   drawObstacles(ctx, W, H);
 
   // ---- AprilTags ----
   drawAprilTags(ctx, W, H);
+
+  // Magenta field perimeter (the field wall / barrier), drawn on top.
+  ctx.strokeStyle = '#d838c8'; ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, W - 4, H - 4);
 
   // ---- Robot ----
   const { cx, cy, canvasAngle } = fieldToCanvas(W, H);

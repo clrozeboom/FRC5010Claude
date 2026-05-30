@@ -420,3 +420,12 @@ See `/new-vision-camera` for the step-by-step wiring guide.
 - `/diagnose-log` — agent workflow for reading `.wpilog` files, interpreting anomaly flags, replay, and performance comparison
 - `/new-vision-camera` — step-by-step guide for adding a PhotonVision or Limelight camera to the Vision subsystem
 - `/validate-replay` — validate replay fidelity after non-trivial logging changes (produce log → replay → check anomalies)
+
+---
+
+## TODO (future sessions)
+
+- **Web field: render live game pieces.** Pull game-piece poses from
+  `SimulatedArena.getInstance()` (the dynamic objects, not obstacles) and draw them
+  on the web field view. They are dynamic (move / get scored) so must be polled each
+  frame via `/api/state` (or a new `/api/gamepieces` endpoint), not hard-coded.
