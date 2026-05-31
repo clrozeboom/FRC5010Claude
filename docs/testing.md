@@ -8,7 +8,7 @@ The project uses a four-layer test pyramid. Layers 1–3 are automated and run i
 
 | Layer | What | Factory | IO impl |
 |-------|------|---------|---------|
-| 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest` | — | — |
+| 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest`, `JoystickAxisTest` | — | — |
 | 2 — subsystem sim | `AkitSwerveDriveTest`, `VisionSubsystemTest` | `buildWithoutPhysics()` | `ModuleIOSim` (DCMotorSim) |
 | 3 — physics integration | `AkitSwerveDriveSimPhysicsTest`, `VisionSimIntegrationTest` | `build()` | `ModuleIOSimPhysics` (IronMaple) |
 | 4 — visual / interactive | `RobotContainer` visual-test sequence | `build()` | `ModuleIOSimPhysics` |

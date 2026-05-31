@@ -127,14 +127,48 @@ if (RobotBase.isReal()) {
 
 ### Customising bindings
 
-Override `configureBindings()` in `RobotContainer`:
+`controller` is a `ConfigurableController` (protected field from `SwerveRobotContainer`). Use its `button(int)` and `axis(int)` methods, or swap in an `XboxConfigurableController` for named accessors:
 
 ```java
 @Override
 protected void configureBindings() {
-    super.configureBindings();           // keeps keyboard drive
-    new JoystickButton(controller, 1)
+    super.configureBindings();           // keeps keyboard drive on port 0
+    // Add an extra binding on top of the default drive command:
+    controller.button(1)
         .onTrue(Commands.runOnce(() -> drive.setPose(Pose2d.kZero)));
+}
+```
+
+To replace the keyboard drive with an Xbox controller (typical for competition):
+
+```java
+@Override
+protected void configureBindings() {
+    // Do NOT call super — we're replacing the entire default command.
+    XboxConfigurableController driver = new XboxConfigurableController(0);
+
+    JoystickAxis forward  = driver.leftY().negate().deadzone(0.05).power(2.0);
+    JoystickAxis strafe   = driver.leftX().negate().deadzone(0.05).power(2.0);
+    JoystickAxis rotation = driver.rightX().negate().deadzone(0.10);
+    DriveVector translate = DriveVector.of(forward, strafe).unitCircle();
+
+    drive.setDefaultCommand(
+        Commands.run(
+            () -> {
+              double flip = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
+                  ? -1.0 : 1.0;
+              Translation2d xy = translate.get();
+              drive.runVelocityFieldRelative(new ChassisSpeeds(
+                  flip * xy.getX() * drive.getMaxLinearSpeed().in(MetersPerSecond),
+                  flip * xy.getY() * drive.getMaxLinearSpeed().in(MetersPerSecond),
+                  rotation.getAsDouble() * drive.getMaxAngularSpeed().in(RadiansPerSecond)));
+            },
+            drive
+        ).withName("XboxDrive")
+    );
+
+    driver.a().onTrue(Commands.runOnce(() -> drive.setPose(
+        new Pose2d(drive.getPose().getTranslation(), new Rotation2d()))));
 }
 ```
 
@@ -145,7 +179,7 @@ Override `getAutonomousCommand()` to integrate PathPlanner, Choreo, etc.:
 ```java
 @Override
 public Command getAutonomousCommand() {
-    if (Boolean.getBoolean("visualTest")) return SwerveVisualTest.build(drive, this::getAllianceStartPose);
+    if (Boolean.getBoolean("visualTest")) return SwerveVisualTest.build(drive, vision, this::getAllianceStartPose);
     return AutoBuilder.buildAuto("MyAuto");
 }
 ```

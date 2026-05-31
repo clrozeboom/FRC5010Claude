@@ -46,7 +46,7 @@ frc.robot.RobotContainer (concrete — extends SwerveRobotContainer)
 
 | Layer | Class | Factory method | IO impl |
 |-------|-------|----------------|---------|
-| 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest` | — | — |
+| 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest`, `JoystickAxisTest` | — | — |
 | 2 — subsystem sim | `AkitSwerveDriveTest`, `VisionSubsystemTest` | `buildWithoutPhysics()` / stub IO | `ModuleIOSim` / `VisionIO` stub |
 | 3 — physics integration | `AkitSwerveDriveSimPhysicsTest`, `VisionSimIntegrationTest` | `build()` | `ModuleIOSimPhysics` + `VisionIOSim` |
 | 4 — visual / interactive | `RobotContainer` visual-test sequence (6 steps incl. vision correction) | `build()` | `ModuleIOSimPhysics` + `VisionIOSim` |
@@ -233,6 +233,11 @@ Symptom if either is missing: the web Enable button appears to toggle but the ro
 | Subsystem (periodic, simulationPeriodic) | `src/main/java/org/frc5010/common/drive/swerve/akit/AkitSwerveDrive.java` |
 | Base robot container (keyboard drive, auto, alliance pose) | `src/main/java/org/frc5010/common/drive/swerve/SwerveRobotContainer.java` |
 | Visual auto test sequence | `src/main/java/org/frc5010/common/drive/swerve/SwerveVisualTest.java` |
+| Joystick axis transform pipeline | `src/main/java/org/frc5010/common/drive/swerve/JoystickAxis.java` |
+| 2-D drive vector (combines two JoystickAxis) | `src/main/java/org/frc5010/common/drive/swerve/DriveVector.java` |
+| Generic configurable controller (port-based) | `src/main/java/org/frc5010/common/drive/swerve/ConfigurableController.java` |
+| Xbox-specific named accessors | `src/main/java/org/frc5010/common/drive/swerve/XboxConfigurableController.java` |
+| Layer 1 unit tests (JoystickAxis + DriveVector) | `src/test/java/org/frc5010/common/unit/JoystickAxisTest.java` |
 | Robot profile interface | `src/main/java/org/frc5010/common/drive/swerve/RobotProfile.java` |
 | Sim robot profile (CI / library dev) | `src/main/java/org/frc5010/common/drive/swerve/SimRobotProfile.java` |
 | Real robot profile placeholder | `src/main/java/frc/robot/RealRobotProfile.java` |

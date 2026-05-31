@@ -29,7 +29,11 @@ RobotProfile (abstract)
  └── RealRobotProfile          (frc.robot — team's robot; branches on RobotBase.isReal())
 
 SwerveRobotContainer (abstract — keyboard drive, alliance pose, auto dispatch)
- └── frc.robot.RobotContainer  (concrete — selectProfile(), optional custom bindings)
+ ├── ConfigurableController    (wraps GenericHID port → JoystickAxis + Trigger)
+ │    └── XboxConfigurableController  (named accessors: leftY(), rightX(), a(), leftBumper(), …)
+ │         └── JoystickAxis   (chainable: deadzone → power → scale → limit → negate)
+ │         └── DriveVector    (two JoystickAxis → Translation2d, magnitude transforms, unitCircle())
+ └── frc.robot.RobotContainer (concrete — selectProfile(), optional custom bindings)
 ```
 
 ---

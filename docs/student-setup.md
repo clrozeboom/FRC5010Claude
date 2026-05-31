@@ -362,41 +362,69 @@ Before enabling for the first time on hardware, go through this list:
 
 ## Step 8 — Add a gamepad
 
-The default wiring uses keyboard controls in simulation. For a real match you need a gamepad (Xbox, PS4, or Logitech).
+The default wiring uses keyboard controls (WASD + ER) mapped to joystick port 0 in simulation. For a real match you need an Xbox (or similar) controller at Driver Station port 0.
 
-In `RobotContainer.java`, override `configureBindings()`:
+The library provides `XboxConfigurableController` — a wrapper that gives each button and axis a named method and applies a chainable transform pipeline (deadzone, response curve, scaling). Override `configureBindings()` in `RobotContainer.java` to replace the keyboard drive with it:
 
 ```java
 @Override
 protected void configureBindings() {
-    super.configureBindings();  // keeps keyboard drive in sim
+    // Do NOT call super.configureBindings() — this replaces the default command entirely.
+    // (The keyboard drive uses axis 2 for rotation; Xbox has the left trigger on axis 2.
+    //  Using super would give you left-trigger rotation, which is not what you want.)
 
-    // Replace port 0 with wherever your driver gamepad is plugged in
-    XboxController driverController = new XboxController(0);
+    XboxConfigurableController driver = new XboxConfigurableController(0);
 
-    // Field-relative drive: left stick = translation, right stick X = rotation
-    drive.setDefaultCommand(drive.runVelocityFieldRelative(
-        () -> -driverController.getLeftY(),   // forward/back (inverted)
-        () -> -driverController.getLeftX(),   // strafe left/right (inverted)
-        () -> -driverController.getRightX()   // rotation (inverted)
-    ));
+    // Left stick = translation, right stick X = rotation.
+    // negate() corrects WPILib's convention (up = negative Y, left = negative X).
+    // power(2.0) gives a gentle-start response curve.
+    // unitCircle() prevents diagonal inputs from exceeding the robot's max speed.
+    JoystickAxis forward  = driver.leftY().negate().deadzone(0.05).power(2.0);
+    JoystickAxis strafe   = driver.leftX().negate().deadzone(0.05).power(2.0);
+    JoystickAxis rotation = driver.rightX().negate().deadzone(0.10);
+    DriveVector translate = DriveVector.of(forward, strafe).unitCircle();
 
-    // A button: reset heading to face forward
-    new JoystickButton(driverController, XboxController.Button.kA.value)
-        .onTrue(Commands.runOnce(() -> drive.setPose(
-            new Pose2d(drive.getPose().getTranslation(), new Rotation2d()))));
+    drive.setDefaultCommand(
+        Commands.run(
+            () -> {
+              // Flip translation direction on Red alliance so "forward" always faces
+              // the opponent's wall regardless of which side you're on.
+              double flip = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
+                  ? -1.0 : 1.0;
+              Translation2d xy = translate.get();
+              drive.runVelocityFieldRelative(new ChassisSpeeds(
+                  flip * xy.getX() * drive.getMaxLinearSpeed().in(MetersPerSecond),
+                  flip * xy.getY() * drive.getMaxLinearSpeed().in(MetersPerSecond),
+                  rotation.getAsDouble() * drive.getMaxAngularSpeed().in(RadiansPerSecond)));
+            },
+            drive
+        ).withName("XboxDrive")
+    );
+
+    // A button: zero the heading (useful after gyro drift)
+    driver.a().onTrue(Commands.runOnce(() -> drive.setPose(
+        new Pose2d(drive.getPose().getTranslation(), new Rotation2d()))));
 }
 ```
 
 Add the imports:
 
 ```java
-import edu.wpi.first.wpilibj.XboxController;
-import edu.wpi.first.wpilibj2.command.button.JoystickButton;
-import edu.wpi.first.wpilibj2.command.Commands;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj2.command.Commands;
+import org.frc5010.common.drive.swerve.DriveVector;
+import org.frc5010.common.drive.swerve.JoystickAxis;
+import org.frc5010.common.drive.swerve.XboxConfigurableController;
 ```
+
+> **Testing in simulation without a physical controller:** The visual auto-test (`-PvisualTest`) doesn't use the controller at all, so you can verify basic motion without a gamepad. For interactive keyboard testing, the default keyboard mapping (WASD for translation, E/R for rotation) is replaced by this override — use the visual test or plug in a controller.
 
 ---
 
@@ -409,7 +437,7 @@ Override `getAutonomousCommand()` in `RobotContainer.java`:
 public Command getAutonomousCommand() {
     // Keep the visual test available when running with -PvisualTest
     if (Boolean.getBoolean("visualTest")) {
-        return SwerveVisualTest.build(drive, this::getAllianceStartPose);
+        return SwerveVisualTest.build(drive, vision, this::getAllianceStartPose);
     }
     // Replace with your PathPlanner or Choreo auto
     return AutoBuilder.buildAuto("MyAutoName");
