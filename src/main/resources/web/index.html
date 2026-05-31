@@ -591,6 +591,14 @@ function drawField() {
     offX = 0; offY = Math.round((ch - H) / 2);
   }
 
+  // The canvas sits to the RIGHT of the fixed-width sidebar, so centering the
+  // field within the canvas alone leaves it offset right of the window centre.
+  // Shift the field left by half the sidebar width so it is centred relative to
+  // the whole window, clamped so it never slides under the sidebar (offX >= 0).
+  const sidebar = document.getElementById('field-sidebar');
+  const sidebarW = sidebar ? sidebar.offsetWidth : 0;
+  if (offX > 0) offX = Math.max(0, offX - Math.round(sidebarW / 2));
+
   // Dark fill behind the letterbox bars (matches the page background).
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, cw, ch);
