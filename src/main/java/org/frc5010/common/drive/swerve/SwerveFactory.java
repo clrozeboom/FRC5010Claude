@@ -117,11 +117,12 @@ public class SwerveFactory {
 
     SwerveDriveSimulation swerveDriveSim =
         new SwerveDriveSimulation(simConfig, initialPose);
+    // 2019 DESTINATION: DEEP SPACE — IronMaple ships no Arena2019, so install our hand-built
+    // arena BEFORE the first getInstance() call (which would otherwise lazily build Arena2026).
+    SimulatedArena.overrideInstance(new Arena2019DeepSpace());
     SimulatedArena.getInstance().addDriveTrainSimulation(swerveDriveSim);
-    // Restore the red-far TRENCH obstacle that Arena2026Rebuilt omits (see Arena2026Patch).
-    Arena2026Patch.applyMissingRedFarTrench();
-    // Seed 25 curated Fuel pieces instead of the default 360-piece grid.
-    GamePieceSpawner.spawnInitialFuel();
+    // Seed the curated 2019 Cargo + Hatch pieces.
+    GamePieceSpawner2019.spawnInitialPieces(SimulatedArena.getInstance());
 
     GyroIO gyro = new GyroIOSimPhysics(swerveDriveSim.getGyroSimulation());
 

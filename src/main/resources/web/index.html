@@ -127,11 +127,13 @@
   <div id="field-sidebar">
     <div class="stat-item">
       <div class="stat-label">Held</div>
-      <div id="held-count" class="stat-value">0</div>
+      <div class="stat-value"><span style="color:#ff8c2a">●</span> <span id="held-cargo">0</span></div>
+      <div class="stat-value"><span style="color:#c8cdd7">◍</span> <span id="held-hatch">0</span></div>
     </div>
     <div class="stat-item">
       <div class="stat-label">Scored</div>
-      <div id="scored-count" class="stat-value">0</div>
+      <div class="stat-value"><span style="color:#ff8c2a">●</span> <span id="scored-cargo">0</span></div>
+      <div class="stat-value"><span style="color:#c8cdd7">◍</span> <span id="scored-hatch">0</span></div>
     </div>
   </div>
   <canvas id="field-canvas"></canvas>
@@ -179,16 +181,16 @@
 const state = {
   x: 0, y: 0, headingRad: 0,
   maxLinear: 4.5, maxAngular: 6.283,
-  fieldWidth: 16.540988, fieldHeight: 8.21,
+  fieldWidth: 16.4592, fieldHeight: 8.2296,
   enabled: false, alliance: 'Blue', connected: false,
-  heldFuel: 0, intakeExtended: false, scoredFuel: 0
+  heldCargo: 0, heldHatch: 0, intakeExtended: false, scoredCargo: 0, scoredHatch: 0
 };
 
 let leftX = 0, leftY = 0, rightX = 0;
 const buttonHeld = [false, false, false, false, false, false];
 const keys = {};
-let gamePieces = [];        // [{x, y}] grounded Fuel — from /api/gamepieces
-let flyingPieces = [];     // [{x, y}] in-flight Fuel projectiles
+let cargoPieces = [];       // [{x, y}] grounded Cargo balls — from /api/gamepieces
+let hatchPieces = [];       // [{x, y}] grounded Hatch Panels — from /api/gamepieces
 
 // ---- Keyboard ----
 document.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
@@ -309,8 +311,10 @@ function stopRobot() {
 }
 
 function updateSidebar() {
-  document.getElementById('held-count').textContent   = state.heldFuel;
-  document.getElementById('scored-count').textContent = state.scoredFuel;
+  document.getElementById('held-cargo').textContent   = state.heldCargo;
+  document.getElementById('held-hatch').textContent   = state.heldHatch;
+  document.getElementById('scored-cargo').textContent = state.scoredCargo;
+  document.getElementById('scored-hatch').textContent = state.scoredHatch;
 }
 
 // ---- Field Canvas rendering ----
@@ -388,119 +392,59 @@ function fieldHexagon(ctx, fx, fy, R, W, H, fill, stroke) {
   ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
 }
 
-// ---- Arena2026Rebuilt obstacle geometry (decoded from IronMaple YAGSL bytecode) ----
-// All obstacles are axis-aligned (Rotation2d.kZero) in the WPILib field frame.
-// SimulatedArena.getInstance() builds Arena2026Rebuilt(false), so the ACTIVE
-// collision bodies are:
-//   Hub    (RebuiltHub.blue/redHubPose): 47"×47" = 1.19m square; the 217" "bump"
-//          variant only exists in the Arena2026Rebuilt(true) branch, which is unused.
-//   Trench (anonymous): 53"×12" = 1.35m×0.30m bars at the four corners around centre.
-//   Tower  (anonymous, near each alliance wall): 2"×47" = 0.05m×1.19m thin walls.
-// GoalRadius (0.5969m) is the circular scoring target, inscribed in the 47" square.
-// NOTE: the library has a copy-paste bug — the 4th trench was duplicated at the
-// blue-near corner instead of the red-far corner (11.915,6.639). Arena2026Patch
-// (applied in SwerveFactory) injects the missing red-far body into the physics
-// world, so all four bars drawn here now match the actual collision bodies.
+// ---- 2019 DESTINATION: DEEP SPACE obstacle geometry (WPILib field frame) ----
+// Matches the collision bodies in Arena2019DeepSpace.FieldMap2019 (rockets + cargo ships)
+// plus the HAB platforms, which are drawn here but are NOT collision bodies (climbable
+// ramps in the real game; the vision test spawns inside the Blue HAB footprint).
 function drawObstacles(ctx, W, H) {
   const M = 0.0254;  // inches → metres
 
-  const hubs = [
-    { fx: 4.5974, fy: 4.0345, team: 'Blue' },
-    { fx: 11.938, fy: 4.0345, team: 'Red'  },
+  // ---- HAB platforms (drawn only; not collided) ----
+  // 7'11¾" (X, 2.432 m) deep × 12'6" (Y, 3.81 m) wide, abutting each alliance wall.
+  const habW = 95.75 * M, habH = 150 * M;
+  const habs = [
+    { fx: habW / 2,                fy: 4.1148, team: 'Blue' },           // 1.216
+    { fx: 16.4592 - habW / 2,      fy: 4.1148, team: 'Red'  },           // 15.243
   ];
-
-  // ---- Hub structure band (47"×217") spanning between the two trenches ----
-  // The raised alliance structure that links the hub to its trench bars. Drawn
-  // faintly first so the hub and bars sit on top. (Cosmetic — not a collision body.)
-  const bandW = 47 * M, bandH = 217 * M;
-  for (const h of hubs) {
-    const band = h.team === 'Blue' ? 'rgba(0,50,180,0.18)' : 'rgba(180,0,0,0.18)';
-    fieldRect(ctx, h.fx, h.fy, bandW, bandH, W, H, band, 'rgba(255,255,255,0.10)');
+  for (const h of habs) {
+    const fill = h.team === 'Blue' ? 'rgba(0,50,180,0.25)' : 'rgba(180,0,0,0.25)';
+    fieldRect(ctx, h.fx, h.fy, habW, habH, W, H, fill, 'rgba(255,255,255,0.4)');
+    fieldLabel(ctx, h.fx, h.fy, 'HAB', Math.max(9, Math.round(mToPx(0.30, W, H))), W, H);
   }
 
-  // ---- Trench bars (53"×12") at the four corners around field centre (8.27, 4.035) ----
-  // offsetX = (120+23.5)" = 3.6449m ; offsetY = (73+23.5+6)" = 2.6035m
-  const trW = 53 * M, trH = 12 * M;
-  const trenches = [
-    { fx: 4.6251,  fy: 1.4315 },  // blue-near
-    { fx: 11.9149, fy: 1.4315 },  // red-near
-    { fx: 4.6251,  fy: 6.6385 },  // blue-far
-    { fx: 11.9149, fy: 6.6385 },  // red-far (library bug duplicates blue-near here)
+  // ---- Cargo Ships (collision) — 95.75"×55.75", sterns 9" off centre ----
+  const shipW = 95.75 * M, shipH = 55.75 * M;
+  const ships = [
+    { fx: 6.785, fy: 4.1148, team: 'Blue' },
+    { fx: 9.674, fy: 4.1148, team: 'Red'  },
   ];
-  for (const t of trenches) {
-    fieldRect(ctx, t.fx, t.fy, trW, trH, W, H, 'rgba(58,62,72,0.95)', '#c4c8d4');
-  }
-  fieldLabel(ctx, trenches[0].fx, trenches[0].fy, 'Trench',
-      Math.max(8, Math.round(mToPx(0.22, W, H))), W, H);
-
-  // ---- Hubs: hexagonal structure (47" footprint) + circular scoring target ----
-  // Collision body is the 47" square; the hexagon is the visual hub shape.
-  const hubR = 0.65;          // hexagon circumradius (≈ 47" half-diagonal), metres
-  const goalRadius = 0.5969;  // RebuiltHub.GoalRadius — scoring circle, metres
-  for (const h of hubs) {
-    const fill   = h.team === 'Blue' ? 'rgba(0,50,180,0.55)' : 'rgba(180,0,0,0.55)';
-    const stroke = h.team === 'Blue' ? '#88aaff' : '#ff8888';
-    fieldHexagon(ctx, h.fx, h.fy, hubR, W, H, fill, stroke);
-    const { cx, cy } = fieldPt(h.fx, h.fy, W, H);
-    const rPx = mToPx(goalRadius, W, H);
-    ctx.beginPath();
-    ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(255,255,255,0.20)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.80)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    fieldLabel(ctx, h.fx, h.fy, 'Hub', Math.max(10, Math.round(mToPx(0.30, W, H))), W, H);
+  for (const s of ships) {
+    const fill   = s.team === 'Blue' ? 'rgba(40,70,160,0.85)' : 'rgba(160,40,40,0.85)';
+    const stroke = s.team === 'Blue' ? '#88aaff' : '#ff8888';
+    fieldRect(ctx, s.fx, s.fy, shipW, shipH, W, H, fill, stroke);
+    fieldLabel(ctx, s.fx, s.fy, 'Cargo Ship', Math.max(8, Math.round(mToPx(0.22, W, H))), W, H);
   }
 
-  // ---- Tower walls (2"×47", near each alliance wall) ----
-  const twW = 2 * M, twH = 47 * M;
-  const towers = [
-    { fx: 1.0668,  fy: 4.0386 },
-    { fx: 15.4686, fy: 4.318  },
+  // ---- Rockets (collision) — 33"(X)×19.625"(Y), one against each side guardrail ----
+  const rkW = 33 * M, rkH = 19.625 * M;
+  const rocketCenterY = 27.5 * M - rkH / 2;   // 0.449 m off the wall
+  const rockets = [
+    { fx: 5.7912, fy: rocketCenterY },
+    { fx: 5.7912, fy: 8.2296 - rocketCenterY },
+    { fx: 10.668, fy: rocketCenterY },
+    { fx: 10.668, fy: 8.2296 - rocketCenterY },
   ];
-  for (const t of towers) {
-    fieldRect(ctx, t.fx, t.fy, twW, twH, W, H, 'rgba(58,62,72,0.95)', '#c4c8d4');
-    fieldLabel(ctx, t.fx, t.fy, 'Tower', Math.max(8, Math.round(mToPx(0.2, W, H))), W, H);
+  for (const r of rockets) {
+    fieldRect(ctx, r.fx, r.fy, rkW, rkH, W, H, 'rgba(58,62,72,0.95)', '#c4c8d4');
   }
+  fieldLabel(ctx, rockets[0].fx, rockets[0].fy, 'Rocket',
+      Math.max(7, Math.round(mToPx(0.18, W, H))), W, H);
 }
 
-// ---- AprilTags (2026 Rebuilt Welded layout, from WPILib apriltag-java 2026.2.1) ----
-// fx,fy in metres (WPILib field frame); yaw = tag facing direction (CCW from +X).
-const aprilTags = [
-  {id: 1, fx:11.878, fy:7.425, yaw:3.1416},
-  {id: 2, fx:11.915, fy:4.638, yaw:1.5708},
-  {id: 3, fx:11.312, fy:4.390, yaw:3.1416},
-  {id: 4, fx:11.312, fy:4.035, yaw:3.1416},
-  {id: 5, fx:11.915, fy:3.431, yaw:-1.5708},
-  {id: 6, fx:11.878, fy:0.644, yaw:3.1416},
-  {id: 7, fx:11.953, fy:0.644, yaw:0.0000},
-  {id: 8, fx:12.271, fy:3.431, yaw:-1.5708},
-  {id: 9, fx:12.519, fy:3.679, yaw:0.0000},
-  {id:10, fx:12.519, fy:4.035, yaw:0.0000},
-  {id:11, fx:12.271, fy:4.638, yaw:1.5708},
-  {id:12, fx:11.953, fy:7.425, yaw:0.0000},
-  {id:13, fx:16.533, fy:7.403, yaw:3.1416},
-  {id:14, fx:16.533, fy:6.972, yaw:3.1416},
-  {id:15, fx:16.533, fy:4.324, yaw:3.1416},
-  {id:16, fx:16.533, fy:3.892, yaw:3.1416},
-  {id:17, fx:4.663,  fy:0.644, yaw:0.0000},
-  {id:18, fx:4.626,  fy:3.431, yaw:-1.5708},
-  {id:19, fx:5.229,  fy:3.679, yaw:0.0000},
-  {id:20, fx:5.229,  fy:4.035, yaw:0.0000},
-  {id:21, fx:4.626,  fy:4.638, yaw:1.5708},
-  {id:22, fx:4.663,  fy:7.425, yaw:0.0000},
-  {id:23, fx:4.588,  fy:7.425, yaw:3.1416},
-  {id:24, fx:4.270,  fy:4.638, yaw:1.5708},
-  {id:25, fx:4.022,  fy:4.390, yaw:3.1416},
-  {id:26, fx:4.022,  fy:4.035, yaw:3.1416},
-  {id:27, fx:4.270,  fy:3.431, yaw:-1.5708},
-  {id:28, fx:4.588,  fy:0.644, yaw:3.1416},
-  {id:29, fx:0.008,  fy:0.666, yaw:0.0000},
-  {id:30, fx:0.008,  fy:1.098, yaw:0.0000},
-  {id:31, fx:0.008,  fy:3.746, yaw:0.0000},
-  {id:32, fx:0.008,  fy:4.178, yaw:0.0000},
-];
+// ---- AprilTags ----
+// The 2019 DESTINATION: DEEP SPACE game used retro-reflective vision targets, NOT
+// AprilTags, so there are none to draw.
+const aprilTags = [];
 const tagImages = {};
 for (const t of aprilTags) {
   const img = new Image();
@@ -546,32 +490,29 @@ function drawAprilTags(ctx, W, H) {
   }
 }
 
-// Draw grounded Fuel pieces and in-flight projectiles.
+// Draw grounded 2019 game pieces: Cargo (orange ball, 13" dia) and Hatch (grey ring, 19" OD).
 function drawGamePieces(ctx, W, H) {
-  const rPx = Math.max(4, mToPx(0.075, W, H));
-
-  // Grounded pieces — solid yellow disc
-  ctx.strokeStyle = 'rgba(120,90,0,0.8)';
+  // Cargo — solid orange disc (radius 6.5")
+  const rCargo = Math.max(4, mToPx(0.1651, W, H));
+  ctx.strokeStyle = 'rgba(150,60,0,0.85)';
   ctx.lineWidth = 1;
-  for (const p of gamePieces) {
+  for (const p of cargoPieces) {
     const { cx, cy } = fieldPt(p.x, p.y, W, H);
     ctx.beginPath();
-    ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(245,210,40,0.95)';
+    ctx.arc(cx, cy, rCargo, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,120,20,0.95)';
     ctx.fill();
     ctx.stroke();
   }
 
-  // Flying projectiles — smaller, brighter, white-ringed disc
-  const rFly = Math.max(3, mToPx(0.055, W, H));
-  for (const p of flyingPieces) {
+  // Hatch Panel — grey ring (radius 9.5") with a hollow centre
+  const rHatch = Math.max(4, mToPx(0.2413, W, H));
+  for (const p of hatchPieces) {
     const { cx, cy } = fieldPt(p.x, p.y, W, H);
     ctx.beginPath();
-    ctx.arc(cx, cy, rFly, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(255,230,80,1.0)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,200,0.9)';
-    ctx.lineWidth = 1.5;
+    ctx.arc(cx, cy, rHatch, 0, 2 * Math.PI);
+    ctx.lineWidth = Math.max(2, rHatch * 0.35);
+    ctx.strokeStyle = 'rgba(200,205,215,0.95)';
     ctx.stroke();
   }
 }
@@ -612,9 +553,9 @@ function drawField() {
   const { alliance } = state;
   const isRed = alliance === 'Red';
 
-  // Alliance zones end at the trench/hub wall-side line: X = 4.6251 - 53"/2 = 3.952 m
-  // from each alliance wall (symmetric), i.e. ~23.9 % of the field length inward.
-  const zoneFrac = 3.952 / state.fieldWidth;
+  // Alliance HAB zones extend from each wall to the front edge of the HAB platform:
+  // X = 95.75" = 2.432 m (symmetric), i.e. ~14.8 % of the field length inward.
+  const zoneFrac = 2.432 / state.fieldWidth;
   const ownClr = isRed ? 'rgba(180,0,0,0.30)'  : 'rgba(0,60,200,0.30)';
   const oppClr = isRed ? 'rgba(0,60,200,0.30)' : 'rgba(180,0,0,0.30)';
   ctx.fillStyle = ownClr; ctx.fillRect(0, H * (1 - zoneFrac), W, H * zoneFrac);
@@ -629,13 +570,13 @@ function drawField() {
   ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
 
-  // ---- Arena2026Rebuilt obstacles ----
+  // ---- Arena2019DeepSpace obstacles ----
   drawObstacles(ctx, W, H);
 
-  // ---- AprilTags ----
+  // ---- AprilTags (none in 2019; array is empty) ----
   drawAprilTags(ctx, W, H);
 
-  // ---- Game pieces (Fuel) — drawn after obstacles so they sit on top ----
+  // ---- Game pieces (Cargo + Hatch) — drawn after obstacles so they sit on top ----
   drawGamePieces(ctx, W, H);
 
   // Magenta field perimeter (the field wall / barrier), drawn on top.
@@ -691,8 +632,8 @@ setInterval(async () => {
 
   // Fetch game piece positions (fire-and-forget; drawn on next frame)
   fetch('/api/gamepieces').then(r => r.json()).then(d => {
-    gamePieces   = (d.pieces  || []).map(p => ({ x: p[0], y: p[1] }));
-    flyingPieces = (d.flying  || []).map(p => ({ x: p[0], y: p[1] }));
+    cargoPieces = (d.cargo || []).map(p => ({ x: p[0], y: p[1] }));
+    hatchPieces = (d.hatch || []).map(p => ({ x: p[0], y: p[1] }));
   }).catch(() => {});
 
   // POST drive command (fire-and-forget)

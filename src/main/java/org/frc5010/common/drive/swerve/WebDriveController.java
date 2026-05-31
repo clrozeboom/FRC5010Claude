@@ -11,7 +11,6 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import swervelib.simulation.ironmaple.simulation.SimulatedArena;
 import swervelib.simulation.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
-import swervelib.simulation.ironmaple.simulation.gamepieces.GamePieceProjectile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -60,9 +59,11 @@ public class WebDriveController {
     private final AtomicLong lastCommandMs = new AtomicLong(0);
 
     // Written by robot thread (DemoIntake), read by HTTP thread (state endpoint)
-    private final AtomicInteger heldFuelBuf      = new AtomicInteger(0);
+    private final AtomicInteger heldCargoBuf      = new AtomicInteger(0);
+    private final AtomicInteger heldHatchBuf      = new AtomicInteger(0);
     private final AtomicBoolean intakeExtendedBuf = new AtomicBoolean(false);
-    private final AtomicInteger scoredFuelBuf    = new AtomicInteger(0);
+    private final AtomicInteger scoredCargoBuf    = new AtomicInteger(0);
+    private final AtomicInteger scoredHatchBuf    = new AtomicInteger(0);
 
     // Pending DriverStation control — written by HTTP, applied on robot thread.
     // Nullable: null means "not set in this POST" so the robot thread skips that field.
@@ -181,11 +182,15 @@ public class WebDriveController {
     }
 
     /** Called by {@link DemoIntake} on the robot thread each cycle. */
-    public void setHeldFuel(int count)          { heldFuelBuf.set(count); }
+    public void setHeldCargo(int count)         { heldCargoBuf.set(count); }
+    /** Called by {@link DemoIntake} on the robot thread each cycle. */
+    public void setHeldHatch(int count)         { heldHatchBuf.set(count); }
     /** Called by {@link DemoIntake} on the robot thread each cycle. */
     public void setIntakeExtended(boolean ext)  { intakeExtendedBuf.set(ext); }
     /** Called by {@link DemoIntake} on the robot thread each cycle. */
-    public void setScored(int count)            { scoredFuelBuf.set(count); }
+    public void setScoredCargo(int count)       { scoredCargoBuf.set(count); }
+    /** Called by {@link DemoIntake} on the robot thread each cycle. */
+    public void setScoredHatch(int count)       { scoredHatchBuf.set(count); }
 
     private long age() { return System.currentTimeMillis() - lastCommandMs.get(); }
 
@@ -210,42 +215,39 @@ public class WebDriveController {
     }
 
     /**
-     * Returns a JSON array of current Fuel piece positions for the web field view.
+     * Returns a JSON object with the current 2019 game-piece positions for the web field view,
+     * split by type: {@code {"cargo":[[x,y],...],"hatch":[[x,y],...]}}.
      * Calls {@code gamePiecesOnField()} which is synchronized on the arena — safe
      * to call from this HTTP handler thread.
      */
     private void handleGamePieces(HttpExchange ex) throws IOException {
         addCors(ex);
         if (!"GET".equalsIgnoreCase(ex.getRequestMethod())) { ex.sendResponseHeaders(405, -1); return; }
-        StringBuilder sb = new StringBuilder("{\"pieces\":[");
-        boolean first = true;
+        StringBuilder cargo = new StringBuilder();
+        StringBuilder hatch = new StringBuilder();
+        boolean firstCargo = true, firstHatch = true;
         try {
             for (GamePieceOnFieldSimulation piece
                     : SimulatedArena.getInstance().gamePiecesOnField()) {
-                if (!"Fuel".equals(piece.getType())) continue;
+                String type = piece.getType();
                 var pose = piece.getPoseOnField();
-                if (!first) sb.append(',');
-                sb.append('[')
-                  .append(String.format("%.3f", pose.getX())).append(',')
-                  .append(String.format("%.3f", pose.getY())).append(']');
-                first = false;
+                if ("Cargo".equals(type)) {
+                    if (!firstCargo) cargo.append(',');
+                    cargo.append('[')
+                      .append(String.format("%.3f", pose.getX())).append(',')
+                      .append(String.format("%.3f", pose.getY())).append(']');
+                    firstCargo = false;
+                } else if ("Hatch".equals(type)) {
+                    if (!firstHatch) hatch.append(',');
+                    hatch.append('[')
+                      .append(String.format("%.3f", pose.getX())).append(',')
+                      .append(String.format("%.3f", pose.getY())).append(']');
+                    firstHatch = false;
+                }
             }
         } catch (Exception ignored) {}
-        sb.append("],\"flying\":[");
-        boolean firstFly = true;
-        try {
-            for (GamePieceProjectile proj : SimulatedArena.getInstance().gamePieceLaunched()) {
-                if (!"Fuel".equals(proj.getType())) continue;
-                var p3 = proj.getPose3d();
-                if (!firstFly) sb.append(',');
-                sb.append('[')
-                  .append(String.format("%.3f", p3.getX())).append(',')
-                  .append(String.format("%.3f", p3.getY())).append(']');
-                firstFly = false;
-            }
-        } catch (Exception ignored) {}
-        sb.append("]}");
-        respond(ex, 200, "application/json", sb.toString());
+        String json = "{\"cargo\":[" + cargo + "],\"hatch\":[" + hatch + "]}";
+        respond(ex, 200, "application/json", json);
     }
 
     /** Serves AprilTag PNGs from the {@code /web/tags/} classpath resources. */
@@ -272,12 +274,14 @@ public class WebDriveController {
         String json = String.format(
             "{\"x\":%.4f,\"y\":%.4f,\"headingRad\":%.4f," +
             "\"maxLinear\":%.4f,\"maxAngular\":%.4f," +
-            "\"fieldWidth\":16.540988,\"fieldHeight\":8.21," +
+            "\"fieldWidth\":16.4592,\"fieldHeight\":8.2296," +
             "\"enabled\":%b,\"alliance\":\"%s\",\"connected\":%b," +
-            "\"heldFuel\":%d,\"intakeExtended\":%b,\"scoredFuel\":%d}",
+            "\"heldCargo\":%d,\"heldHatch\":%d,\"intakeExtended\":%b," +
+            "\"scoredCargo\":%d,\"scoredHatch\":%d}",
             p[0], p[1], p[2], maxLinearMps, maxAngularRps,
             enabledBuf.get(), allianceBuf.get(), isConnected(),
-            heldFuelBuf.get(), intakeExtendedBuf.get(), scoredFuelBuf.get());
+            heldCargoBuf.get(), heldHatchBuf.get(), intakeExtendedBuf.get(),
+            scoredCargoBuf.get(), scoredHatchBuf.get());
         respond(ex, 200, "application/json", json);
     }
 
