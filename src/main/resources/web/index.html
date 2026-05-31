@@ -11,7 +11,21 @@
     background: #111; color: #eee; font-family: monospace; overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
-  #field-canvas { flex: 1; min-height: 0; display: block; width: 100%; }
+  /* ---- field area (canvas + sidebar) ---- */
+  #field-area {
+    flex: 1; min-height: 0; display: flex; flex-direction: row;
+  }
+  #field-sidebar {
+    width: 60px; background: #1a1a1a; border-right: 1px solid #2a2a2a;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 16px; flex-shrink: 0;
+  }
+  .stat-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stat-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 20px; font-weight: bold; }
+  #held-count   { color: rgba(245,210,40,0.95); }
+  #scored-count { color: rgba(100,230,100,0.95); }
+  #field-canvas { flex: 1; min-height: 0; display: block; }
 
   /* ---- controls row ---- */
   #controls {
@@ -51,13 +65,20 @@
   .alliance-btn.active-blue { background: #003080; border-color: #5599ff; color: #fff; }
   .alliance-btn.active-red  { background: #800000; border-color: #ff4444; color: #fff; }
 
-  /* enable button */
+  /* enable + stop button row */
+  #enable-stop-row { display: flex; gap: 6px; width: 100%; }
   #enable-btn {
-    width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #555;
+    flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #555;
     background: #2a2a2a; color: #aaa; cursor: pointer; font-size: 15px; font-weight: bold;
     transition: all 0.15s; user-select: none;
   }
   #enable-btn.enabled { background: #1a5c1a; border-color: #44cc44; color: #fff; }
+  #stop-btn {
+    padding: 10px 12px; border-radius: 8px; border: 2px solid #cc4400;
+    background: #3a1000; color: #ff8844; cursor: pointer; font-size: 14px; font-weight: bold;
+    user-select: none; transition: all 0.15s;
+  }
+  #stop-btn:active { filter: brightness(1.4); }
 
   /* game buttons A B X Y LB RB */
   #btn-row-abxy, #btn-row-bumpers {
@@ -96,7 +117,19 @@
 </style>
 </head>
 <body>
-<canvas id="field-canvas"></canvas>
+<div id="field-area">
+  <div id="field-sidebar">
+    <div class="stat-item">
+      <div class="stat-label">Held</div>
+      <div id="held-count" class="stat-value">0</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Scored</div>
+      <div id="scored-count" class="stat-value">0</div>
+    </div>
+  </div>
+  <canvas id="field-canvas"></canvas>
+</div>
 
 <div id="controls">
   <div class="stick-wrap">
@@ -109,7 +142,10 @@
       <button class="alliance-btn active-blue" id="btn-blue" onclick="selectAlliance('Blue')">Blue</button>
       <button class="alliance-btn"             id="btn-red"  onclick="selectAlliance('Red')">Red</button>
     </div>
-    <button id="enable-btn" onclick="toggleEnable()">ENABLE</button>
+    <div id="enable-stop-row">
+      <button id="enable-btn" onclick="toggleEnable()">ENABLE</button>
+      <button id="stop-btn"   onclick="stopRobot()">STOP</button>
+    </div>
     <div id="btn-row-abxy">
       <div class="game-btn btn-a"  data-idx="0">A</div>
       <div class="game-btn btn-b"  data-idx="1">B</div>
@@ -259,6 +295,16 @@ function updateEnableBtn() {
   const btn = document.getElementById('enable-btn');
   btn.textContent = currentEnabled ? 'DISABLE' : 'ENABLE';
   btn.className = currentEnabled ? 'enabled' : '';
+}
+
+function stopRobot() {
+  if (!confirm('Stop the simulation? This will end the Gradle process.')) return;
+  fetch('/api/stop', { method: 'POST' }).catch(() => {});
+}
+
+function updateSidebar() {
+  document.getElementById('held-count').textContent   = state.heldFuel;
+  document.getElementById('scored-count').textContent = state.scoredFuel;
 }
 
 // ---- Field Canvas rendering ----
@@ -627,16 +673,6 @@ function drawField() {
 
   ctx.restore();
 
-  // ---- Fuel overlay (top-left of field render area) ----
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(6, 6, 130, 38);
-  ctx.font = 'bold 13px monospace';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(245,210,40,0.95)';
-  ctx.fillText('Held:   ' + state.heldFuel,   12, 17);
-  ctx.fillStyle = 'rgba(100,230,100,0.95)';
-  ctx.fillText('Scored: ' + state.scoredFuel,  12, 33);   // robot transform
-
   ctx.restore();   // field-render offset (letterbox)
 }
 
@@ -666,6 +702,7 @@ setInterval(async () => {
     const s = await resp.json();
     Object.assign(state, s);
     initFromState(s);
+    updateSidebar();
     updateStatus(vx, vy, omega);
     drawField();
   } catch (e) {

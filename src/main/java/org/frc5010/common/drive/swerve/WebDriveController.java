@@ -91,6 +91,7 @@ public class WebDriveController {
             server.createContext("/api/drive",      this::handleDrive);
             server.createContext("/api/control",    this::handleControl);
             server.createContext("/api/gamepieces", this::handleGamePieces);
+            server.createContext("/api/stop",       this::handleStop);
             server.createContext("/tags/",          this::handleTagImage);
             server.createContext("/",               this::handleRoot);
             server.setExecutor(executor);
@@ -305,6 +306,18 @@ public class WebDriveController {
             }
         } catch (Exception ignored) {}
         respond(ex, 200, "application/json", "{}");
+    }
+
+    private void handleStop(HttpExchange ex) throws IOException {
+        addCors(ex);
+        if ("OPTIONS".equalsIgnoreCase(ex.getRequestMethod())) { ex.sendResponseHeaders(204, -1); return; }
+        if (!"POST".equalsIgnoreCase(ex.getRequestMethod()))   { ex.sendResponseHeaders(405, -1); return; }
+        respond(ex, 200, "application/json", "{\"stopping\":true}");
+        new Thread(() -> {
+            try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+            System.out.println("[WebDriveController] Stop requested from web interface.");
+            System.exit(0);
+        }, "web-stop").start();
     }
 
     private void handleControl(HttpExchange ex) throws IOException {

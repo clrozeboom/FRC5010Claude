@@ -5,6 +5,8 @@ import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
@@ -58,8 +60,14 @@ public class DemoIntake {
   // blueHubPose / redHubPose: Translation3d(x, y, 1.5748) — Z = 62" scoring height
   private static final Translation3d BLUE_HUB_3D = new Translation3d(4.5974, 4.034536, 1.5748);
   private static final Translation3d RED_HUB_3D  = new Translation3d(11.938, 4.034536, 1.5748);
-  private static final Translation2d BLUE_HUB_2D = new Translation2d(4.5974, 4.034536);
-  private static final Translation2d RED_HUB_2D  = new Translation2d(11.938, 4.034536);
+
+  // ---- alliance zone boundaries and accumulation targets ----
+  // Zone extends from each alliance wall to X = 3.952 m inward (trench/hub wall line).
+  private static final double ZONE_DEPTH_M  = 3.952;
+  private static final double FIELD_WIDTH_M = 16.540988;
+  // When out of zone, aim for the centre of the alliance's zone so fuel accumulates there.
+  private static final Translation3d BLUE_ZONE_TARGET = new Translation3d(ZONE_DEPTH_M / 2, 4.035, 0.1);
+  private static final Translation3d RED_ZONE_TARGET  = new Translation3d(FIELD_WIDTH_M - ZONE_DEPTH_M / 2, 4.035, 0.1);
 
   private final WebDriveController wdc;
   private boolean intakeExtended = false;
@@ -125,39 +133,47 @@ public class DemoIntake {
 
     double launchSpeedMps = powerLevel * SPEED_MULTIPLIER;
 
-    // Launch from the robot's front bumper edge in the heading direction.
+    // Determine which alliance hub to use (own alliance, not nearest).
+    boolean isBlue = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue;
+    Translation3d hubTarget = isBlue ? BLUE_HUB_3D : RED_HUB_3D;
+
+    // Check if the robot is inside its alliance zone (can score directly at the hub).
+    double robotX = pose.getX();
+    boolean inZone = isBlue
+        ? robotX < ZONE_DEPTH_M
+        : robotX > FIELD_WIDTH_M - ZONE_DEPTH_M;
+
+    // Launch from the robot's front bumper edge.
     double theta = pose.getRotation().getRadians();
     Translation2d launchPos = new Translation2d(
         pose.getX() + BUMPER_HALF_M * Math.cos(theta),
         pose.getY() + BUMPER_HALF_M * Math.sin(theta));
 
-    // Aim at the nearest hub.
-    Translation2d robot = pose.getTranslation();
-    boolean isBlueTarget = robot.getDistance(BLUE_HUB_2D) < robot.getDistance(RED_HUB_2D);
-    Translation3d hub3d = isBlueTarget ? BLUE_HUB_3D : RED_HUB_3D;
-    double dx = hub3d.getX() - launchPos.getX();
-    double dy = hub3d.getY() - launchPos.getY();
+    // Aim at the hub when in zone; otherwise aim toward the zone accumulation point.
+    Translation3d target3d = inZone ? hubTarget : (isBlue ? BLUE_ZONE_TARGET : RED_ZONE_TARGET);
+    double dx = target3d.getX() - launchPos.getX();
+    double dy = target3d.getY() - launchPos.getY();
     Rotation2d heading = new Rotation2d(dx, dy);
 
-    // Build and configure the projectile with target-hit scoring callback.
     RebuiltFuelOnFly projectile = new RebuiltFuelOnFly(
         launchPos,
-        new Translation2d(),             // zero robot velocity contribution
-        new ChassisSpeeds(),             // zero chassis speeds
+        new Translation2d(),
+        new ChassisSpeeds(),
         heading,
         Meters.of(LAUNCH_HEIGHT_M),
         MetersPerSecond.of(launchSpeedMps),
         Degrees.of(ELEVATION_DEG));
 
-    // Register the hub as the scoring target. The callback fires when the projectile's
-    // computed trajectory intersects the hub tolerance sphere; if it misses, the piece
-    // becomes a collectible ground piece on landing.
-    final AtomicInteger scored = scoredFuelCount;
-    projectile
-        .withTargetPosition(() -> hub3d)
-        .withTargetTolerance(new Translation3d(RebuiltHub.GoalRadius, RebuiltHub.GoalRadius, 0.4))
-        .withHitTargetCallBack(scored::incrementAndGet)
-        .enableBecomesGamePieceOnFieldAfterTouchGround();
+    if (inZone) {
+      // In-zone: register scoring callback — hit the hub = counted as scored.
+      final AtomicInteger scored = scoredFuelCount;
+      projectile
+          .withTargetPosition(() -> hubTarget)
+          .withTargetTolerance(new Translation3d(RebuiltHub.GoalRadius, RebuiltHub.GoalRadius, 0.4))
+          .withHitTargetCallBack(scored::incrementAndGet);
+    }
+    // Always become a ground piece on landing so misses (and out-of-zone shots) are collectible.
+    projectile.enableBecomesGamePieceOnFieldAfterTouchGround();
 
     projectile.launch();
     SimulatedArena.getInstance().addGamePieceProjectile(projectile);
