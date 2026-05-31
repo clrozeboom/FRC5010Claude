@@ -20,7 +20,8 @@ Uses `SimRobotProfile` — small square robot, no real CAN IDs. Intended for lib
 Uses `RealRobotProfile` with your robot's actual `SwerveConstants`. IronMaple runs the physics using your real robot's mass, bumper footprint, and wheel geometry, so the simulation behaves like your actual robot. This is the default when you click **Simulate Robot Code** in VS Code.
 
 ```powershell
-.\gradlew.bat simulateJava              # Windows — default
+.\gradlew.bat simulateJava   # Windows — default
+./gradlew simulateJava        # macOS / Linux / Codespaces
 ```
 
 ### 3. Visual auto-test (`-PvisualTest`)
@@ -28,10 +29,11 @@ Uses `RealRobotProfile` with your robot's actual `SwerveConstants`. IronMaple ru
 Same as scenario 2, but `getAutonomousCommand()` returns the `SwerveVisualTest` sequence: the robot drives forward, strafes, rotates, verifies alliance-direction, and approaches the field boundary. Useful for a quick sanity check after changing constants.
 
 ```powershell
-.\gradlew.bat simulateJava -PvisualTest
+.\gradlew.bat simulateJava -PvisualTest   # Windows
+./gradlew simulateJava -PvisualTest        # macOS / Linux / Codespaces
 ```
 
-Click **Enable** in the **Glass → Driver Station** panel (or enable Autonomous mode) to start the sequence.
+Once Glass opens, find the **Driver Station** panel, set mode to **Autonomous**, and click **Enable** to start the sequence. In Codespaces, use `xvfb-run` and connect AdvantageScope instead — see [Live connection — cloud environment](#live-connection--github-codespaces-or-cloud-environment) below.
 
 ---
 
@@ -39,12 +41,25 @@ Click **Enable** in the **Glass → Driver Station** panel (or enable Autonomous
 
 WPILib publishes all robot state over **NetworkTables 4 on port 5810**. [AdvantageScope](https://github.com/Mechanical-Advantage/AdvantageScope) can connect for a live 3D view.
 
-### Live connection (same LAN or Codespace)
+### Live connection — local machine
 
-1. Start the simulation (see above).
-2. In AdvantageScope: **File → Connect to Robot**, enter your machine's IP and port `5810`.
-   - In a Codespace: copy the forwarded URL for port 5810 from VS Code's **Ports** panel.
-3. Pose, module states, and gyro heading appear in real time.
+1. Start the simulation (see above). Glass opens automatically.
+2. In AdvantageScope: **File → Connect to Robot**, enter `localhost` (or `127.0.0.1`) as the host.
+3. Drag `RealOutputs/Drive/Pose` onto the 3D field view. Pose, module states, and gyro heading appear in real time.
+
+### Live connection — GitHub Codespaces or cloud environment
+
+Glass cannot render a window in a headless environment. To still observe live state:
+
+1. Run the simulation with the visual-test flag so it auto-enables and drives itself:
+   ```bash
+   xvfb-run ./gradlew simulateJava -PvisualTest
+   ```
+2. In VS Code's **Ports** panel, find port **5810** and click the globe icon to get the forwarded URL (it looks like `https://<codespace>-5810.app.github.dev`).
+3. In AdvantageScope on your local laptop: **File → Connect to Robot**, paste the forwarded host (without `https://` — just the hostname portion), port `5810`.
+4. AdvantageScope receives the live NT4 feed and renders the robot in 3D.
+
+> **Enabling without `-PvisualTest`:** Glass publishes a `DriverStation/Enabled` NT4 entry. If you need interactive control, you can set it to `true` via AdvantageScope's **NT4 → Publish** feature or write a short NT4 client. For most development work, `-PvisualTest` is simpler.
 
 ### Log replay (no network required)
 
@@ -56,19 +71,22 @@ AdvantageKit writes a `.wpilog` to the `logs/` directory every run. Share that f
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/clrozeboom/FRC5010Claude)
 
-The `.devcontainer` provides Java 17, Gradle, and all vendordep dependencies pre-downloaded. Port 5810 (NT4) is forwarded automatically.
+The `.devcontainer` provides Java 17, Gradle, and all vendordep dependencies pre-downloaded. Port 5810 (NT4) is forwarded automatically so AdvantageScope on your laptop can connect live.
 
 ```bash
-# Inside the Codespace terminal — headless via xvfb
-xvfb-run ./gradlew simulateJava
+# Inside the Codespace terminal — headless via xvfb (no display required)
+xvfb-run ./gradlew simulateJava -PvisualTest
 ```
 
+The robot auto-enables and runs the visual-test sequence. Connect AdvantageScope on your local machine using the forwarded port 5810 as described in the [Live connection — cloud environment](#live-connection--github-codespaces-or-cloud-environment) section above.
+
 **Works in Codespaces:**
-- Build, test, and headless sim
-- NT4 live connection to AdvantageScope via the forwarded port
+- Build, test, and headless sim with live AdvantageScope connection
+- Log files written to `logs/` and accessible via the VS Code file explorer
 
 **Requires a local machine:**
 - Deploying to a RoboRIO (WPILib VS Code extension + USB or network connection)
+- Glass GUI (the Driver Station and Field2d panels do not render without a display server)
 
 ---
 

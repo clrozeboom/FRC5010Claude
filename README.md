@@ -12,7 +12,7 @@ A clean, AdvantageKit-compatible swerve drive library for FRC teams using WPILib
 - **WPILib units throughout** — all builder fields accept any unit (`Inches`, `Pounds`, `Hertz`, …); the library converts internally.
 - **Robot profile pattern** — swap between a lightweight test robot and your real robot's parameters with a single Gradle flag.
 - **Keyboard drive out of the box** — `SwerveRobotContainer` wires WASD keyboard drive, alliance-aware pose reset, and an automated visual test sequence for free.
-- **48-test pyramid** — unit, subsystem-sim, and physics-integration layers; CI runs on every push.
+- **Multi-layer test pyramid** — unit, subsystem-sim, and physics-integration layers; CI runs on every push.
 
 ---
 

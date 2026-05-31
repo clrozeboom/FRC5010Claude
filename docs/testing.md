@@ -6,26 +6,29 @@ The project uses a four-layer test pyramid. Layers 1–3 are automated and run i
 
 ## Test pyramid
 
-| Layer | What | Factory | IO impl | Count |
-|-------|------|---------|---------|-------|
-| 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest` | — | — | 33 |
-| 2 — subsystem sim | `AkitSwerveDriveTest` | `buildWithoutPhysics()` | `ModuleIOSim` (DCMotorSim) | 8 |
-| 3 — physics integration | `AkitSwerveDriveSimPhysicsTest` | `build()` | `ModuleIOSimPhysics` (IronMaple) | 7 |
-| 4 — visual / interactive | `RobotContainer` visual-test sequence | `build()` | `ModuleIOSimPhysics` | visual |
+| Layer | What | Factory | IO impl |
+|-------|------|---------|---------|
+| 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest` | — | — |
+| 2 — subsystem sim | `AkitSwerveDriveTest`, `VisionSubsystemTest` | `buildWithoutPhysics()` | `ModuleIOSim` (DCMotorSim) |
+| 3 — physics integration | `AkitSwerveDriveSimPhysicsTest`, `VisionSimIntegrationTest` | `build()` | `ModuleIOSimPhysics` (IronMaple) |
+| 4 — visual / interactive | `RobotContainer` visual-test sequence | `build()` | `ModuleIOSimPhysics` |
 
-**Total: 48/48 passing.**
+The CI badge at the top of the README shows the current pass/fail status.
 
 ---
 
 ## Running tests
 
 ```powershell
-# Windows PowerShell — always use this; WSL cannot reach C:\workspace
-cd C:\workspace\FRC5010Claude
+# Windows PowerShell (from the project root)
 .\gradlew.bat test
 
-# Force a re-run even if nothing changed
-.\gradlew.bat cleanTest test
+# macOS / Linux / Codespaces
+./gradlew test
+
+# Force a re-run even if Gradle thinks nothing changed
+.\gradlew.bat cleanTest test   # Windows
+./gradlew cleanTest test        # macOS / Linux
 ```
 
 HTML report: `build/reports/tests/test/index.html`
@@ -159,7 +162,7 @@ After any change to `src/main/java/org/frc5010/common/`:
 .\gradlew.bat test
 ```
 
-All 48 tests must pass before committing. If a test fails, diagnose the failure in the HTML report (`build/reports/tests/test/index.html`) before proceeding. Never disable or weaken an assertion to make a test pass — fix the root cause.
+All tests must pass before committing. If a test fails, diagnose the failure in the HTML report (`build/reports/tests/test/index.html`) before proceeding. Never disable or weaken an assertion to make a test pass — fix the root cause.
 
 To force a full re-run even if Gradle thinks nothing changed:
 
