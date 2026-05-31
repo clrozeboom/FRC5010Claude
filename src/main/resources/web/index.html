@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>FRC5010 Robot Control</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    display: flex; flex-direction: column; height: 100dvh;
+    background: #111; color: #eee; font-family: monospace; overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* ---- field area (canvas + sidebar) ---- */
+  /* The field is portrait (aspect ~0.50), so in a landscape window it is
+     pillar-boxed with dark bars on both sides. The sidebar is overlaid on the
+     left bar (absolute, out of flow) so the canvas spans the FULL window width
+     and the field centres in the window — not in a canvas shrunk by the sidebar. */
+  #field-area {
+    flex: 1; min-height: 0; position: relative;
+  }
+  #field-sidebar {
+    position: absolute; left: 0; top: 0; bottom: 0; z-index: 2;
+    width: 60px; background: rgba(20,20,20,0.6);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 16px;
+    pointer-events: none;
+  }
+  .stat-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stat-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 20px; font-weight: bold; }
+  #held-count   { color: rgba(245,210,40,0.95); }
+  #scored-count { color: rgba(100,230,100,0.95); }
+  #field-canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---- controls row ---- */
+  #controls {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px; height: 200px; gap: 6px; flex-shrink: 0;
+  }
+
+  /* ---- thumbsticks ---- */
+  .stick-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+  .stick-label { font-size: 11px; color: #888; }
+  .stick-base {
+    position: relative; border-radius: 50%; background: #2a2a2a;
+    border: 2px solid #444; width: 120px; height: 120px; touch-action: none;
+    flex-shrink: 0;
+  }
+  .stick-knob {
+    position: absolute; border-radius: 50%; background: #666; border: 2px solid #999;
+    width: 46px; height: 46px; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); pointer-events: none;
+    transition: background 0.1s;
+  }
+  .stick-base.active .stick-knob { background: #aaa; }
+
+  /* ---- center panel ---- */
+  #center-panel {
+    display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1;
+    min-width: 0; overflow: hidden;
+  }
+
+  /* alliance selector */
+  #alliance-row { display: flex; gap: 6px; }
+  .alliance-btn {
+    padding: 7px 14px; border: 2px solid #555; border-radius: 6px;
+    background: #222; color: #aaa; cursor: pointer; font-size: 14px; font-weight: bold;
+    transition: all 0.15s; user-select: none;
+  }
+  .alliance-btn.active-blue { background: #003080; border-color: #5599ff; color: #fff; }
+  .alliance-btn.active-red  { background: #800000; border-color: #ff4444; color: #fff; }
+
+  /* enable + stop button row */
+  #enable-stop-row { display: flex; gap: 6px; width: 100%; }
+  #enable-btn {
+    flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #555;
+    background: #2a2a2a; color: #aaa; cursor: pointer; font-size: 15px; font-weight: bold;
+    transition: all 0.15s; user-select: none;
+  }
+  #enable-btn.enabled { background: #1a5c1a; border-color: #44cc44; color: #fff; }
+  #stop-btn {
+    padding: 10px 12px; border-radius: 8px; border: 2px solid #cc4400;
+    background: #3a1000; color: #ff8844; cursor: pointer; font-size: 14px; font-weight: bold;
+    user-select: none; transition: all 0.15s;
+  }
+  #stop-btn:active { filter: brightness(1.4); }
+
+  /* game buttons A B X Y LB RB */
+  #btn-row-abxy, #btn-row-bumpers {
+    display: flex; gap: 6px; justify-content: center;
+  }
+  .game-btn {
+    width: 36px; height: 36px; border-radius: 7px; border: 2px solid #555;
+    background: #2a2a2a; color: #ccc; cursor: pointer; font-size: 12px; font-weight: bold;
+    user-select: none; touch-action: none; transition: filter 0.1s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .game-btn:active, .game-btn.held { filter: brightness(1.6); }
+  .btn-a  { background: #1a4a1a; border-color: #44cc44; color: #8f8; }
+  .btn-b  { background: #4a1a1a; border-color: #cc4444; color: #f88; }
+  .btn-x  { background: #1a1a4a; border-color: #4444cc; color: #88f; }
+  .btn-y  { background: #4a3a00; border-color: #ccaa00; color: #ff8; }
+  .btn-lb, .btn-rb { width: 46px; background: #252525; border-color: #666; }
+
+  /* Narrow phones: shrink sticks further so they never overlap the buttons. */
+  @media (max-width: 460px) {
+    .stick-base { width: 96px; height: 96px; }
+    .stick-knob { width: 38px; height: 38px; }
+    .game-btn   { width: 32px; height: 32px; font-size: 11px; }
+    .btn-lb, .btn-rb { width: 40px; }
+    #controls   { height: 180px; gap: 4px; padding: 6px; }
+  }
+
+  /* status bar */
+  #status {
+    padding: 4px 10px; background: #1a1a1a; font-size: 12px; color: #888;
+    border-top: 1px solid #2a2a2a; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; flex-shrink: 0;
+  }
+  #status .ok  { color: #44cc44; }
+  #status .bad { color: #cc4444; }
+</style>
+</head>
+<body>
+<div id="field-area">
+  <div id="field-sidebar">
+    <div class="stat-item">
+      <div class="stat-label">Held</div>
+      <div id="held-count" class="stat-value">0</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Scored</div>
+      <div id="scored-count" class="stat-value">0</div>
+    </div>
+  </div>
+  <canvas id="field-canvas"></canvas>
+</div>
+
+<div id="controls">
+  <div class="stick-wrap">
+    <div class="stick-base" id="left-base"><div class="stick-knob" id="left-knob"></div></div>
+    <span class="stick-label">Translate</span>
+  </div>
+
+  <div id="center-panel">
+    <div id="alliance-row">
+      <button class="alliance-btn active-blue" id="btn-blue" onclick="selectAlliance('Blue')">Blue</button>
+      <button class="alliance-btn"             id="btn-red"  onclick="selectAlliance('Red')">Red</button>
+    </div>
+    <div id="enable-stop-row">
+      <button id="enable-btn" onclick="toggleEnable()">ENABLE</button>
+      <button id="stop-btn"   onclick="stopRobot()">STOP</button>
+    </div>
+    <div id="btn-row-abxy">
+      <div class="game-btn btn-a"  data-idx="0">A</div>
+      <div class="game-btn btn-b"  data-idx="1">B</div>
+      <div class="game-btn btn-x"  data-idx="2">X</div>
+      <div class="game-btn btn-y"  data-idx="3">Y</div>
+    </div>
+    <div id="btn-row-bumpers">
+      <div class="game-btn btn-lb" data-idx="4">LB</div>
+      <div class="game-btn btn-rb" data-idx="5">RB</div>
+    </div>
+  </div>
+
+  <div class="stick-wrap">
+    <div class="stick-base" id="right-base"><div class="stick-knob" id="right-knob"></div></div>
+    <span class="stick-label">Rotate</span>
+  </div>
+</div>
+
+<div id="status">Connecting…</div>
+
+<script>
+'use strict';
+
+// ---- State ----
+const state = {
+  x: 0, y: 0, headingRad: 0,
+  maxLinear: 4.5, maxAngular: 6.283,
+  fieldWidth: 16.540988, fieldHeight: 8.21,
+  enabled: false, alliance: 'Blue', connected: false,
+  heldFuel: 0, intakeExtended: false, scoredFuel: 0
+};
+
+let leftX = 0, leftY = 0, rightX = 0;
+const buttonHeld = [false, false, false, false, false, false];
+const keys = {};
+let gamePieces = [];        // [{x, y}] grounded Fuel — from /api/gamepieces
+let flyingPieces = [];     // [{x, y}] in-flight Fuel projectiles
+
+// ---- Keyboard ----
+document.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+document.addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
+
+function keyboardInputs() {
+  const vx    = (keys['w'] ? 1 : 0) - (keys['s'] ? 1 : 0)
+              + (keys['arrowup'] ? 1 : 0) - (keys['arrowdown'] ? 1 : 0);
+  const vy    = (keys['a'] ? 1 : 0) - (keys['d'] ? 1 : 0);
+  const omega = (keys['q'] ? 1 : 0) - (keys['e'] ? 1 : 0)
+              + (keys['arrowleft'] ? 1 : 0) - (keys['arrowright'] ? 1 : 0);
+  return { vx: Math.max(-1, Math.min(1, vx)),
+           vy: Math.max(-1, Math.min(1, vy)),
+           omega: Math.max(-1, Math.min(1, omega)) };
+}
+
+// ---- Thumbsticks (Pointer Events) ----
+function setupStick(baseId, knobId, onUpdate) {
+  const base = document.getElementById(baseId);
+  const knob = document.getElementById(knobId);
+  let active = false;
+
+  function update(e) {
+    const r = base.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top  + r.height / 2;
+    const radius = r.width / 2;
+    let dx = (e.clientX - cx) / radius;
+    let dy = (e.clientY - cy) / radius;
+    const mag = Math.sqrt(dx * dx + dy * dy);
+    if (mag > 1) { dx /= mag; dy /= mag; }
+    const DEAD = 0.05;
+    if (mag < DEAD) { dx = 0; dy = 0; }
+    onUpdate(dx, dy);
+    knob.style.left = (50 + dx * 44) + '%';
+    knob.style.top  = (50 + dy * 44) + '%';
+  }
+
+  function reset() {
+    onUpdate(0, 0);
+    knob.style.left = '50%';
+    knob.style.top  = '50%';
+    base.classList.remove('active');
+  }
+
+  base.addEventListener('pointerdown', e => {
+    active = true; base.setPointerCapture(e.pointerId);
+    base.classList.add('active'); update(e);
+  });
+  base.addEventListener('pointermove',  e => { if (active) update(e); });
+  base.addEventListener('pointerup',    () => { active = false; reset(); });
+  base.addEventListener('pointercancel',() => { active = false; reset(); });
+}
+
+setupStick('left-base',  'left-knob',  (dx, dy) => { leftX =  dx; leftY = dy; });
+setupStick('right-base', 'right-knob', (dx, dy) => { rightX = dx; });
+
+// ---- Game buttons ----
+document.querySelectorAll('.game-btn').forEach(btn => {
+  const idx = parseInt(btn.dataset.idx);
+  btn.addEventListener('pointerdown',  e => { btn.setPointerCapture(e.pointerId); buttonHeld[idx] = true;  btn.classList.add('held'); });
+  btn.addEventListener('pointerup',    () => { buttonHeld[idx] = false; btn.classList.remove('held'); });
+  btn.addEventListener('pointercancel',() => { buttonHeld[idx] = false; btn.classList.remove('held'); });
+});
+
+// ---- Alliance & Enable ----
+let currentAlliance = 'Blue';
+let currentEnabled  = false;
+let hasInitialized  = false;
+
+// Called once on first successful /api/state response to seed UI from server state.
+function initFromState(s) {
+  if (hasInitialized) return;
+  hasInitialized = true;
+  currentAlliance = s.alliance || 'Blue';
+  currentEnabled  = s.enabled  || false;
+  updateAllianceBtns();
+  updateEnableBtn();
+}
+
+function selectAlliance(a) {
+  currentAlliance = a;
+  updateAllianceBtns();
+  // Send only alliance — no enabled field, so the backend won't touch DriverStation enabled state.
+  fetch('/api/control', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ alliance: currentAlliance })
+  }).catch(() => {});
+}
+
+function toggleEnable() {
+  currentEnabled = !currentEnabled;
+  updateEnableBtn();
+  // Send only enabled — no alliance field, so the backend won't call resetToAllianceStart().
+  fetch('/api/control', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ enabled: currentEnabled })
+  }).catch(() => {});
+}
+
+function updateAllianceBtns() {
+  const a = currentAlliance;
+  document.getElementById('btn-blue').className = 'alliance-btn' + (a === 'Blue' ? ' active-blue' : '');
+  document.getElementById('btn-red').className  = 'alliance-btn' + (a === 'Red'  ? ' active-red'  : '');
+}
+
+function updateEnableBtn() {
+  const btn = document.getElementById('enable-btn');
+  btn.textContent = currentEnabled ? 'DISABLE' : 'ENABLE';
+  btn.className = currentEnabled ? 'enabled' : '';
+}
+
+function stopRobot() {
+  if (!confirm('Stop the simulation? This will end the Gradle process.')) return;
+  fetch('/api/stop', { method: 'POST' }).catch(() => {});
+}
+
+function updateSidebar() {
+  document.getElementById('held-count').textContent   = state.heldFuel;
+  document.getElementById('scored-count').textContent = state.scoredFuel;
+}
+
+// ---- Field Canvas rendering ----
+const canvas = document.getElementById('field-canvas');
+
+function fieldToCanvas(W, H) {
+  const { x, y, headingRad, fieldWidth, fieldHeight, alliance } = state;
+  let cx, cy, canvasAngle;
+  if (alliance === 'Red') {
+    cx = (y / fieldHeight) * W;
+    cy = (x / fieldWidth)  * H;
+    canvasAngle = -headingRad + Math.PI / 2;
+  } else {
+    cx = (1 - y / fieldHeight) * W;
+    cy = H - (x / fieldWidth) * H;
+    canvasAngle = -headingRad - Math.PI / 2;
+  }
+  return { cx, cy, canvasAngle };
+}
+
+// Convert any field point (metres) to canvas pixel coords for current alliance view.
+function fieldPt(fx, fy, W, H) {
+  const { fieldWidth, fieldHeight, alliance } = state;
+  if (alliance === 'Red') return { cx: (fy / fieldHeight) * W, cy: (fx / fieldWidth) * H };
+  return { cx: (1 - fy / fieldHeight) * W, cy: H - (fx / fieldWidth) * H };
+}
+
+// Convert a field angle (CCW from +X, radians) to a canvas rotation angle.
+function fieldAngle(rad) {
+  return state.alliance === 'Red' ? -rad + Math.PI / 2 : -rad - Math.PI / 2;
+}
+
+// Average pixels-per-metre scale (used for label sizing only).
+function mToPx(m, W, H) {
+  return m * (W / state.fieldHeight + H / state.fieldWidth) / 2;
+}
+
+// Draw a field-axis-aligned rectangle (rotation 0 in field frame) by mapping its
+// four corners through fieldPt — correct for both alliance views automatically.
+function fieldRect(ctx, fx, fy, dx, dy, W, H, fill, stroke) {
+  const c = [
+    fieldPt(fx - dx / 2, fy - dy / 2, W, H),
+    fieldPt(fx + dx / 2, fy - dy / 2, W, H),
+    fieldPt(fx + dx / 2, fy + dy / 2, W, H),
+    fieldPt(fx - dx / 2, fy + dy / 2, W, H),
+  ];
+  ctx.beginPath();
+  ctx.moveTo(c[0].cx, c[0].cy);
+  for (let i = 1; i < 4; i++) ctx.lineTo(c[i].cx, c[i].cy);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+function fieldLabel(ctx, fx, fy, text, px, W, H) {
+  const { cx, cy } = fieldPt(fx, fy, W, H);
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${px}px monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, cx, cy);
+}
+
+// Draw a regular flat-top hexagon (radius R metres) centred at a field point.
+function fieldHexagon(ctx, fx, fy, R, W, H, fill, stroke) {
+  const pts = [];
+  for (let k = 0; k < 6; k++) {
+    const a = Math.PI / 6 + k * Math.PI / 3;
+    pts.push(fieldPt(fx + R * Math.cos(a), fy + R * Math.sin(a), W, H));
+  }
+  ctx.beginPath();
+  ctx.moveTo(pts[0].cx, pts[0].cy);
+  for (let i = 1; i < 6; i++) ctx.lineTo(pts[i].cx, pts[i].cy);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+// ---- Arena2026Rebuilt obstacle geometry (decoded from IronMaple YAGSL bytecode) ----
+// All obstacles are axis-aligned (Rotation2d.kZero) in the WPILib field frame.
+// SimulatedArena.getInstance() builds Arena2026Rebuilt(false), so the ACTIVE
+// collision bodies are:
+//   Hub    (RebuiltHub.blue/redHubPose): 47"×47" = 1.19m square; the 217" "bump"
+//          variant only exists in the Arena2026Rebuilt(true) branch, which is unused.
+//   Trench (anonymous): 53"×12" = 1.35m×0.30m bars at the four corners around centre.
+//   Tower  (anonymous, near each alliance wall): 2"×47" = 0.05m×1.19m thin walls.
+// GoalRadius (0.5969m) is the circular scoring target, inscribed in the 47" square.
+// NOTE: the library has a copy-paste bug — the 4th trench was duplicated at the
+// blue-near corner instead of the red-far corner (11.915,6.639). Arena2026Patch
+// (applied in SwerveFactory) injects the missing red-far body into the physics
+// world, so all four bars drawn here now match the actual collision bodies.
+function drawObstacles(ctx, W, H) {
+  const M = 0.0254;  // inches → metres
+
+  const hubs = [
+    { fx: 4.5974, fy: 4.0345, team: 'Blue' },
+    { fx: 11.938, fy: 4.0345, team: 'Red'  },
+  ];
+
+  // ---- Hub structure band (47"×217") spanning between the two trenches ----
+  // The raised alliance structure that links the hub to its trench bars. Drawn
+  // faintly first so the hub and bars sit on top. (Cosmetic — not a collision body.)
+  const bandW = 47 * M, bandH = 217 * M;
+  for (const h of hubs) {
+    const band = h.team === 'Blue' ? 'rgba(0,50,180,0.18)' : 'rgba(180,0,0,0.18)';
+    fieldRect(ctx, h.fx, h.fy, bandW, bandH, W, H, band, 'rgba(255,255,255,0.10)');
+  }
+
+  // ---- Trench bars (53"×12") at the four corners around field centre (8.27, 4.035) ----
+  // offsetX = (120+23.5)" = 3.6449m ; offsetY = (73+23.5+6)" = 2.6035m
+  const trW = 53 * M, trH = 12 * M;
+  const trenches = [
+    { fx: 4.6251,  fy: 1.4315 },  // blue-near
+    { fx: 11.9149, fy: 1.4315 },  // red-near
+    { fx: 4.6251,  fy: 6.6385 },  // blue-far
+    { fx: 11.9149, fy: 6.6385 },  // red-far (library bug duplicates blue-near here)
+  ];
+  for (const t of trenches) {
+    fieldRect(ctx, t.fx, t.fy, trW, trH, W, H, 'rgba(58,62,72,0.95)', '#c4c8d4');
+  }
+  fieldLabel(ctx, trenches[0].fx, trenches[0].fy, 'Trench',
+      Math.max(8, Math.round(mToPx(0.22, W, H))), W, H);
+
+  // ---- Hubs: hexagonal structure (47" footprint) + circular scoring target ----
+  // Collision body is the 47" square; the hexagon is the visual hub shape.
+  const hubR = 0.65;          // hexagon circumradius (≈ 47" half-diagonal), metres
+  const goalRadius = 0.5969;  // RebuiltHub.GoalRadius — scoring circle, metres
+  for (const h of hubs) {
+    const fill   = h.team === 'Blue' ? 'rgba(0,50,180,0.55)' : 'rgba(180,0,0,0.55)';
+    const stroke = h.team === 'Blue' ? '#88aaff' : '#ff8888';
+    fieldHexagon(ctx, h.fx, h.fy, hubR, W, H, fill, stroke);
+    const { cx, cy } = fieldPt(h.fx, h.fy, W, H);
+    const rPx = mToPx(goalRadius, W, H);
+    ctx.beginPath();
+    ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,255,255,0.20)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.80)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    fieldLabel(ctx, h.fx, h.fy, 'Hub', Math.max(10, Math.round(mToPx(0.30, W, H))), W, H);
+  }
+
+  // ---- Tower walls (2"×47", near each alliance wall) ----
+  const twW = 2 * M, twH = 47 * M;
+  const towers = [
+    { fx: 1.0668,  fy: 4.0386 },
+    { fx: 15.4686, fy: 4.318  },
+  ];
+  for (const t of towers) {
+    fieldRect(ctx, t.fx, t.fy, twW, twH, W, H, 'rgba(58,62,72,0.95)', '#c4c8d4');
+    fieldLabel(ctx, t.fx, t.fy, 'Tower', Math.max(8, Math.round(mToPx(0.2, W, H))), W, H);
+  }
+}
+
+// ---- AprilTags (2026 Rebuilt Welded layout, from WPILib apriltag-java 2026.2.1) ----
+// fx,fy in metres (WPILib field frame); yaw = tag facing direction (CCW from +X).
+const aprilTags = [
+  {id: 1, fx:11.878, fy:7.425, yaw:3.1416},
+  {id: 2, fx:11.915, fy:4.638, yaw:1.5708},
+  {id: 3, fx:11.312, fy:4.390, yaw:3.1416},
+  {id: 4, fx:11.312, fy:4.035, yaw:3.1416},
+  {id: 5, fx:11.915, fy:3.431, yaw:-1.5708},
+  {id: 6, fx:11.878, fy:0.644, yaw:3.1416},
+  {id: 7, fx:11.953, fy:0.644, yaw:0.0000},
+  {id: 8, fx:12.271, fy:3.431, yaw:-1.5708},
+  {id: 9, fx:12.519, fy:3.679, yaw:0.0000},
+  {id:10, fx:12.519, fy:4.035, yaw:0.0000},
+  {id:11, fx:12.271, fy:4.638, yaw:1.5708},
+  {id:12, fx:11.953, fy:7.425, yaw:0.0000},
+  {id:13, fx:16.533, fy:7.403, yaw:3.1416},
+  {id:14, fx:16.533, fy:6.972, yaw:3.1416},
+  {id:15, fx:16.533, fy:4.324, yaw:3.1416},
+  {id:16, fx:16.533, fy:3.892, yaw:3.1416},
+  {id:17, fx:4.663,  fy:0.644, yaw:0.0000},
+  {id:18, fx:4.626,  fy:3.431, yaw:-1.5708},
+  {id:19, fx:5.229,  fy:3.679, yaw:0.0000},
+  {id:20, fx:5.229,  fy:4.035, yaw:0.0000},
+  {id:21, fx:4.626,  fy:4.638, yaw:1.5708},
+  {id:22, fx:4.663,  fy:7.425, yaw:0.0000},
+  {id:23, fx:4.588,  fy:7.425, yaw:3.1416},
+  {id:24, fx:4.270,  fy:4.638, yaw:1.5708},
+  {id:25, fx:4.022,  fy:4.390, yaw:3.1416},
+  {id:26, fx:4.022,  fy:4.035, yaw:3.1416},
+  {id:27, fx:4.270,  fy:3.431, yaw:-1.5708},
+  {id:28, fx:4.588,  fy:0.644, yaw:3.1416},
+  {id:29, fx:0.008,  fy:0.666, yaw:0.0000},
+  {id:30, fx:0.008,  fy:1.098, yaw:0.0000},
+  {id:31, fx:0.008,  fy:3.746, yaw:0.0000},
+  {id:32, fx:0.008,  fy:4.178, yaw:0.0000},
+];
+const tagImages = {};
+for (const t of aprilTags) {
+  const img = new Image();
+  img.src = '/tags/AT' + t.id + '.png';
+  tagImages[t.id] = img;
+}
+
+// Draw each AprilTag as a screen-aligned fiducial billboard with a facing-direction
+// tick and its ID. Top-down a tag is edge-on, so we billboard the image for legibility
+// and use the tick to convey which way it faces.
+function drawAprilTags(ctx, W, H) {
+  const sz = Math.max(13, mToPx(0.32, W, H));
+  for (const t of aprilTags) {
+    const { cx, cy } = fieldPt(t.fx, t.fy, W, H);
+    const a = fieldAngle(t.yaw);
+
+    // Facing tick (rotated to the tag's heading)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(a);
+    ctx.strokeStyle = 'rgba(0,230,170,0.95)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -sz * 0.85); ctx.stroke();
+    ctx.restore();
+
+    // Fiducial billboard (screen-aligned) + ID label
+    ctx.save();
+    ctx.translate(cx, cy);
+    const img = tagImages[t.id];
+    if (img && img.complete && img.naturalWidth) {
+      ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
+    } else {
+      ctx.fillStyle = '#000'; ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+    }
+    ctx.strokeStyle = 'rgba(0,230,170,0.95)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz / 2, -sz / 2, sz, sz);
+    ctx.fillStyle = '#0fc';
+    ctx.font = `bold ${Math.max(8, Math.round(sz * 0.5))}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(t.id, 0, sz / 2 + 1);
+    ctx.restore();
+  }
+}
+
+// Draw grounded Fuel pieces and in-flight projectiles.
+function drawGamePieces(ctx, W, H) {
+  const rPx = Math.max(4, mToPx(0.075, W, H));
+
+  // Grounded pieces — solid yellow disc
+  ctx.strokeStyle = 'rgba(120,90,0,0.8)';
+  ctx.lineWidth = 1;
+  for (const p of gamePieces) {
+    const { cx, cy } = fieldPt(p.x, p.y, W, H);
+    ctx.beginPath();
+    ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(245,210,40,0.95)';
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Flying projectiles — smaller, brighter, white-ringed disc
+  const rFly = Math.max(3, mToPx(0.055, W, H));
+  for (const p of flyingPieces) {
+    const { cx, cy } = fieldPt(p.x, p.y, W, H);
+    ctx.beginPath();
+    ctx.arc(cx, cy, rFly, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,230,80,1.0)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,200,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+function drawField() {
+  const ctx = canvas.getContext('2d');
+  const cw = canvas.width  = canvas.clientWidth;
+  const ch = canvas.height = canvas.clientHeight;
+  if (cw < 1 || ch < 1) return;
+
+  // ---- Preserve the field's TRUE aspect ratio (no horizontal stretch) ----
+  // The view is portrait: canvas width maps to the field's short Y-axis
+  // (fieldHeight m) and canvas height maps to the long X-axis (fieldWidth m).
+  // Target backing-store aspect W/H = fieldHeight/fieldWidth (< 1). Fit that
+  // rectangle inside the available element box and letterbox the remainder.
+  const aspect = state.fieldHeight / state.fieldWidth;
+  let W, H, offX, offY;
+  if (cw / ch > aspect) {           // element is wider than the field → pillar-box
+    H = ch; W = Math.round(ch * aspect);
+    offX = Math.round((cw - W) / 2); offY = 0;
+  } else {                          // element is taller than the field → letter-box
+    W = cw; H = Math.round(cw / aspect);
+    offX = 0; offY = Math.round((ch - H) / 2);
+  }
+
+  // Dark fill behind the letterbox bars (matches the page background).
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Everything below draws in field-render space (W×H), offset into the element.
+  ctx.save();
+  ctx.translate(offX, offY);
+
+  // Background — field-floor grey (matches the game render)
+  ctx.fillStyle = '#6a6a6d';
+  ctx.fillRect(0, 0, W, H);
+
+  const { alliance } = state;
+  const isRed = alliance === 'Red';
+
+  // Alliance zones end at the trench/hub wall-side line: X = 4.6251 - 53"/2 = 3.952 m
+  // from each alliance wall (symmetric), i.e. ~23.9 % of the field length inward.
+  const zoneFrac = 3.952 / state.fieldWidth;
+  const ownClr = isRed ? 'rgba(180,0,0,0.30)'  : 'rgba(0,60,200,0.30)';
+  const oppClr = isRed ? 'rgba(0,60,200,0.30)' : 'rgba(180,0,0,0.30)';
+  ctx.fillStyle = ownClr; ctx.fillRect(0, H * (1 - zoneFrac), W, H * zoneFrac);
+  ctx.fillStyle = oppClr; ctx.fillRect(0, 0,                   W, H * zoneFrac);
+
+  // Fine zone-boundary lines (the trench/hub bottom line, across the whole field)
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, H * (1 - zoneFrac)); ctx.lineTo(W, H * (1 - zoneFrac)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, H * zoneFrac);       ctx.lineTo(W, H * zoneFrac);       ctx.stroke();
+
+  // White centre line
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+
+  // ---- Arena2026Rebuilt obstacles ----
+  drawObstacles(ctx, W, H);
+
+  // ---- AprilTags ----
+  drawAprilTags(ctx, W, H);
+
+  // ---- Game pieces (Fuel) — drawn after obstacles so they sit on top ----
+  drawGamePieces(ctx, W, H);
+
+  // Magenta field perimeter (the field wall / barrier), drawn on top.
+  ctx.strokeStyle = '#d838c8'; ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, W - 4, H - 4);
+
+  // ---- Robot ----
+  const { cx, cy, canvasAngle } = fieldToCanvas(W, H);
+  const robotPx = (0.76 / state.fieldHeight) * W;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(canvasAngle);
+
+  // Intake arm — drawn first so it appears behind the robot body.
+  // The arm extends from the front bumper edge outward by 12" (0.305 m).
+  if (state.intakeExtended) {
+    const intakeLenPx = mToPx(0.305, W, H);
+    const intakeWPx   = robotPx * 0.55;
+    ctx.fillStyle   = 'rgba(50,220,80,0.75)';
+    ctx.strokeStyle = 'rgba(80,255,80,0.95)';
+    ctx.lineWidth   = 1.5;
+    ctx.fillRect(-intakeWPx / 2, -robotPx / 2 - intakeLenPx, intakeWPx, intakeLenPx);
+    ctx.strokeRect(-intakeWPx / 2, -robotPx / 2 - intakeLenPx, intakeWPx, intakeLenPx);
+  }
+
+  // Robot body
+  ctx.fillStyle = state.connected ? (isRed ? '#aa2222' : '#2244aa') : '#555';
+  ctx.fillRect(-robotPx / 2, -robotPx / 2, robotPx, robotPx);
+
+  // Heading indicator — small light-green arrow inside the robot body,
+  // pointing toward the front (up in local frame = heading direction).
+  ctx.fillStyle = '#90ee90';
+  const aw = robotPx * 0.20;
+  ctx.beginPath();
+  ctx.moveTo(0,         -robotPx * 0.30);  // tip (near front edge)
+  ctx.lineTo( aw,        robotPx * 0.15);  // back-right
+  ctx.lineTo(-aw,        robotPx * 0.15);  // back-left
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+
+  ctx.restore();   // field-render offset (letterbox)
+}
+
+// ---- Communication loop (50 ms) ----
+setInterval(async () => {
+  const kb = keyboardInputs();
+  const vx    = kb.vx    || -leftY;
+  const vy    = kb.vy    || -leftX;   // screen-right = field-right = -Y in WPILib
+  const omega = kb.omega || -rightX;  // screen-right = CW = negative omega in WPILib
+
+  // Fetch game piece positions (fire-and-forget; drawn on next frame)
+  fetch('/api/gamepieces').then(r => r.json()).then(d => {
+    gamePieces   = (d.pieces  || []).map(p => ({ x: p[0], y: p[1] }));
+    flyingPieces = (d.flying  || []).map(p => ({ x: p[0], y: p[1] }));
+  }).catch(() => {});
+
+  // POST drive command (fire-and-forget)
+  fetch('/api/drive', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ vx, vy, omega, buttons: [...buttonHeld] })
+  }).catch(() => {});
+
+  // GET robot state
+  try {
+    const resp = await fetch('/api/state');
+    const s = await resp.json();
+    Object.assign(state, s);
+    initFromState(s);
+    updateSidebar();
+    updateStatus(vx, vy, omega);
+    drawField();
+  } catch (e) {
+    state.connected = false;
+    updateStatus(0, 0, 0);
+    drawField();
+  }
+}, 50);
+
+// ---- Status bar ----
+function updateStatus(vx, vy, omega) {
+  const el = document.getElementById('status');
+  const connEl = state.connected
+    ? '<span class="ok">● Connected</span>'
+    : '<span class="bad">● Disconnected</span>';
+  const vxMs    = (vx    * state.maxLinear).toFixed(1);
+  const vyMs    = (vy    * state.maxLinear).toFixed(1);
+  const omgRps  = (omega * state.maxAngular).toFixed(2);
+  const hdgDeg  = (state.headingRad * 180 / Math.PI).toFixed(1);
+  el.innerHTML = `${connEl} &nbsp;|&nbsp; `
+    + `x=${state.x.toFixed(2)} y=${state.y.toFixed(2)} hdg=${hdgDeg}° &nbsp;|&nbsp; `
+    + `vx=${vxMs} vy=${vyMs} ω=${omgRps}`;
+}
+
+// Initial render
+drawField();
+window.addEventListener('resize', drawField);
+</script>
+</body>
+</html>

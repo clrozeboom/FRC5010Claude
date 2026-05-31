@@ -118,6 +118,10 @@ public class SwerveFactory {
     SwerveDriveSimulation swerveDriveSim =
         new SwerveDriveSimulation(simConfig, initialPose);
     SimulatedArena.getInstance().addDriveTrainSimulation(swerveDriveSim);
+    // Restore the red-far TRENCH obstacle that Arena2026Rebuilt omits (see Arena2026Patch).
+    Arena2026Patch.applyMissingRedFarTrench();
+    // Seed 25 curated Fuel pieces instead of the default 360-piece grid.
+    GamePieceSpawner.spawnInitialFuel();
 
     GyroIO gyro = new GyroIOSimPhysics(swerveDriveSim.getGyroSimulation());
 

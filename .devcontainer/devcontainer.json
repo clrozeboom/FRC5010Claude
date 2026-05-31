@@ -16,10 +16,10 @@
         "redhat.java",
         "vscjava.vscode-java-pack",
         // Gradle build file support
-        "vscjava.vscode-gradle",
-        // WPILib (project tools, syntax highlighting; deploy button needs a
-        // local WPILib install on the actual laptop, not the container)
-        "wpilibsuite.vscode-wpilib"
+        "vscjava.vscode-gradle"
+        // Note: wpilibsuite.vscode-wpilib is NOT installable from the VS Code
+        // Marketplace — WPILib blocks it. Use the WPILib Installer on your local
+        // laptop instead.
       ],
       "settings": {
         "java.compile.nullAnalysis.mode": "disabled",
@@ -37,8 +37,8 @@
       "onAutoForward": "notify"
     },
     "5800": {
-      "label": "NetworkTables web dashboard",
-      "onAutoForward": "silent"
+      "label": "Robot web interface (field + controller)",
+      "onAutoForward": "openBrowser"
     },
     "1735": {
       "label": "NT3 legacy",
