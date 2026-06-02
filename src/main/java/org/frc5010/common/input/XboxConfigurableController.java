@@ -2,6 +2,7 @@ package org.frc5010.common.input;
 
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import java.util.function.BooleanSupplier;
 
 /**
  * A {@link ConfigurableController} pre-mapped for a standard Xbox controller,
@@ -23,6 +24,23 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  */
 public class XboxConfigurableController extends ConfigurableController {
 
+  // Maps WPILib 1-based button index → 0-based web UI button index; -1 = no web equivalent.
+  private static final int[] WPILIB_TO_WEB = {
+      -1,  // 0: unused
+       0,  // 1: A
+       1,  // 2: B
+       2,  // 3: X
+       3,  // 4: Y
+       4,  // 5: LB
+       5,  // 6: RB
+      -1,  // 7: Back
+      -1,  // 8: Start
+      -1,  // 9: LeftStick
+      -1,  // 10: RightStick
+  };
+
+  private BooleanSupplier[] webInputs = null;
+
   /**
    * Creates an Xbox controller on the specified Driver Station port.
    *
@@ -30,6 +48,34 @@ public class XboxConfigurableController extends ConfigurableController {
    */
   public XboxConfigurableController(int port) {
     super(port);
+  }
+
+  /**
+   * Injects web UI button suppliers so that {@link #button(int)} automatically OR-s the
+   * physical button with its web equivalent. Called by
+   * {@link org.frc5010.common.profiles.SwerveRobotContainer} after the web controller starts.
+   * Pass {@code null} to disable web OR-ing (e.g., on real hardware).
+   */
+  public void setWebInputs(BooleanSupplier[] inputs) {
+    this.webInputs = inputs;
+  }
+
+  /**
+   * Returns a {@link Trigger} for button {@code index}. When web inputs have been injected
+   * via {@link #setWebInputs} and {@code index} maps to a web UI button, the returned trigger
+   * automatically OR-s the physical button with the corresponding web button. All named
+   * accessors ({@link #a()}, {@link #leftBumper()}, etc.) route through this method.
+   */
+  @Override
+  public Trigger button(int index) {
+    Trigger physical = super.button(index);
+    if (webInputs != null && index >= 1 && index < WPILIB_TO_WEB.length) {
+      int webIdx = WPILIB_TO_WEB[index];
+      if (webIdx >= 0 && webIdx < webInputs.length) {
+        return physical.or(new Trigger(webInputs[webIdx]));
+      }
+    }
+    return physical;
   }
 
   // ---- Enum-based accessors ----

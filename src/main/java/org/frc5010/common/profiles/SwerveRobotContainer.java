@@ -17,8 +17,8 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
-import org.frc5010.common.input.ConfigurableController;
 import org.frc5010.common.input.DriveVector;
+import org.frc5010.common.input.XboxConfigurableController;
 import org.frc5010.common.input.JoystickAxis;
 import org.frc5010.common.sim.SwerveVisualTest;
 import org.frc5010.common.sim.WebDriveController;
@@ -64,7 +64,7 @@ public abstract class SwerveRobotContainer {
   //   axis 1 — W(dec) / S(inc)  →  forward/back (W = negative axis)
   //   axis 2 — E(dec) / R(inc)  →  rotation
   /** The primary driver controller. Accessible to subclasses for additional bindings. */
-  protected final ConfigurableController controller;
+  protected final XboxConfigurableController controller;
 
   /** The swerve drive subsystem. Available to subclasses for commands and bindings. */
   protected final AkitSwerveDrive drive;
@@ -128,7 +128,7 @@ public abstract class SwerveRobotContainer {
     this.profile  = profile;
     this.drive    = profile.createDrive();
     this.vision   = profile.createVision(this.drive);
-    this.controller = new ConfigurableController(controllerPort);
+    this.controller = new XboxConfigurableController(controllerPort);
     configureBindings();
   }
 
@@ -156,7 +156,7 @@ public abstract class SwerveRobotContainer {
   protected SwerveRobotContainer(AkitSwerveDrive drive, int controllerPort) {
     this.profile  = null;
     this.drive    = drive;
-    this.controller = new ConfigurableController(controllerPort);
+    this.controller = new XboxConfigurableController(controllerPort);
     configureBindings();
   }
 
@@ -219,6 +219,12 @@ public abstract class SwerveRobotContainer {
     if (RobotBase.isSimulation() && Boolean.getBoolean("webUI")) {
       webController = new WebDriveController(drive);
       webController.start();
+
+      // Inject web button suppliers so controller.leftBumper() / .a() etc. auto-OR
+      // with the corresponding web UI button — no manual || webButton(n) needed.
+      java.util.function.BooleanSupplier[] webBtns = new java.util.function.BooleanSupplier[6];
+      for (int i = 0; i < webBtns.length; i++) webBtns[i] = webController.getButton(i);
+      controller.setWebInputs(webBtns);
 
       // Apply pending enable/alliance changes from the web interface on a command that
       // runs even while the robot is disabled. The drive default command cannot do this:

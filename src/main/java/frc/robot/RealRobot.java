@@ -29,14 +29,13 @@ public class RealRobot extends SwerveRobotContainer {
     super.configureBindings();
     if (!RobotBase.isSimulation()) return;
 
-    // Controller buttons: A=1, LB=5, RB=6 (WPILib XboxController constants).
-    // Web indices (WebDriveController.getButton): A=0, LB=4, RB=5.
-    // OR-ing both sources lets the demo work from Glass keyboard or the web UI.
+    // controller.leftBumper() / .rightBumper() / .a() automatically OR with the
+    // corresponding web UI buttons — no manual webButton() needed.
     demoIntake = new DemoIntake(
         drive::getPose,
-        () -> controller.button(5).getAsBoolean() || webButton(4).getAsBoolean(),
-        () -> controller.button(6).getAsBoolean() || webButton(5).getAsBoolean(),
-        () -> controller.button(1).getAsBoolean() || webButton(0).getAsBoolean());
+        controller.leftBumper(),
+        controller.rightBumper(),
+        controller.a());
 
     if (webController != null) {
       webController.bindDemoState(
