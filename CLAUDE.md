@@ -44,15 +44,17 @@ frc.robot.RobotContainer (concrete — extends SwerveRobotContainer)
 
 ## Test pyramid
 
-| Layer | Class | Factory method | IO impl |
-|-------|-------|----------------|---------|
-| 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest`, `JoystickAxisTest` | — | — |
-| 2 — subsystem sim | `AkitSwerveDriveTest`, `VisionSubsystemTest` | `buildWithoutPhysics()` / stub IO | `ModuleIOSim` / `VisionIO` stub |
-| 3 — physics integration | `AkitSwerveDriveSimPhysicsTest`, `VisionSimIntegrationTest` | `build()` | `ModuleIOSimPhysics` + `VisionIOSim` |
-| 4 — visual / interactive | `RobotContainer` visual-test sequence (6 steps incl. vision correction) | `build()` | `ModuleIOSimPhysics` + `VisionIOSim` |
+| Layer | Short name | Class | Factory method | IO impl |
+|-------|-----------|-------|----------------|---------|
+| 1 | **unit** | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest`, `JoystickAxisTest`, `SelectProfileTest` | — | — |
+| 2 | **subsystem** | `AkitSwerveDriveTest`, `VisionSubsystemTest`, `RobotContainerSmokeTest` | `buildWithoutPhysics()` / stub IO | `ModuleIOSim` / `VisionIO` stub |
+| 3 | **physics** | `AkitSwerveDriveSimPhysicsTest`, `VisionSimIntegrationTest`, `DriveCalibrationSimPhysicsTest` | `build()` | `ModuleIOSimPhysics` + `VisionIOSim` |
+| 4 | **functional** | `WebUIFunctionalTest` — HTTP-driven via `WebDriveController` | `build()` | `ModuleIOSimPhysics` |
+| 5 | **visual** | `RobotContainer` visual-test sequence (6 steps incl. vision correction) | `build()` | `ModuleIOSimPhysics` + `VisionIOSim` |
 
 Layers 1–3 extend `SimTestBase` (deterministic FPGA clock via `SimHooks`).
-Layer 4 runs as a full robot program via `./gradlew simulateJava`; it is **never** in CI.
+Layer 4 spawns the full robot program as a subprocess (`./gradlew functionalTest`) — occasional, not in CI.
+Layer 5 runs as a full robot program via `./gradlew simulateJava`; it is **never** in CI.
 
 Full Layer-by-layer detail, per-cycle call order, and `SimulatedArena` teardown pattern: [docs/testing.md](docs/testing.md).
 

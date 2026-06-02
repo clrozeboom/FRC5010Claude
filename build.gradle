@@ -80,7 +80,9 @@ annotationProcessor "org.littletonrobotics.akit:akit-autolog:$akitJson.version"
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'functional'  // Layer 4 functional tests run via ./gradlew functionalTest, not here
+    }
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
 }
 
@@ -189,6 +191,28 @@ task(replayValidate, type: JavaExec) {
         }
         args = [latest.absolutePath]
     }
+}
+
+// Layer 4 functional tests — spawn simulateJava -PwebUI and drive it via HTTP.
+// Run after major architecture changes, not on every commit.
+// Usage:
+//   ./gradlew functionalTest                          # Linux / macOS / Codespaces
+//   .\gradlew.bat functionalTest                      # Windows PowerShell
+// HTML report: build/reports/tests/functionalTest/index.html
+task(functionalTest, type: Test) {
+    group = 'FRC5010'
+    description = 'Layer 4 functional tests — spawns simulateJava -PwebUI -PtestSim ' +
+                  'and exercises the full robot stack via the HTTP API on port 5800. ' +
+                  'Run after major architecture changes, not on every commit.'
+    useJUnitPlatform {
+        includeTags 'functional'
+    }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath       = sourceSets.test.runtimeClasspath
+    systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+    dependsOn compileTestJava
+    // Functional tests start an external process — never treat outputs as up-to-date.
+    outputs.upToDateWhen { false }
 }
 
 // Configure string concat to always inline compile

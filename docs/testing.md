@@ -1,19 +1,20 @@
 # Testing
 
-The project uses a four-layer test pyramid. Layers 1–3 are automated and run in CI; Layer 4 is visual and run manually.
+The project uses a five-layer test pyramid. Layers 1–3 are automated and run in CI on every commit. Layer 4 is automated but occasional — run it after major architecture changes. Layer 5 is visual and always run manually.
 
 ---
 
 ## Test pyramid
 
-| Layer | What | Factory | IO impl |
-|-------|------|---------|---------|
-| 1 — unit | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest`, `JoystickAxisTest` | — | — |
-| 2 — subsystem sim | `AkitSwerveDriveTest`, `VisionSubsystemTest` | `buildWithoutPhysics()` | `ModuleIOSim` (DCMotorSim) |
-| 3 — physics integration | `AkitSwerveDriveSimPhysicsTest`, `VisionSimIntegrationTest` | `build()` | `ModuleIOSimPhysics` (IronMaple) |
-| 4 — visual / interactive | `RobotContainer` visual-test sequence | `build()` | `ModuleIOSimPhysics` |
+| Layer | Short name | What | Factory | IO impl | When |
+|-------|-----------|------|---------|---------|------|
+| 1 | **unit** | `SwerveConstantsTest`, `SwerveFactoryModeTest`, `TunableGainsTest`, `JoystickAxisTest`, `SelectProfileTest` | — | — | every commit |
+| 2 | **subsystem** | `AkitSwerveDriveTest`, `VisionSubsystemTest`, `RobotContainerSmokeTest` | `buildWithoutPhysics()` / `build()` | `ModuleIOSim` (DCMotorSim) | every commit |
+| 3 | **physics** | `AkitSwerveDriveSimPhysicsTest`, `VisionSimIntegrationTest`, `DriveCalibrationSimPhysicsTest` | `build()` | `ModuleIOSimPhysics` (IronMaple) | every commit |
+| 4 | **functional** | `WebUIFunctionalTest` — HTTP-driven via `WebDriveController` | `build()` | `ModuleIOSimPhysics` | occasional |
+| 5 | **visual** | `RobotContainer` visual-test sequence (6 steps incl. vision correction) | `build()` | `ModuleIOSimPhysics` | manual |
 
-The CI badge at the top of the README shows the current pass/fail status.
+The CI badge at the top of the README shows the current Layers 1–3 pass/fail status.
 
 ---
 
@@ -57,7 +58,7 @@ assertThrows(UnsupportedOperationException.class, () -> SwerveFactory.build(TALO
 
 ---
 
-## Layer 2 — Subsystem sim tests
+## Layer 2 — Subsystem tests
 
 `buildWithoutPhysics()` uses WPILib `DCMotorSim` — no dyn4j, no IronMaple overhead. All Layer 2 tests extend `SimTestBase`, which initialises HAL, pauses the FPGA clock, and cleans up `CommandScheduler` between tests.
 
@@ -92,7 +93,7 @@ No `drive.simulationPeriodic()` — `ModuleIOSim` calls `driveSim.update(0.02)` 
 
 ---
 
-## Layer 3 — Physics integration tests
+## Layer 3 — Physics tests
 
 `build()` uses IronMaple (dyn4j). Every Layer 3 test must follow the strict per-cycle call order:
 
@@ -136,7 +137,52 @@ Strafe threshold is lower than forward because modules start facing forward (0°
 
 ---
 
-## Layer 4 — Visual test
+## Layer 4 — Functional tests
+
+Spawns `simulateJava -PwebUI -PtestSim` as a subprocess and drives it through the
+`WebDriveController` HTTP API on port 5800. Exercises the complete robot stack:
+`Robot.java` lifecycle, AdvantageKit logging, `CommandScheduler`, IronMaple physics,
+and `DemoIntake` game-piece mechanics — all without a GUI.
+
+```powershell
+.\gradlew.bat functionalTest     # Windows
+./gradlew functionalTest          # Linux / macOS / Codespaces
+```
+
+HTML report: `build/reports/tests/functionalTest/index.html`
+
+### What the tests verify
+
+| Test | Assertion |
+|------|-----------|
+| `robotStartsDisabled` | `/api/state` returns `"enabled":false` before any control command |
+| `robotEnablesViaHttpControl` | `POST /api/control {"enabled":true}` causes `/api/state` to return `"enabled":true` within 500 ms |
+| `driveCommandDisplacesRobotPoseX` | `POST /api/drive {"vx":0.5,...}` moves pose X by > 0.5 m in 1 s |
+| `demoIntakeExtendsViaWebButton` | `buttons[4]=true` (LB) causes `/api/state` to return `"intakeExtended":true` within 200 ms |
+
+### When to run
+
+After major changes to `RobotContainer` / `RealRobot`, `SwerveRobotContainer`, `DemoIntake`,
+`WebDriveController`, or the Gradle simulation configuration. Not intended for every commit —
+startup overhead is 30–60 seconds. Not in CI.
+
+### Replay validation companion
+
+Every sim run (including functional tests) writes a `.wpilog` to `logs/`. After running
+`functionalTest`, you can validate logging fidelity by replaying the log:
+
+```powershell
+.\gradlew.bat simulateJava -Plog=<log> -PvisualTestExit -PreplayExit
+.\gradlew.bat replayValidate
+```
+
+Run replay after any non-trivial logging change (new `@AutoLog` fields, renamed signal paths,
+added subsystems) to verify replayed outputs match the live-run outputs. See the
+`/validate-replay` slash command for the full workflow.
+
+---
+
+## Layer 5 — Visual test
 
 Runs as a full robot program with the automated `SwerveVisualTest` command sequence:
 
