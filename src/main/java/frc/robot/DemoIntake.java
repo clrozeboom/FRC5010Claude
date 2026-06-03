@@ -83,12 +83,19 @@ public class DemoIntake extends SubsystemBase {
    *
    * @param driveSim     physics drive-train (from {@code drive.getDriveTrainSimulation().get()})
    * @param poseSupplier supplier of the current robot pose (used for projectile launch origin)
+   * @param webControl   web UI facade for state binding, or {@code null} when not in web UI mode
    */
-  public DemoIntake(AbstractDriveTrainSimulation driveSim, Supplier<Pose2d> poseSupplier) {
+  public DemoIntake(
+      AbstractDriveTrainSimulation driveSim,
+      Supplier<Pose2d> poseSupplier,
+      org.frc5010.common.sim.WebControl webControl) {
     this.poseSupplier = poseSupplier;
     intakeSimulation = IntakeSimulation.OverTheBumperIntake(
         "Fuel", driveSim, Inches.of(24), Inches.of(12), IntakeSide.FRONT, 5);
     intakeSimulation.register();
+    if (webControl != null) {
+      webControl.bindDemoState(this::getHeldFuel, this::isIntakeExtended, this::getScoredCount);
+    }
   }
 
   @Override
@@ -126,18 +133,6 @@ public class DemoIntake extends SubsystemBase {
   /** Fires one held Fuel piece using ballistic physics. No-op if nothing is held. */
   public Command fireCommand() {
     return Commands.runOnce(() -> fireFuel(poseSupplier.get()), this).withName("FireFuel");
-  }
-
-  /**
-   * Binds this intake's state suppliers to the web UI so {@code /api/state} reflects
-   * held fuel, intake extension, and scored count. No-op when {@code webControl} is null.
-   *
-   * @param webControl the active web control facade, or {@code null} if not in web UI mode
-   */
-  public void bindWebState(org.frc5010.common.sim.WebControl webControl) {
-    if (webControl != null) {
-      webControl.bindDemoState(this::getHeldFuel, this::isIntakeExtended, this::getScoredCount);
-    }
   }
 
   // ---- private helpers ----

@@ -30,13 +30,11 @@ public class RealRobot extends SwerveRobotContainer {
     if (!RobotBase.isSimulation()) return;
 
     drive.getDriveTrainSimulation().ifPresent(driveSim -> {
-      demoIntake = new DemoIntake(driveSim, drive::getPose);
+      demoIntake = new DemoIntake(driveSim, drive::getPose, webControl);
 
       controller.leftBumper().onTrue(demoIntake.extendCommand());
       controller.rightBumper().onTrue(demoIntake.retractCommand());
       controller.a().onTrue(demoIntake.fireCommand());
-
-      demoIntake.bindWebState(webControl);
     });
   }
 }
