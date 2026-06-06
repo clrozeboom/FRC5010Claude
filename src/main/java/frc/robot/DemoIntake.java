@@ -84,7 +84,6 @@ public class DemoIntake extends SimRobotState {
   private static final Translation3d RED_ZONE_TARGET =
       new Translation3d(FIELD_WIDTH_M - ZONE_DEPTH_M / 2, 4.035, 0.1);
 
-  private final Supplier<Pose2d> poseSupplier;
   // Written on robot thread (projectile hit callback), read by HTTP thread via getScoredCount().
   private final AtomicInteger scoredFuelCount = new AtomicInteger(0);
   // Nullable — non-null only when Field2d is provided (sim mode with NT publishing).
@@ -103,9 +102,11 @@ public class DemoIntake extends SimRobotState {
       AbstractDriveTrainSimulation driveSim,
       Supplier<Pose2d> poseSupplier,
       Field2d field2d) {
-    super(IntakeSimulation.OverTheBumperIntake(
-        "Fuel", driveSim, Inches.of(24), Inches.of(12), IntakeSide.FRONT, 50));
-    this.poseSupplier = poseSupplier;
+    super(
+        IntakeSimulation.OverTheBumperIntake("Fuel", driveSim, Inches.of(24), Inches.of(12), IntakeSide.FRONT, 50),
+        poseSupplier,
+        BUMPER_HALF_M + Units.inchesToMeters(6),
+        field2d != null ? field2d.getObject("Intake") : null);
     this.fuelField = field2d != null ? field2d.getObject("Fuel") : null;
   }
 
@@ -113,6 +114,7 @@ public class DemoIntake extends SimRobotState {
   public void periodic() {
     super.periodic();
     if (fuelField == null) return;
+
     List<Pose2d> poses = new ArrayList<>();
     try {
       for (var piece : SimulatedArena.getInstance().gamePiecesOnField()) {
@@ -184,10 +186,27 @@ public class DemoIntake extends SimRobotState {
 
     if (inZone) {
       final AtomicInteger scored = scoredFuelCount;
+      final Translation3d capturedHub = hubTarget;
       projectile
-          .withTargetPosition(() -> hubTarget)
+          .withTargetPosition(() -> capturedHub)
           .withTargetTolerance(new Translation3d(RebuiltHub.GoalRadius, RebuiltHub.GoalRadius, 0.4))
-          .withHitTargetCallBack(scored::incrementAndGet);
+          .withHitTargetCallBack(() -> {
+            scored.incrementAndGet();
+            // Exit toward field center (common area), with ±30° spread
+            double baseAngle = isBlue ? 0.0 : Math.PI;
+            double exitAngle = baseAngle + (Math.random() - 0.5) * Math.toRadians(60);
+            RebuiltFuelOnFly exitPiece = new RebuiltFuelOnFly(
+                new Translation2d(capturedHub.getX(), capturedHub.getY()),
+                new Translation2d(),
+                new ChassisSpeeds(),
+                new Rotation2d(exitAngle),
+                Meters.of(capturedHub.getZ() / 2.0),
+                MetersPerSecond.of(2.5),
+                Degrees.of(0.0));
+            exitPiece.enableBecomesGamePieceOnFieldAfterTouchGround();
+            exitPiece.launch();
+            SimulatedArena.getInstance().addGamePieceProjectile(exitPiece);
+          });
     }
     projectile.enableBecomesGamePieceOnFieldAfterTouchGround();
     projectile.launch();

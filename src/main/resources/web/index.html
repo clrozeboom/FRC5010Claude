@@ -14,12 +14,14 @@
   /* ---- field area (DS panel + canvas) ---- */
   #field-area {
     flex: 1; min-height: 0; display: flex; flex-direction: row;
+    position: relative;
   }
 
-  /* ---- driver station panel ---- */
+  /* ---- driver station panel — floats over the left edge of the canvas ---- */
   #ds-panel {
-    width: 160px; flex-shrink: 0;
-    background: #181818; border-right: 1px solid #2a2a2a;
+    position: absolute; left: 0; top: 0; bottom: 0; z-index: 3;
+    width: 160px;
+    background: rgba(24,24,24,0.92); border-right: 1px solid #2a2a2a;
     display: flex; flex-direction: column;
     align-items: stretch; gap: 7px; padding: 10px 8px;
     overflow-y: auto;
@@ -59,7 +61,7 @@
   /* ---- canvas wrapper (flex:1, hosts the sidebar overlay) ---- */
   #canvas-wrap { flex: 1; min-width: 0; position: relative; }
   #field-sidebar {
-    position: absolute; left: 0; top: 0; bottom: 0; z-index: 2;
+    position: absolute; right: 0; top: 0; bottom: 0; z-index: 2;
     width: 60px; background: rgba(20,20,20,0.6);
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 16px;
@@ -145,6 +147,13 @@
     #ds-panel    { width: 120px; }
   }
 
+  /* keyboard key hints inside buttons */
+  .key-hint {
+    display: block; font-size: 8px; color: #777; font-weight: normal;
+    letter-spacing: 0; line-height: 1.2;
+  }
+  #enable-btn .key-hint { font-size: 9px; }
+
   /* status bar */
   #status {
     padding: 4px 10px; background: #1a1a1a; font-size: 12px; color: #888;
@@ -160,7 +169,7 @@
   <div id="ds-panel">
     <div class="ds-title">Driver Station</div>
     <div id="conn-dot"></div>
-    <button id="enable-btn" onclick="toggleEnable()">ENABLE</button>
+    <button id="enable-btn" onclick="toggleEnable()">ENABLE<span class="key-hint">Space</span></button>
     <button id="stop-btn"   onclick="stopRobot()">STOP</button>
     <div id="alliance-row">
       <button class="alliance-btn active-blue" id="btn-blue" onclick="selectAlliance('Blue')">Blue</button>
@@ -183,7 +192,7 @@
 </div>
 
 <div id="controls">
-  <div class="bumper-btn" data-idx="4">LB</div>
+  <div class="bumper-btn" data-idx="4">LB<span class="key-hint">Z</span></div>
 
   <div class="stick-wrap">
     <div class="stick-base" id="left-base"><div class="stick-knob" id="left-knob"></div></div>
@@ -191,10 +200,10 @@
   </div>
 
   <div id="face-diamond">
-    <div class="game-btn btn-y" data-idx="3">Y</div>
-    <div class="game-btn btn-x" data-idx="2">X</div>
-    <div class="game-btn btn-b" data-idx="1">B</div>
-    <div class="game-btn btn-a" data-idx="0">A</div>
+    <div class="game-btn btn-y" data-idx="3">Y<span class="key-hint">G</span></div>
+    <div class="game-btn btn-x" data-idx="2">X<span class="key-hint">V</span></div>
+    <div class="game-btn btn-b" data-idx="1">B<span class="key-hint">C</span></div>
+    <div class="game-btn btn-a" data-idx="0">A<span class="key-hint">F</span></div>
   </div>
 
   <div class="stick-wrap">
@@ -202,7 +211,7 @@
     <span class="stick-label">Rotate</span>
   </div>
 
-  <div class="bumper-btn" data-idx="5">RB</div>
+  <div class="bumper-btn" data-idx="5">RB<span class="key-hint">X</span></div>
 </div>
 
 <div id="status">Connecting…</div>
@@ -226,8 +235,30 @@ let gamePieces = [];        // [{x, y}] grounded Fuel — from /api/gamepieces
 let flyingPieces = [];     // [{x, y}] in-flight Fuel projectiles
 
 // ---- Keyboard ----
-document.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-document.addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
+// Drive: W/S/ArrowUp/Down = fwd/back, A/D = strafe, Q/E/ArrowLeft/Right = rotate.
+// Buttons: Z=LB(extend), X=RB(retract), F=A(fire), C=B, V=X-btn, G=Y, Space=Enable.
+const KEY_BUTTON_MAP = { 'z': 4, 'x': 5, 'f': 0, 'c': 1, 'v': 2, 'g': 3 };
+
+document.addEventListener('keydown', e => {
+  const k = e.key === ' ' ? ' ' : e.key.toLowerCase();
+  if (k === ' ') { e.preventDefault(); toggleEnable(); return; }
+  keys[k] = true;
+  const idx = KEY_BUTTON_MAP[k];
+  if (idx !== undefined) {
+    e.preventDefault();
+    buttonHeld[idx] = true;
+    document.querySelector(`[data-idx="${idx}"]`)?.classList.add('held');
+  }
+});
+document.addEventListener('keyup', e => {
+  const k = e.key === ' ' ? ' ' : e.key.toLowerCase();
+  keys[k] = false;
+  const idx = KEY_BUTTON_MAP[k];
+  if (idx !== undefined) {
+    buttonHeld[idx] = false;
+    document.querySelector(`[data-idx="${idx}"]`)?.classList.remove('held');
+  }
+});
 
 function keyboardInputs() {
   const vx    = (keys['w'] ? 1 : 0) - (keys['s'] ? 1 : 0)
@@ -334,7 +365,7 @@ function updateAllianceBtns() {
 
 function updateEnableBtn() {
   const btn = document.getElementById('enable-btn');
-  btn.textContent = currentEnabled ? 'DISABLE' : 'ENABLE';
+  btn.innerHTML = (currentEnabled ? 'DISABLE' : 'ENABLE') + '<span class="key-hint">Space</span>';
   btn.className = currentEnabled ? 'enabled' : '';
 }
 
