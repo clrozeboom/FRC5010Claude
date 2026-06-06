@@ -8,6 +8,230 @@
           },
           "width": 0.152,
           "height": 0.152
+        },
+        "NT:/SmartDashboard/Field/Field Tag 1": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT1.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 2": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT2.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 3": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT3.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 4": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT4.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 5": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT5.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 6": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT6.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 7": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT7.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 8": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT8.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 9": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT9.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 10": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT10.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 11": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT11.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 12": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT12.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 13": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT13.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 14": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT14.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 15": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT15.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 16": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT16.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 17": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT17.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 18": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT18.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 19": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT19.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 20": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT20.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 21": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT21.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 22": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT22.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 23": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT23.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 24": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT24.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 25": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT25.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 26": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT26.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 27": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT27.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 28": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT28.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 29": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT29.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 30": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT30.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 31": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT31.png"
+          },
+          "width": 0.165,
+          "height": 0.165
+        },
+        "NT:/SmartDashboard/Field/Field Tag 32": {
+          "image": {
+            "filename": "src/main/resources/web/tags/AT32.png"
+          },
+          "width": 0.165,
+          "height": 0.165
         }
       }
     }
