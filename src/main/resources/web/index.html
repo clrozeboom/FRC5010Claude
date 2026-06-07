@@ -57,6 +57,21 @@
   }
   #ds-panel .alliance-btn.active-blue { background: #003080; border-color: #5599ff; color: #fff; }
   #ds-panel .alliance-btn.active-red  { background: #800000; border-color: #ff4444; color: #fff; }
+  .ds-section {
+    font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 1px;
+    text-align: center; margin-top: 2px;
+  }
+  #ds-panel #mode-row { display: flex; gap: 6px; }
+  #ds-panel .mode-btn {
+    flex: 1; padding: 7px 4px; border: 2px solid #555; border-radius: 6px;
+    background: #222; color: #aaa; cursor: pointer; font-size: 13px; font-weight: bold;
+    transition: all 0.15s; user-select: none; text-align: center;
+  }
+  #ds-panel .mode-btn.active-mode { background: #5a4a00; border-color: #ccaa00; color: #fff; }
+  #ds-panel #auto-select {
+    width: 100%; padding: 7px 6px; border: 2px solid #555; border-radius: 6px;
+    background: #222; color: #ddd; cursor: pointer; font-size: 12px; font-weight: bold;
+  }
 
   /* ---- canvas wrapper (flex:1, hosts the sidebar overlay) ---- */
   #canvas-wrap { flex: 1; min-width: 0; position: relative; }
@@ -175,6 +190,13 @@
       <button class="alliance-btn active-blue" id="btn-blue" onclick="selectAlliance('Blue')">Blue</button>
       <button class="alliance-btn"             id="btn-red"  onclick="selectAlliance('Red')">Red</button>
     </div>
+    <div class="ds-section">Mode</div>
+    <div id="mode-row">
+      <button class="mode-btn active-mode" id="btn-teleop" onclick="selectMode('teleop')">Teleop</button>
+      <button class="mode-btn"             id="btn-auto"   onclick="selectMode('auto')">Auto</button>
+    </div>
+    <div class="ds-section">Auto Routine</div>
+    <select id="auto-select" onchange="selectAuto(this.value)"></select>
   </div>
   <div id="canvas-wrap">
     <div id="field-sidebar">
@@ -225,6 +247,7 @@ const state = {
   maxLinear: 4.5, maxAngular: 6.283,
   fieldWidth: 16.540988, fieldHeight: 8.21,
   enabled: false, alliance: 'Blue', connected: false,
+  mode: 'teleop', selectedAuto: '',
   heldFuel: 0, intakeExtended: false, scoredFuel: 0
 };
 
@@ -320,9 +343,11 @@ document.querySelectorAll('.game-btn, .bumper-btn').forEach(btn => {
   btn.addEventListener('pointercancel',() => { buttonHeld[idx] = false; btn.classList.remove('held'); });
 });
 
-// ---- Alliance & Enable ----
+// ---- Alliance, Mode, Auto & Enable ----
 let currentAlliance = 'Blue';
 let currentEnabled  = false;
+let currentMode     = 'teleop';
+let currentAuto     = '';
 let hasInitialized  = false;
 
 // Called once on first successful /api/state response to seed UI from server state.
@@ -331,8 +356,28 @@ function initFromState(s) {
   hasInitialized = true;
   currentAlliance = s.alliance || 'Blue';
   currentEnabled  = s.enabled  || false;
+  currentMode     = s.mode     || 'teleop';
+  currentAuto     = s.selectedAuto || '';
   updateAllianceBtns();
   updateEnableBtn();
+  updateModeBtns();
+  loadAutos();
+}
+
+// Fetch the available auto routines once and build the selector options.
+function loadAutos() {
+  fetch('/api/autos').then(r => r.json()).then(d => {
+    const sel = document.getElementById('auto-select');
+    sel.innerHTML = '';
+    (d.autos || []).forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    currentAuto = d.selected || currentAuto || (d.autos && d.autos[0]) || '';
+    sel.value = currentAuto;
+    if ((d.autos || []).length === 0) sel.style.display = 'none';
+  }).catch(() => {});
 }
 
 function selectAlliance(a) {
@@ -361,6 +406,31 @@ function updateAllianceBtns() {
   const a = currentAlliance;
   document.getElementById('btn-blue').className = 'alliance-btn' + (a === 'Blue' ? ' active-blue' : '');
   document.getElementById('btn-red').className  = 'alliance-btn' + (a === 'Red'  ? ' active-red'  : '');
+}
+
+function selectMode(m) {
+  currentMode = m;
+  updateModeBtns();
+  // Mode applies on the next Enable (a real DS can't switch auto/teleop while enabled).
+  fetch('/api/control', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ mode: m })
+  }).catch(() => {});
+}
+
+function updateModeBtns() {
+  document.getElementById('btn-teleop').className = 'mode-btn' + (currentMode === 'teleop' ? ' active-mode' : '');
+  document.getElementById('btn-auto').className   = 'mode-btn' + (currentMode === 'auto'   ? ' active-mode' : '');
+}
+
+function selectAuto(name) {
+  currentAuto = name;
+  fetch('/api/control', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ auto: name })
+  }).catch(() => {});
 }
 
 function updateEnableBtn() {

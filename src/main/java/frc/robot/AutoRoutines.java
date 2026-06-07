@@ -65,13 +65,20 @@ public final class AutoRoutines {
     Pose2d pickup = new Pose2d(6.00, 4.03, Rotation2d.fromDegrees(0));
     Pose2d shotSpot = new Pose2d(2.80, 4.03, Rotation2d.fromDegrees(0));
 
+    // The Blue Hub sits on the field centerline at (4.5974, 4.0345) and is a physical obstacle:
+    // a straight (1.5 → 6.0) path at y=4.03 drives the robot into it and stalls. Both the
+    // outbound and return paths therefore skirt the Hub through the clear lane below it (y≈2.5)
+    // via hand-authored TranslationTarget via-points (see BLineSwerveAuto#driveToVia).
     Path outbound = new Path(
         new Path.Waypoint(start.getTranslation(), start.getRotation()),
-        new Path.TranslationTarget(new Translation2d(3.5, 4.03)),
+        new Path.TranslationTarget(new Translation2d(3.0, 2.5)),
+        new Path.TranslationTarget(new Translation2d(5.5, 2.5)),
         new Path.Waypoint(pickup.getTranslation(), pickup.getRotation()));
 
     Path returnPath = new Path(
         new Path.Waypoint(pickup.getTranslation(), pickup.getRotation()),
+        new Path.TranslationTarget(new Translation2d(5.5, 2.5)),
+        new Path.TranslationTarget(new Translation2d(3.5, 2.5)),
         new Path.Waypoint(shotSpot.getTranslation(), shotSpot.getRotation()));
 
     return Commands.sequence(

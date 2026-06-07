@@ -205,6 +205,54 @@ class WebUIFunctionalTest {
             "DemoIntake must extend when LB (buttons[4]=true) is received. State: " + state);
     }
 
+    /**
+     * Verifies {@code GET /api/autos} lists the registered routines (including the default
+     * "None") and reports a selected routine. Read-only — does not change robot state.
+     */
+    @Test @Order(5)
+    void autosEndpointListsRoutines() throws Exception {
+        String autos = get("/api/autos");
+        assertTrue(autos.contains("\"None\""),
+            "Auto list must contain the default 'None' option. Body: " + autos);
+        assertTrue(autos.contains("BLine: Example Score (JSON)"),
+            "Auto list must contain the JSON example routine. Body: " + autos);
+        assertTrue(autos.contains("\"selected\":"),
+            "Auto list must report the selected routine. Body: " + autos);
+    }
+
+    /**
+     * Selects the JSON example routine, switches to autonomous mode, and enables. Verifies the
+     * selection is reflected in {@code /api/autos}, the state reports {@code mode:auto}, and
+     * BLine actually drives the robot toward the routine's goal pose (~3.0, 2.0). Exercises the
+     * full auto-selector → mode → {@code getAutonomousCommand()} → {@code autonomousInit()} chain.
+     */
+    @Test @Order(6)
+    void autoModeRunsSelectedRoutine() throws Exception {
+        // Disable first so the mode switch takes effect on the next enable (real-DS semantics).
+        post("/api/control", "{\"enabled\":false}");
+        waitMs(300);
+        post("/api/control", "{\"auto\":\"BLine: Example Score (JSON)\"}");
+        post("/api/control", "{\"mode\":\"auto\"}");
+        waitMs(300);
+
+        String autos = get("/api/autos");
+        assertTrue(autos.contains("\"selected\":\"BLine: Example Score (JSON)\""),
+            "Selecting an auto must update /api/autos selected. Body: " + autos);
+
+        // Enable in autonomous — the robot resets to start, then BLine drives to (3.0, 2.0).
+        post("/api/control", "{\"enabled\":true}");
+        waitMs(3_000);
+
+        String state = get("/api/state");
+        assertTrue(state.contains("\"mode\":\"auto\""),
+            "State must report autonomous mode after enabling in auto. State: " + state);
+        double x = extractDouble(state, "x");
+        double y = extractDouble(state, "y");
+        assertTrue(x > 2.5 && Math.abs(y - 2.0) < 0.5,
+            String.format("ExampleScore auto must drive the robot to ~(3.0, 2.0); got (%.2f, %.2f). "
+                + "State: %s", x, y, state));
+    }
+
     // ── HTTP helpers ──────────────────────────────────────────────────────────
 
     private static String get(String path) throws Exception {

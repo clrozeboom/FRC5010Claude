@@ -84,4 +84,17 @@ public class WebControl {
                               IntSupplier scoredFuel) {
         webController.bindDemoState(heldFuel, intakeExtended, scoredFuel);
     }
+
+    /**
+     * Registers the available autonomous routines so the web UI can list and select them.
+     * The selector and Auto/Teleop mode buttons in the web Driver Station panel drive this.
+     *
+     * @param names           ordered auto-routine names shown in the selector dropdown
+     * @param initialSelected the name selected on first load (e.g. the default "None")
+     * @param onSelect        called on the robot thread when the UI picks an auto
+     */
+    public void bindAutos(String[] names, String initialSelected,
+                          java.util.function.Consumer<String> onSelect) {
+        webController.bindAutos(names, initialSelected, onSelect);
+    }
 }

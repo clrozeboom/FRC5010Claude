@@ -70,7 +70,18 @@ public class WebDriveController {
     // Nullable: null means "not set in this POST" so the robot thread skips that field.
     private final AtomicReference<Boolean> pendingEnabled = new AtomicReference<>(null);
     private final AtomicReference<String> pendingAlliance = new AtomicReference<>(null);
+    private final AtomicReference<String> pendingMode = new AtomicReference<>(null);
+    private final AtomicReference<String> pendingAutoSelect = new AtomicReference<>(null);
     private final AtomicBoolean controlPending = new AtomicBoolean(false);
+
+    // Auto/teleop mode and auto-routine selection.
+    // modeBuf / selectedAutoBuf are the applied state surfaced to the UI via /api/state.
+    private final AtomicReference<String> modeBuf = new AtomicReference<>("teleop");
+    private volatile String[] autoNames = new String[0];
+    private final AtomicReference<String> selectedAutoBuf = new AtomicReference<>("");
+    // Invoked on the robot thread when the UI picks an auto; the robot uses it to choose
+    // which command getAutonomousCommand() returns. Null until bindAutos() wires it.
+    private volatile java.util.function.Consumer<String> autoSelectCallback = null;
 
     private HttpServer server;
     private ExecutorService executor;
@@ -92,6 +103,7 @@ public class WebDriveController {
             server.createContext("/api/state",      this::handleState);
             server.createContext("/api/drive",      this::handleDrive);
             server.createContext("/api/control",    this::handleControl);
+            server.createContext("/api/autos",      this::handleAutos);
             server.createContext("/api/gamepieces", this::handleGamePieces);
             server.createContext("/api/stop",       this::handleStop);
             server.createContext("/tags/",          this::handleTagImage);
@@ -129,6 +141,18 @@ public class WebDriveController {
                 allianceBuf.set(alliance);
                 resetPose.run();
             }
+            // Auto routine selection — hand the chosen name to the robot so its
+            // getAutonomousCommand() returns the matching command.
+            String auto = pendingAutoSelect.getAndSet(null);
+            if (auto != null) {
+                selectedAutoBuf.set(auto);
+                if (autoSelectCallback != null) autoSelectCallback.accept(auto);
+            }
+            // Auto/teleop mode — stored now, applied to the DS autonomous bit on the next
+            // enable (matching a real Driver Station, which can't switch mode while enabled).
+            String mode = pendingMode.getAndSet(null);
+            if (mode != null) modeBuf.set(mode);
+
             Boolean enabled = pendingEnabled.getAndSet(null);
             if (enabled != null) {
                 // DriverStation.isEnabled() == controlWord.getEnabled() && getDSAttached().
@@ -136,8 +160,8 @@ public class WebDriveController {
                 // disabled — AkitSwerveDrive.periodic() then stops every module. Mark the
                 // (virtual) DS attached so the web Enable button actually takes effect.
                 DriverStationSim.setDsAttached(true);
+                DriverStationSim.setAutonomous("auto".equals(modeBuf.get()));
                 DriverStationSim.setEnabled(enabled);
-                DriverStationSim.setAutonomous(false);
                 DriverStationSim.setTest(false);
                 enabledBuf.set(enabled);
             }
@@ -192,6 +216,21 @@ public class WebDriveController {
         this.heldFuelSupplier      = heldFuel;
         this.intakeExtendedSupplier = intakeExtended;
         this.scoredFuelSupplier    = scoredFuel;
+    }
+
+    /**
+     * Registers the available autonomous routines so the web UI can list and select them.
+     *
+     * @param names           ordered auto-routine names shown in the selector dropdown
+     * @param initialSelected the name selected on first load (e.g. the default "None")
+     * @param onSelect        called on the robot thread when the UI picks an auto; the robot
+     *                        uses the chosen name to decide what {@code getAutonomousCommand()}
+     *                        returns. Must be safe to call from the robot thread.
+     */
+    public void bindAutos(String[] names, String initialSelected, java.util.function.Consumer<String> onSelect) {
+        this.autoNames = names != null ? names : new String[0];
+        this.selectedAutoBuf.set(initialSelected != null ? initialSelected : "");
+        this.autoSelectCallback = onSelect;
     }
 
     private long age() { return System.currentTimeMillis() - lastCommandMs.get(); }
@@ -295,11 +334,28 @@ public class WebDriveController {
             "\"maxLinear\":%.4f,\"maxAngular\":%.4f," +
             "\"fieldWidth\":16.540988,\"fieldHeight\":8.21," +
             "\"enabled\":%b,\"alliance\":\"%s\",\"connected\":%b," +
+            "\"mode\":\"%s\",\"selectedAuto\":\"%s\"," +
             "\"heldFuel\":%d,\"intakeExtended\":%b,\"scoredFuel\":%d}",
             p[0], p[1], p[2], maxLinearMps, maxAngularRps,
             enabledBuf.get(), allianceBuf.get(), isConnected(),
+            modeBuf.get(), jsonEscape(selectedAutoBuf.get()),
             heldFuelSupplier.getAsInt(), intakeExtendedSupplier.getAsBoolean(), scoredFuelSupplier.getAsInt());
         respond(ex, 200, "application/json", json);
+    }
+
+    /** Returns the registered auto-routine names and the currently selected one. */
+    private void handleAutos(HttpExchange ex) throws IOException {
+        addCors(ex);
+        if ("OPTIONS".equalsIgnoreCase(ex.getRequestMethod())) { ex.sendResponseHeaders(204, -1); return; }
+        if (!"GET".equalsIgnoreCase(ex.getRequestMethod()))    { ex.sendResponseHeaders(405, -1); return; }
+        String[] names = autoNames;
+        StringBuilder sb = new StringBuilder("{\"autos\":[");
+        for (int i = 0; i < names.length; i++) {
+            if (i > 0) sb.append(',');
+            sb.append('"').append(jsonEscape(names[i])).append('"');
+        }
+        sb.append("],\"selected\":\"").append(jsonEscape(selectedAutoBuf.get())).append("\"}");
+        respond(ex, 200, "application/json", sb.toString());
     }
 
     private void handleDrive(HttpExchange ex) throws IOException {
@@ -353,6 +409,10 @@ public class WebDriveController {
             }
             if      (body.contains("\"alliance\":\"Red\""))  pendingAlliance.set("Red");
             else if (body.contains("\"alliance\":\"Blue\"")) pendingAlliance.set("Blue");
+            if      (body.contains("\"mode\":\"auto\""))     pendingMode.set("auto");
+            else if (body.contains("\"mode\":\"teleop\""))   pendingMode.set("teleop");
+            String auto = extractString(body, "auto");
+            if (auto != null) pendingAutoSelect.set(auto);
             controlPending.set(true);
         } catch (Exception ignored) {}
         respond(ex, 200, "application/json", "{}");
@@ -388,4 +448,25 @@ public class WebDriveController {
     }
 
     private static double clamp(double v) { return Math.max(-1.0, Math.min(1.0, v)); }
+
+    /**
+     * Extracts a JSON string value for {@code key} (i.e. {@code "key":"value"}). Returns null
+     * when absent. Naive — does not decode escapes — which is sufficient for the simple
+     * single-token payloads this server receives (auto names contain no quotes).
+     */
+    private static String extractString(String body, String key) {
+        String needle = "\"" + key + "\":\"";
+        int idx = body.indexOf(needle);
+        if (idx < 0) return null;
+        idx += needle.length();
+        int end = body.indexOf('"', idx);
+        if (end < 0) return null;
+        return body.substring(idx, end);
+    }
+
+    /** Minimal JSON string escaping for values embedded in hand-built responses. */
+    private static String jsonEscape(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
 }

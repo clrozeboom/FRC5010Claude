@@ -81,6 +81,13 @@ return Commands.sequence(
 - All poses are Blue-side; BLine's `.withDefaultShouldFlip()` mirrors for Red.
 - The `Commands.waitSeconds(0.05)` after `setPose` is gotcha #6 in CLAUDE.md — the pose
   estimator needs one extra cycle before subsequent reads reflect the new value.
+- **Route around field obstacles.** The Blue Hub is a physical body on the field centerline at
+  `(4.5974, 4.0345)`; a straight path through it drives the robot into it and stalls. The
+  outbound/return paths therefore use `TranslationTarget` via-points through the clear lane below
+  the Hub (`y≈2.5`) rather than a straight line. BLine v0.9.1 has no runtime pathfinder, so
+  obstacle avoidance is hand-authored via-points (same pattern as `driveToVia` below). This is
+  regression-tested by `AutoRoutinesSimPhysicsTest.pickupAndScore_realRoutine_roundsHubReachesPickupAndReturns`,
+  which runs the full routine under physics and asserts the robot rounds the Hub to the pickup.
 
 ---
 
