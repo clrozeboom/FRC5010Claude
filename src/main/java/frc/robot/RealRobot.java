@@ -1,6 +1,10 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import org.frc5010.common.profiles.SwerveRobotContainer;
 
 /**
@@ -19,14 +23,26 @@ import org.frc5010.common.profiles.SwerveRobotContainer;
 public class RealRobot extends SwerveRobotContainer {
 
   private DemoIntake demoIntake;
+  private final SendableChooser<Command> autoChooser = new SendableChooser<>();
 
   public RealRobot() {
     super(SwerveRobotContainer.selectProfile("frc.robot.RealRobotProfile"));
+
+    autoChooser.setDefaultOption("None", Commands.none());
+    autoChooser.addOption("BLine: Example Score (JSON)", AutoRoutines.exampleScore(drive));
+    autoChooser.addOption("BLine: Example Score (code)", AutoRoutines.exampleScoreInCode(drive));
+    if (demoIntake != null) {
+      autoChooser.addOption("BLine: Pickup + Score", AutoRoutines.pickupAndScore(drive, demoIntake));
+    }
+    SmartDashboard.putData("Auto Mode", autoChooser);
   }
 
   @Override
   protected void configureBindings() {
     super.configureBindings();
+
+    controller.y().onTrue(TeleopRoutines.driveToHub(drive));
+
     if (!RobotBase.isSimulation()) return;
 
     drive.getDriveTrainSimulation().ifPresent(driveSim -> {
@@ -36,5 +52,11 @@ public class RealRobot extends SwerveRobotContainer {
       controller.rightBumper().onTrue(demoIntake.retractCommand());
       controller.a().onTrue(demoIntake.fireCommand());
     });
+  }
+
+  @Override
+  public Command getAutonomousCommand() {
+    Command visual = super.getAutonomousCommand();
+    return visual != null ? visual : autoChooser.getSelected();
   }
 }

@@ -143,6 +143,11 @@ Symptom if either is missing: the web Enable button appears to toggle but the ro
 | Vision sim IO (extends VisionIOPhoton) | `src/main/java/org/frc5010/common/vision/VisionIOSim.java` |
 | Calibration result record | `src/main/java/org/frc5010/common/drive/swerve/calibration/CalibrationResult.java` |
 | Calibration data-collection routine | `src/main/java/org/frc5010/common/drive/swerve/calibration/MotorCalibrationRoutine.java` |
+| BLine path-follower wrapper (game-agnostic) | `src/main/java/org/frc5010/common/drive/swerve/auto/BLineSwerveAuto.java` |
+| Auto routines (game-specific BLine examples) | `src/main/java/frc/robot/AutoRoutines.java` |
+| Teleop drive-to-pose commands (game-specific) | `src/main/java/frc/robot/TeleopRoutines.java` |
+| Deployed BLine paths + config | `src/main/deploy/autos/` |
+| BLine sim test | `src/test/java/org/frc5010/common/subsystem/BLineFollowPathSimPhysicsTest.java` |
 
 ---
 
@@ -156,6 +161,7 @@ Symptom if either is missing: the web Enable button appears to toggle but the ro
 | Test pyramid in depth, per-cycle call order, `SimulatedArena` teardown, log analysis | [docs/testing.md](docs/testing.md) |
 | Vision architecture (IO pattern, design decisions, usage example) | [docs/vision.md](docs/vision.md) |
 | Motor calibration workflow (sim ramp → SysId → apply gains) | [docs/calibration.md](docs/calibration.md) |
+| BLine path-following — auto chooser, JSON + code-defined paths, drive-to-pose button | [docs/auto.md](docs/auto.md) |
 | High-level architecture overview | [docs/architecture.md](docs/architecture.md) |
 | Local / Codespaces / claude.ai/code / CI environments + trusted-domain list | [docs/environment.md](docs/environment.md) |
 | Student-facing setup walkthrough (fork → deploy) | [docs/student-setup.md](docs/student-setup.md) |
