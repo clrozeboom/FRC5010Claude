@@ -89,11 +89,20 @@ public final class AutoRoutines {
         Commands.waitUntil(() -> intake.getHeldFuel() > 0).withTimeout(2.0),
         intake.retractCommand(),
         b.build(returnPath),
-        // Fire every collected Fuel piece at the Hub — one ballistic shot per piece.
-        Commands.repeatingSequence(intake.fireCommand(), Commands.waitSeconds(0.25))
-            .until(() -> intake.getHeldFuel() == 0)
-            .withTimeout(6.0),
+        fireAllFuel(intake),
         Commands.runOnce(drive::stop, drive));
+  }
+
+  /**
+   * Fires every Fuel piece the intake currently holds at the Hub — one ballistic shot per
+   * piece — from wherever the robot is. Append this to an auto so the robot scores its preload
+   * (and anything it collected). Score from inside the alliance zone ({@code X < 3.952 m} on
+   * Blue) so {@link DemoIntake} targets the Hub rather than lobbing toward the zone.
+   */
+  public static Command fireAllFuel(DemoIntake intake) {
+    return Commands.repeatingSequence(intake.fireCommand(), Commands.waitSeconds(0.25))
+        .until(() -> intake.getHeldFuel() == 0)
+        .withTimeout(6.0);
   }
 
   private AutoRoutines() {}

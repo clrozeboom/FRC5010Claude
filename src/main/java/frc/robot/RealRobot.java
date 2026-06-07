@@ -39,9 +39,12 @@ public class RealRobot extends SwerveRobotContainer {
   public RealRobot() {
     super(SwerveRobotContainer.selectProfile("frc.robot.RealRobotProfile"));
 
+    // The two example routines end inside the alliance scoring zone; append a "fire the
+    // preload at the Hub" step (when the demo intake exists) so every auto scores. pickupAndScore
+    // already fires the preload plus everything it collects.
     autos.put("None", Commands.none());
-    autos.put("BLine: Example Score (JSON)", AutoRoutines.exampleScore(drive));
-    autos.put("BLine: Example Score (code)", AutoRoutines.exampleScoreInCode(drive));
+    autos.put("BLine: Example Score (JSON)", scoreAfter(AutoRoutines.exampleScore(drive)));
+    autos.put("BLine: Example Score (code)", scoreAfter(AutoRoutines.exampleScoreInCode(drive)));
     if (demoIntake != null) {
       autos.put("BLine: Pickup + Score", AutoRoutines.pickupAndScore(drive, demoIntake));
     }
@@ -62,6 +65,16 @@ public class RealRobot extends SwerveRobotContainer {
           webSelectedAuto,
           name -> { if (autos.containsKey(name)) webSelectedAuto = name; });
     }
+  }
+
+  /**
+   * Appends a "fire all held Fuel at the Hub" step to a drive-only auto, so the robot scores its
+   * preload. No-op (returns the auto unchanged) when the demo intake is absent (non-sim).
+   */
+  private Command scoreAfter(Command driveAuto) {
+    return demoIntake == null
+        ? driveAuto
+        : Commands.sequence(driveAuto, AutoRoutines.fireAllFuel(demoIntake));
   }
 
   @Override
