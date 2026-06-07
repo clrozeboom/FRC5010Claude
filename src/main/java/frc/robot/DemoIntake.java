@@ -64,6 +64,9 @@ public class DemoIntake extends SimRobotState {
   // ---- geometry ----
   private static final double BUMPER_HALF_M = Units.inchesToMeters(15);
 
+  /** Fuel the robot is preloaded with at startup (a typical match preload). */
+  private static final int PRELOADED_FUEL = 8;
+
   // ---- projectile launch parameters ----
   private static final double LAUNCH_HEIGHT_M         = 0.4;
   private static final double HUB_SHOT_ELEVATION_DEG  = 65.0;
@@ -108,6 +111,8 @@ public class DemoIntake extends SimRobotState {
         BUMPER_HALF_M + Units.inchesToMeters(6),
         field2d != null ? field2d.getObject("Intake") : null);
     this.fuelField = field2d != null ? field2d.getObject("Fuel") : null;
+    // Start the match preloaded with Fuel (well under the 50-piece capacity).
+    intakeSimulation.setGamePiecesCount(PRELOADED_FUEL);
   }
 
   @Override

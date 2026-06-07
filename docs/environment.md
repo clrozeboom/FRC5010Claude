@@ -64,5 +64,6 @@ To use this repo in a [claude.ai/code](https://claude.ai/code) web session:
 | `maven.photonvision.org` | PhotonVision |
 | `yet-another-software-suite.github.io` | YAGSL |
 | `3015rangerrobotics.github.io` | PathPlannerLib |
+| `jitpack.io` | JitPack — BLine-Lib path-following library (`com.github.edanliahovetsky:BLine-Lib`) |
 | `pypi.org` | Python packages for the `frc-docs` MCP server (`uvx first-agentic-csa`) |
 | `files.pythonhosted.org` | Python package downloads for `frc-docs` MCP server |

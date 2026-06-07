@@ -5,11 +5,17 @@
       "/AdvantageKit/RealOutputs/PhotonAlerts": "Alerts",
       "/FMSInfo": "FMSInfo",
       "/SmartDashboard/Alerts": "Alerts",
+      "/SmartDashboard/Auto Mode": "String Chooser",
       "/SmartDashboard/Field": "Field2d",
       "/SmartDashboard/PhotonAlerts": "Alerts",
       "/SmartDashboard/VisionSystemSim-vision_photon_front/Sim Field": "Field2d"
     },
     "windows": {
+      "/SmartDashboard/Auto Mode": {
+        "window": {
+          "visible": true
+        }
+      },
       "/SmartDashboard/Field": {
         "Field Tag 1": {
           "arrows": false,
@@ -315,8 +321,5 @@
         "open": true
       }
     }
-  },
-  "NetworkTables Info": {
-    "visible": true
   }
 }

@@ -18,8 +18,8 @@ import swervelib.simulation.ironmaple.simulation.SimulatedArena;
  * <ul>
  *   <li>{@link RobotContainer} constructs without error in both testSim and default-sim modes</li>
  *   <li>{@link RobotContainer#getAutonomousCommand()} delegates correctly to the inner
- *       {@link RealRobot}, returning {@code null} without {@code -PvisualTest} and a
- *       non-null command with it</li>
+ *       {@link RealRobot}, returning the chooser's default ({@code Commands.none()}) without
+ *       {@code -PvisualTest} and the {@code SwerveVisualTest} sequence with it</li>
  *   <li>{@link RobotContainer#resetToAllianceStart()} delegates without throwing</li>
  *   <li>The {@link DemoIntake} subsystem runs its default command for several enabled cycles
  *       without exception</li>
@@ -79,11 +79,14 @@ class RobotContainerSmokeTest extends SimTestBase {
   // ── delegation: getAutonomousCommand ──────────────────────────────────────
 
   @Test
-  void getAutonomousCommandNullWithoutVisualTest() {
+  void getAutonomousCommandFallsThroughToChooserDefault() {
     System.setProperty("testSim", "true");
     RobotContainer container = new RobotContainer();
-    assertNull(container.getAutonomousCommand(),
-        "Without -PvisualTest, getAutonomousCommand() must delegate null from SwerveRobotContainer");
+    // RealRobot.getAutonomousCommand() defers to a SendableChooser<Command> whose default
+    // is Commands.none(). Without -PvisualTest the visual-test branch returns null and
+    // the chooser default is returned instead — so the contract is "non-null, no-op".
+    assertNotNull(container.getAutonomousCommand(),
+        "Without -PvisualTest, getAutonomousCommand() must return the chooser's default (Commands.none())");
   }
 
   @Test

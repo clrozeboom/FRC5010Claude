@@ -1,10 +1,17 @@
-FROM mcr.microsoft.com/devcontainers/java:17-bookworm
+FROM mcr.microsoft.com/devcontainers/java:17-trixie
 
-# xvfb provides a virtual display so the WPILib sim GUI (which tries to open
-# a window) doesn't crash when you run `xvfb-run ./gradlew simulateJava`.
-# libgl1-mesa-dev / libglu1-mesa are pulled in for OpenGL-based WPILib native libs.
-# The base image may include a Yarn apt source with a missing signing key.
-# Remove it so apt-get update can proceed using Debian repos.
+# The base is Debian trixie (13), not bookworm (12), on purpose: PhotonVision's 2026
+# native lib (libphotontargeting.so) is built against GCC 13+ and needs GLIBCXX_3.4.32
+# at load time. bookworm's libstdc++6 (GCC 12) tops out at GLIBCXX_3.4.30, so the
+# PhotonVision JNI fails with UnsatisfiedLinkError and the vision tests can't run.
+# trixie ships libstdc++6 from GCC 14 (GLIBCXX_3.4.33+), matching the Ubuntu runner CI
+# already passes on — no libstdc++ workaround needed.
+#
+# xvfb provides a virtual display so the WPILib sim GUI (which tries to open a window)
+# doesn't crash when you run `xvfb-run ./gradlew simulateJava`. libgl1-mesa-dev /
+# libglu1-mesa are pulled in for OpenGL-based WPILib native libs. The base image may
+# include a Yarn apt source with a missing signing key — remove it so apt-get update
+# can proceed using Debian repos.
 RUN rm -f /etc/apt/sources.list.d/yarn.list \
     && apt-get update && apt-get install -y --no-install-recommends \
         xvfb \
