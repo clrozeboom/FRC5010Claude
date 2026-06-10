@@ -12,10 +12,13 @@ import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import java.util.LinkedHashMap;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import org.frc5010.common.input.DriveVector;
 import org.frc5010.common.input.XboxConfigurableController;
@@ -79,6 +82,15 @@ public abstract class SwerveRobotContainer {
 
   /** Web UI control facade. Non-null only when {@code -PwebUI} is set. */
   protected WebControl webControl = null;
+
+  /** Auto routines registered by name, in display order. Populated by {@link #buildAutos()}. */
+  protected final LinkedHashMap<String, Command> autos = new LinkedHashMap<>();
+
+  /** SmartDashboard chooser mirroring {@link #autos}. Published by {@link #finalizeAutos()}. */
+  protected final SendableChooser<Command> autoChooser = new SendableChooser<>();
+
+  /** Auto selected from the web UI driver-station panel. Written by the web-select callback. */
+  private volatile String webSelectedAuto;
 
   // Stored when constructed from a RobotProfile; null when constructed from a bare drive.
   private final RobotProfile profile;
@@ -200,15 +212,20 @@ public abstract class SwerveRobotContainer {
   /**
    * Returns the autonomous command.
    *
-   * <p>When the {@code visualTest} system property is set (via {@code -PvisualTest} on the
-   * Gradle command line), returns the {@link SwerveVisualTest} sequence. Otherwise returns
-   * {@code null}. Override to integrate PathPlanner, Choreo, etc.
+   * <p>Priority order:
+   * <ol>
+   *   <li>When {@code -PvisualTest} is set, returns the {@link SwerveVisualTest} sequence.</li>
+   *   <li>When the web UI is active and an auto has been selected, returns the web-selected auto.</li>
+   *   <li>Otherwise returns the SmartDashboard {@link SendableChooser} selection (registered via
+   *       {@link #addAuto} in {@link #buildAutos}).</li>
+   * </ol>
    */
   public Command getAutonomousCommand() {
     if (Boolean.getBoolean("visualTest")) {
       return SwerveVisualTest.build(drive, vision, this::getAllianceStartPose);
     }
-    return null;
+    if (webControl != null && webSelectedAuto != null) return autos.get(webSelectedAuto);
+    return autoChooser.getSelected();
   }
 
   /**
@@ -262,6 +279,58 @@ public abstract class SwerveRobotContainer {
             drive
         ).withName("KeyboardDrive")
     );
+
+    // Defer auto construction to the first scheduler tick so that all subclass constructors
+    // have completed (and fields like demoIntake are set) before buildAutos() is called.
+    // ignoringDisable(true) ensures this runs while the robot is still disabled at startup.
+    CommandScheduler.getInstance().schedule(
+        Commands.runOnce(() -> {
+          buildAutos();
+          finalizeAutos();
+        }).ignoringDisable(true).withName("BuildAutos")
+    );
+  }
+
+  /**
+   * Registers a named autonomous routine.
+   *
+   * <p>Call this from {@link #buildAutos()} to add each routine. The first call sets the
+   * SmartDashboard chooser default; subsequent calls add options in insertion order.
+   *
+   * @param name display name shown in the chooser and web UI dropdown
+   * @param cmd  the command to schedule when this auto is selected
+   */
+  protected void addAuto(String name, Command cmd) {
+    if (autos.isEmpty()) {
+      autoChooser.setDefaultOption(name, cmd);
+    } else {
+      autoChooser.addOption(name, cmd);
+    }
+    autos.put(name, cmd);
+  }
+
+  /**
+   * Override to register game-specific autonomous routines via {@link #addAuto}.
+   *
+   * <p>Called automatically on the first scheduler tick (first {@code robotPeriodic()} cycle),
+   * so all subsystems and fields are fully initialized when this runs. The base implementation
+   * does nothing — subclasses do not need to call {@code super.buildAutos()}.
+   */
+  protected void buildAutos() {}
+
+  /**
+   * Publishes the auto chooser to SmartDashboard and binds the registered autos to the web UI
+   * driver-station panel. Called automatically after {@link #buildAutos()} completes.
+   */
+  private void finalizeAutos() {
+    SmartDashboard.putData("Auto Mode", autoChooser);
+    webSelectedAuto = autos.isEmpty() ? null : autos.keySet().iterator().next();
+    if (webControl != null && !autos.isEmpty()) {
+      webControl.bindAutos(
+          autos.keySet().toArray(new String[0]),
+          webSelectedAuto,
+          name -> { if (autos.containsKey(name)) webSelectedAuto = name; });
+    }
   }
 
   /**

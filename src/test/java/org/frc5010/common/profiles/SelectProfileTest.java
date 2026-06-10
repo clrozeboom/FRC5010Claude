@@ -21,7 +21,7 @@ class SelectProfileTest {
   @Test
   void testSimPropertyReturnsSimRobotProfile() {
     System.setProperty("testSim", "true");
-    RobotProfile profile = SwerveRobotContainer.selectProfile("frc.robot.RealRobotProfile");
+    RobotProfile profile = SwerveRobotContainer.selectProfile("frc.robot.rebuilt.RealRobotProfile");
     assertInstanceOf(SimRobotProfile.class, profile,
         "testSim=true must substitute SimRobotProfile regardless of the class name argument");
   }
@@ -30,8 +30,8 @@ class SelectProfileTest {
   void noPropertyInstantiatesNamedClassReflectively() {
     // testSim not set → selectProfile must reflectively instantiate RealRobotProfile.
     // We check the class name rather than importing frc.robot types into the common package.
-    RobotProfile profile = SwerveRobotContainer.selectProfile("frc.robot.RealRobotProfile");
-    assertEquals("frc.robot.RealRobotProfile", profile.getClass().getName(),
+    RobotProfile profile = SwerveRobotContainer.selectProfile("frc.robot.rebuilt.RealRobotProfile");
+    assertEquals("frc.robot.rebuilt.RealRobotProfile", profile.getClass().getName(),
         "Without testSim, selectProfile must reflectively instantiate the named class");
   }
 

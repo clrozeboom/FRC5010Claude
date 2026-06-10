@@ -82,9 +82,10 @@ class RobotContainerSmokeTest extends SimTestBase {
   void getAutonomousCommandFallsThroughToChooserDefault() {
     System.setProperty("testSim", "true");
     RobotContainer container = new RobotContainer();
-    // RealRobot.getAutonomousCommand() defers to a SendableChooser<Command> whose default
-    // is Commands.none(). Without -PvisualTest the visual-test branch returns null and
-    // the chooser default is returned instead — so the contract is "non-null, no-op".
+    // BuildAutos runs on the first scheduler tick (ignoringDisable), so run one cycle to
+    // populate the chooser before asserting. Without -PvisualTest the chooser default
+    // (Commands.none()) is returned — the contract is "non-null, no-op".
+    CommandScheduler.getInstance().run();
     assertNotNull(container.getAutonomousCommand(),
         "Without -PvisualTest, getAutonomousCommand() must return the chooser's default (Commands.none())");
   }
