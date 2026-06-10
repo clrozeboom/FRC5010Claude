@@ -20,6 +20,8 @@ import edu.wpi.first.units.measure.Mass;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.frc5010.common.tuning.TunableGains;
+import org.littletonrobotics.junction.AutoLog;
+import org.littletonrobotics.junction.Logger;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.DifferentialMechanismConfig;
@@ -82,6 +84,29 @@ public class YamsDifferentialMechanism extends SubsystemBase {
     public Current statorCurrentLimit = Amps.of(40);
   }
 
+  /**
+   * AdvantageKit inputs — everything read back from the motors crosses the replay
+   * bubble here. Fields stay {@code double} (project convention).
+   */
+  @AutoLog
+  public static class DifferentialMechanismInputs {
+    /** Tilt angle (common mode), degrees. */
+    public double tiltDegrees;
+    /** Twist angle (differential mode), degrees. */
+    public double twistDegrees;
+    /** Left motor applied voltage. */
+    public double leftAppliedVolts;
+    /** Right motor applied voltage. */
+    public double rightAppliedVolts;
+    /** Left motor stator current, amps. */
+    public double leftCurrentAmps;
+    /** Right motor stator current, amps. */
+    public double rightCurrentAmps;
+  }
+
+  private final DifferentialMechanismInputsAutoLogged inputs =
+      new DifferentialMechanismInputsAutoLogged();
+
   private final Settings settings;
   private final SmartMotorControllerConfig leftMotorConfig;
   private final SmartMotorControllerConfig rightMotorConfig;
@@ -123,8 +148,19 @@ public class YamsDifferentialMechanism extends SubsystemBase {
         .withControlMode(ControlMode.CLOSED_LOOP);
   }
 
+  private void updateInputs() {
+    inputs.tiltDegrees = diffy.getTiltPosition().in(Degrees);
+    inputs.twistDegrees = diffy.getTwistPosition().in(Degrees);
+    inputs.leftAppliedVolts = leftMotor.getVoltage().in(Volts);
+    inputs.rightAppliedVolts = rightMotor.getVoltage().in(Volts);
+    inputs.leftCurrentAmps = leftMotor.getStatorCurrent().in(Amps);
+    inputs.rightCurrentAmps = rightMotor.getStatorCurrent().in(Amps);
+  }
+
   @Override
   public void periodic() {
+    updateInputs();
+    Logger.processInputs(settings.name, inputs);
     if (gains.hasChanged()) {
       leftMotorConfig.withClosedLoopController(gains.kP(), gains.kI(), gains.kD());
       rightMotorConfig.withClosedLoopController(gains.kP(), gains.kI(), gains.kD());
@@ -141,6 +177,8 @@ public class YamsDifferentialMechanism extends SubsystemBase {
 
   /** Command: drive the wrist to the given tilt and twist angles. Never finishes. */
   public Command goToAngles(Angle tilt, Angle twist) {
+    Logger.recordOutput(settings.name + "/CommandedTiltDegrees", tilt.in(Degrees));
+    Logger.recordOutput(settings.name + "/CommandedTwistDegrees", twist.in(Degrees));
     return diffy.setPosition(tilt, twist);
   }
 
@@ -154,14 +192,14 @@ public class YamsDifferentialMechanism extends SubsystemBase {
     return diffy.sysId(Volts.of(3), Volts.of(1).per(Second), Seconds.of(10));
   }
 
-  /** Current tilt angle. */
+  /** Current tilt angle (from the AdvantageKit inputs — replay-safe). */
   public Angle getTilt() {
-    return diffy.getTiltPosition();
+    return Degrees.of(inputs.tiltDegrees);
   }
 
-  /** Current twist angle. */
+  /** Current twist angle (from the AdvantageKit inputs — replay-safe). */
   public Angle getTwist() {
-    return diffy.getTwistPosition();
+    return Degrees.of(inputs.twistDegrees);
   }
 
   /** Underlying YAMS mechanism, for advanced use. */

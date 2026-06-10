@@ -26,6 +26,7 @@ Common wrapper (org.frc5010.common.mechanisms)        Controller (ControlStyle.L
 YAMS mechanism (Elevator / Arm / Pivot / FlyWheel / DoubleJointedArm / DifferentialMechanism)
  ├── SmartMotorController wrapper (TalonFX preferred; TalonFXS / SparkMax / SparkFlex via MechanismMotor.Vendor)
  ├── RIO-side closed loop in a 20 ms WPILib Notifier (LQR always runs on the RIO)
+ ├── @AutoLog inputs (AdvantageKit replay bubble) — see "AdvantageKit integration" below
  └── Built-in physics sim (ElevatorSim / SingleJointedArmSim / DCMotorSim) + Mechanism2d
 ```
 
@@ -152,6 +153,30 @@ systems the LQR types don't model, so those wrappers use profiled PID with
 9. **The released jar's API differs from YAMS GitHub main** (e.g. `withSoftLimit` vs
    `withSoftLimits`, `ArmConfig.withHardLimit` vs `withHardLimits`). When in doubt,
    `javap` the jar in the Gradle cache, not the GitHub source.
+
+## AdvantageKit integration
+
+Each wrapper follows the YAMS AdvantageKit pattern (the upstream
+`examples/advantage_kit` project): everything read back from the motor/mechanism
+crosses the replay bubble through an `@AutoLog` inputs class.
+
+- **Inputs** (`<Mechanism>Inputs`, nested in each wrapper): position, velocity,
+  closed-loop setpoint, applied volts, stator current — per motor for the dual-motor
+  mechanisms. Fields are `double` with unit-suffixed names (`positionMeters`,
+  `velocityRPM`, ...) per this repo's convention — never `Measure<>` in `@AutoLog`
+  (CLAUDE.md gotcha #9; the upstream example uses `Distance` fields, don't copy that).
+- **`periodic()`** runs `updateInputs()` → `Logger.processInputs(name, inputs)` before
+  tuning and YAMS telemetry, so every cycle's state lands in the `.wpilog`.
+- **Getters are replay-safe**: `getHeight()`, `getAngle()`, `getSpeed()`, `getTilt()`,
+  etc. read from the *inputs* object, not the hardware — in REPLAY mode they return
+  the logged values. The `isAt...` triggers are built on the inputs too. Anything that
+  must survive replay should go through these getters; `getMechanism()` bypasses the
+  bubble (live sim/hardware only).
+- **Commands record their targets** as outputs (`<name>/CommandedHeightMeters`, ...),
+  so commanded vs. actual is directly plottable in AdvantageScope.
+
+After changing what the mechanisms log, run `/validate-replay` to confirm replay
+fidelity end-to-end.
 
 ## Functional tests
 

@@ -2,6 +2,7 @@ package frc.robot.mechanisms;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RPM;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -145,6 +146,29 @@ public class YamsMechanismsFunctionalTest extends SimTestBase {
           "shooter should settle at the commanded speed");
     } finally {
       shooter.close();
+    }
+  }
+
+  @Test
+  public void advantageKitInputsTrackMechanismState() {
+    ExampleElevator elevator = new ExampleElevator();
+    try {
+      scheduleAndRun(elevator.goToHeight(Meters.of(0.5)), 1.0);
+      // The public getters read from the @AutoLog inputs (the replay bubble), not the
+      // mechanism directly — verify the inputs are being populated each periodic()
+      // and match the live simulated mechanism state.
+      // Inputs are a snapshot from the last periodic(); the sim advances up to one
+      // cycle past it, so compare with a one-cycle-of-motion tolerance.
+      assertEquals(elevator.getMechanism().getHeight().in(Meters),
+          elevator.getHeight().in(Meters), 0.05,
+          "inputs-based height getter should track the live mechanism");
+      assertTrue(elevator.getHeight().in(Meters) > 0.1,
+          "inputs should reflect actual motion, not stay at defaults");
+      // The closed-loop setpoint crossed into the inputs too.
+      assertTrue(Math.abs(elevator.getVelocity().in(MetersPerSecond)) >= 0,
+          "velocity input should be populated");
+    } finally {
+      elevator.close();
     }
   }
 

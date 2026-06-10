@@ -21,6 +21,8 @@ import edu.wpi.first.units.measure.Mass;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.frc5010.common.tuning.TunableGains;
+import org.littletonrobotics.junction.AutoLog;
+import org.littletonrobotics.junction.Logger;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.mechanisms.config.ArmConfig;
@@ -89,6 +91,32 @@ public class YamsDoubleJointedArm extends SubsystemBase {
     public JointSettings upperJoint = new JointSettings();
   }
 
+  /**
+   * AdvantageKit inputs — everything read back from the motors crosses the replay
+   * bubble here. Fields stay {@code double} (project convention).
+   */
+  @AutoLog
+  public static class DoubleJointedArmInputs {
+    /** Shoulder angle, degrees. */
+    public double lowerPositionDegrees;
+    /** Elbow angle, degrees. */
+    public double upperPositionDegrees;
+    /** Shoulder closed-loop setpoint, degrees. */
+    public double lowerSetpointDegrees;
+    /** Elbow closed-loop setpoint, degrees. */
+    public double upperSetpointDegrees;
+    /** Shoulder applied voltage. */
+    public double lowerAppliedVolts;
+    /** Elbow applied voltage. */
+    public double upperAppliedVolts;
+    /** Shoulder stator current, amps. */
+    public double lowerCurrentAmps;
+    /** Elbow stator current, amps. */
+    public double upperCurrentAmps;
+  }
+
+  private final DoubleJointedArmInputsAutoLogged inputs = new DoubleJointedArmInputsAutoLogged();
+
   private final Settings settings;
   private final SmartMotorControllerConfig lowerMotorConfig;
   private final SmartMotorControllerConfig upperMotorConfig;
@@ -141,8 +169,23 @@ public class YamsDoubleJointedArm extends SubsystemBase {
         .withTelemetry(settings.name + label, TelemetryVerbosity.HIGH);
   }
 
+  private void updateInputs() {
+    inputs.lowerPositionDegrees = arm.getLowerAngle().in(Degrees);
+    inputs.upperPositionDegrees = arm.getUpperAngle().in(Degrees);
+    inputs.lowerSetpointDegrees = lowerMotor.getMechanismPositionSetpoint()
+        .map(sp -> sp.in(Degrees)).orElse(inputs.lowerPositionDegrees);
+    inputs.upperSetpointDegrees = upperMotor.getMechanismPositionSetpoint()
+        .map(sp -> sp.in(Degrees)).orElse(inputs.upperPositionDegrees);
+    inputs.lowerAppliedVolts = lowerMotor.getVoltage().in(Volts);
+    inputs.upperAppliedVolts = upperMotor.getVoltage().in(Volts);
+    inputs.lowerCurrentAmps = lowerMotor.getStatorCurrent().in(Amps);
+    inputs.upperCurrentAmps = upperMotor.getStatorCurrent().in(Amps);
+  }
+
   @Override
   public void periodic() {
+    updateInputs();
+    Logger.processInputs(settings.name, inputs);
     if (lowerGains.hasChanged()) {
       lowerMotorConfig.withClosedLoopController(lowerGains.kP(), lowerGains.kI(), lowerGains.kD());
       lowerMotor.applyConfig(lowerMotorConfig);
@@ -161,6 +204,8 @@ public class YamsDoubleJointedArm extends SubsystemBase {
 
   /** Command: drive both joints to the given angles. Never finishes. */
   public Command goToAngles(Angle lowerAngle, Angle upperAngle) {
+    Logger.recordOutput(settings.name + "/CommandedLowerDegrees", lowerAngle.in(Degrees));
+    Logger.recordOutput(settings.name + "/CommandedUpperDegrees", upperAngle.in(Degrees));
     return arm.setAngle(lowerAngle, upperAngle);
   }
 
@@ -184,14 +229,14 @@ public class YamsDoubleJointedArm extends SubsystemBase {
     return arm.sysId(Volts.of(3), Volts.of(1).per(Second), Seconds.of(10));
   }
 
-  /** Current shoulder angle. */
+  /** Current shoulder angle (from the AdvantageKit inputs — replay-safe). */
   public Angle getLowerAngle() {
-    return arm.getLowerAngle();
+    return Degrees.of(inputs.lowerPositionDegrees);
   }
 
-  /** Current elbow angle. */
+  /** Current elbow angle (from the AdvantageKit inputs — replay-safe). */
   public Angle getUpperAngle() {
-    return arm.getUpperAngle();
+    return Degrees.of(inputs.upperPositionDegrees);
   }
 
   /** Current end-effector position relative to the shoulder, meters. */

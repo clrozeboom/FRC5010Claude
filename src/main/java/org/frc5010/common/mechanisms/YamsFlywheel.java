@@ -23,6 +23,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import org.frc5010.common.tuning.TunableGains;
+import org.littletonrobotics.junction.AutoLog;
+import org.littletonrobotics.junction.Logger;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.math.LQRConfig;
@@ -101,6 +103,24 @@ public class YamsFlywheel extends SubsystemBase {
     public Current statorCurrentLimit = Amps.of(60);
   }
 
+  /**
+   * AdvantageKit inputs — everything read back from the motor/mechanism crosses the
+   * replay bubble here. Fields stay {@code double} (project convention).
+   */
+  @AutoLog
+  public static class FlywheelInputs {
+    /** Wheel speed, RPM. */
+    public double velocityRPM;
+    /** Active closed-loop velocity setpoint, RPM. */
+    public double setpointRPM;
+    /** Applied motor output voltage. */
+    public double appliedVolts;
+    /** Stator current, amps. */
+    public double statorCurrentAmps;
+  }
+
+  private final FlywheelInputsAutoLogged inputs = new FlywheelInputsAutoLogged();
+
   private final Settings settings;
   private final MechanismGearing gearing;
   private final LQRController lqr; // null in PROFILED_PID style
@@ -169,8 +189,19 @@ public class YamsFlywheel extends SubsystemBase {
         Volts.of(relmsVolts));
   }
 
+  private void updateInputs() {
+    inputs.velocityRPM = flywheel.getSpeed().in(RPM);
+    inputs.setpointRPM = motor.getMechanismSetpointVelocity()
+        .map(sp -> sp.in(RPM))
+        .orElse(0.0);
+    inputs.appliedVolts = motor.getVoltage().in(Volts);
+    inputs.statorCurrentAmps = motor.getStatorCurrent().in(Amps);
+  }
+
   @Override
   public void periodic() {
+    updateInputs();
+    Logger.processInputs(settings.name, inputs);
     if (lqr != null && lqrTunables.hasChanged()) {
       lqr.updateConfig(buildLqrConfig(lqrTunables.qelmsVelocity(), lqrTunables.relms()));
       motor.startClosedLoopController();
@@ -187,8 +218,9 @@ public class YamsFlywheel extends SubsystemBase {
     flywheel.simIterate();
   }
 
-  /** Command: spin the wheel to the given velocity (LQR). Never finishes. */
+  /** Command: spin the wheel to the given velocity. Never finishes. */
   public Command goToSpeed(AngularVelocity speed) {
+    Logger.recordOutput(settings.name + "/CommandedSpeedRPM", speed.in(RPM));
     return flywheel.setSpeed(speed);
   }
 
@@ -202,14 +234,15 @@ public class YamsFlywheel extends SubsystemBase {
     return flywheel.sysId(Volts.of(7), Volts.of(1).per(Second), Seconds.of(10));
   }
 
-  /** Current wheel speed. */
+  /** Current wheel speed (from the AdvantageKit inputs — replay-safe). */
   public AngularVelocity getSpeed() {
-    return flywheel.getSpeed();
+    return RPM.of(inputs.velocityRPM);
   }
 
   /** Trigger: true while the wheel is within {@code tolerance} of {@code speed} (ready to shoot). */
   public Trigger isAtSpeed(AngularVelocity speed, AngularVelocity tolerance) {
-    return flywheel.isNear(speed, tolerance);
+    return new Trigger(
+        () -> Math.abs(inputs.velocityRPM - speed.in(RPM)) <= tolerance.in(RPM));
   }
 
   /** Convenience trigger with a 100 RPM tolerance. */

@@ -40,6 +40,7 @@ SimRobotState (abstract SubsystemBase) ──► frc.robot.DemoIntake (2026 Fuel
 YAMS mechanisms (org.frc5010.common.mechanisms — LQR-first wrappers over the YAMS vendordep)
  ├── YamsElevator / YamsArm / YamsPivot / YamsFlywheel   ← ControlStyle.LQR (default) or PROFILED_PID, live NT tuning
  ├── YamsDoubleJointedArm / YamsDifferentialMechanism    ← profiled PID only (LQR can't model coupled joints)
+ ├── @AutoLog inputs per wrapper — getters/triggers read the inputs (replay-safe)
  └── frc.robot.mechanisms.Example* (TalonFX/Kraken: LQR CAN 21–28, ExampleProfiled* CAN 31–34)
 ```
 

@@ -23,6 +23,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import org.frc5010.common.tuning.TunableGains;
+import org.littletonrobotics.junction.AutoLog;
+import org.littletonrobotics.junction.Logger;
 import yams.gearing.GearBox;
 import yams.gearing.MechanismGearing;
 import yams.math.LQRConfig;
@@ -129,6 +131,27 @@ public class YamsElevator extends SubsystemBase {
     public Distance encoderPositionTrust = Meters.of(0.001);
   }
 
+  /**
+   * AdvantageKit inputs — everything read back from the motor/mechanism crosses the
+   * replay bubble here. Fields stay {@code double} (project convention: the AutoLog
+   * processor expects primitives; extract with {@code .in(unit)} before assigning).
+   */
+  @AutoLog
+  public static class ElevatorInputs {
+    /** Carriage height, meters. */
+    public double positionMeters;
+    /** Carriage velocity, m/s. */
+    public double velocityMetersPerSec;
+    /** Active closed-loop setpoint, meters. */
+    public double setpointMeters;
+    /** Applied motor output voltage. */
+    public double appliedVolts;
+    /** Stator current, amps. */
+    public double statorCurrentAmps;
+  }
+
+  private final ElevatorInputsAutoLogged inputs = new ElevatorInputsAutoLogged();
+
   private final Settings settings;
   private final MechanismGearing gearing;
   private final LQRController lqr; // null in PROFILED_PID style
@@ -207,8 +230,20 @@ public class YamsElevator extends SubsystemBase {
         Volts.of(relmsVolts));
   }
 
+  private void updateInputs() {
+    inputs.positionMeters = elevator.getHeight().in(Meters);
+    inputs.velocityMetersPerSec = elevator.getVelocity().in(MetersPerSecond);
+    inputs.setpointMeters = motor.getMechanismPositionSetpoint()
+        .map(sp -> motorConfig.convertFromMechanism(sp).in(Meters))
+        .orElse(inputs.positionMeters);
+    inputs.appliedVolts = motor.getVoltage().in(Volts);
+    inputs.statorCurrentAmps = motor.getStatorCurrent().in(Amps);
+  }
+
   @Override
   public void periodic() {
+    updateInputs();
+    Logger.processInputs(settings.name, inputs);
     if (lqr != null && lqrTunables.hasChanged()) {
       lqr.updateConfig(buildLqrConfig(
           lqrTunables.qelmsPosition(), lqrTunables.qelmsVelocity(), lqrTunables.relms()));
@@ -227,8 +262,9 @@ public class YamsElevator extends SubsystemBase {
     elevator.simIterate();
   }
 
-  /** Command: drive the carriage to the given height (profiled LQR). Never finishes. */
+  /** Command: drive the carriage to the given height. Never finishes. */
   public Command goToHeight(Distance height) {
+    Logger.recordOutput(settings.name + "/CommandedHeightMeters", height.in(Meters));
     return elevator.setHeight(height);
   }
 
@@ -242,19 +278,20 @@ public class YamsElevator extends SubsystemBase {
     return elevator.sysId(Volts.of(7), Volts.of(1).per(Second), Seconds.of(10));
   }
 
-  /** Current carriage height. */
+  /** Current carriage height (from the AdvantageKit inputs — replay-safe). */
   public Distance getHeight() {
-    return elevator.getHeight();
+    return Meters.of(inputs.positionMeters);
   }
 
-  /** Current carriage velocity. */
+  /** Current carriage velocity (from the AdvantageKit inputs — replay-safe). */
   public LinearVelocity getVelocity() {
-    return elevator.getVelocity();
+    return MetersPerSecond.of(inputs.velocityMetersPerSec);
   }
 
   /** Trigger: true while the carriage is within {@code tolerance} of {@code height}. */
   public Trigger isAtHeight(Distance height, Distance tolerance) {
-    return elevator.isNear(height, tolerance);
+    return new Trigger(
+        () -> Math.abs(inputs.positionMeters - height.in(Meters)) <= tolerance.in(Meters));
   }
 
   /** Underlying YAMS mechanism, for advanced use (triggers, sim access). */
