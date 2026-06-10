@@ -1,8 +1,25 @@
 package frc.robot.rebuilt;
 
+import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.RPM;
+
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.mechanisms.ExampleArm;
+import frc.robot.mechanisms.ExampleCharacterizedElevator;
+import frc.robot.mechanisms.ExampleDifferentialWrist;
+import frc.robot.mechanisms.ExampleDoubleJointedArm;
+import frc.robot.mechanisms.ExampleElevator;
+import frc.robot.mechanisms.ExampleProfiledArm;
+import frc.robot.mechanisms.ExampleProfiledElevator;
+import frc.robot.mechanisms.ExampleProfiledShooter;
+import frc.robot.mechanisms.ExampleProfiledTurret;
+import frc.robot.mechanisms.ExampleShooter;
+import frc.robot.mechanisms.ExampleTurret;
+import java.util.ArrayList;
+import java.util.List;
 import org.frc5010.common.profiles.SwerveRobotContainer;
 
 /**
@@ -23,6 +40,29 @@ import org.frc5010.common.profiles.SwerveRobotContainer;
 public class RealRobot extends SwerveRobotContainer {
 
   private DemoIntake demoIntake;
+
+  /**
+   * Close handles for the sim-only YAMS demo mechanisms. Static so tests that construct
+   * RobotContainers can stop the YAMS closed-loop Notifier threads in teardown — the
+   * scheduler's unregisterAllSubsystems() does NOT stop them, and stale loops would
+   * keep driving the shared CAN IDs during later tests in the same JVM.
+   */
+  private static final List<Runnable> demoMechanismCloseables = new ArrayList<>();
+
+  /** Test hook: one representative demo mechanism, to verify the X binding end to end. */
+  private static ExampleElevator demoElevator;
+
+  /** Stops and frees all sim demo mechanisms created by previous container constructions. */
+  public static void closeDemoMechanisms() {
+    demoMechanismCloseables.forEach(Runnable::run);
+    demoMechanismCloseables.clear();
+    demoElevator = null;
+  }
+
+  /** The sim demo elevator, if demo mechanisms exist. For tests. */
+  public static java.util.Optional<ExampleElevator> getDemoElevator() {
+    return java.util.Optional.ofNullable(demoElevator);
+  }
 
   public RealRobot() {
     super(SwerveRobotContainer.selectProfile("frc.robot.rebuilt.RealRobotProfile"));
@@ -63,5 +103,51 @@ public class RealRobot extends SwerveRobotContainer {
       controller.rightBumper().onTrue(demoIntake.retractCommand());
       controller.a().onTrue(demoIntake.fireCommand());
     });
+
+    configureDemoMechanisms();
+  }
+
+  /**
+   * Instantiates every YAMS example mechanism (sim only — CAN 21–35 don't exist on the
+   * real robot; a competition robot would create just its own mechanisms, outside the
+   * sim guard) and binds X to drive them all to a mid-travel point at once. Watch them
+   * under SmartDashboard → {@code <name>/mechanism} or in AdvantageScope.
+   */
+  private void configureDemoMechanisms() {
+    var elevator = new ExampleElevator();
+    var arm = new ExampleArm();
+    var turret = new ExampleTurret();
+    var shooter = new ExampleShooter();
+    var jointedArm = new ExampleDoubleJointedArm();
+    var wrist = new ExampleDifferentialWrist();
+    var profiledElevator = new ExampleProfiledElevator();
+    var profiledArm = new ExampleProfiledArm();
+    var profiledTurret = new ExampleProfiledTurret();
+    var profiledShooter = new ExampleProfiledShooter();
+    var characterizedElevator = new ExampleCharacterizedElevator();
+
+    demoElevator = elevator;
+    demoMechanismCloseables.addAll(List.of(
+        elevator::close, arm::close, turret::close, shooter::close,
+        jointedArm::close, wrist::close,
+        profiledElevator::close, profiledArm::close, profiledTurret::close,
+        profiledShooter::close, characterizedElevator::close));
+
+    controller.x().onTrue(Commands.parallel(
+        // Position mechanisms → middle of their travel range
+        elevator.goToHeight(Meters.of(0.75)),
+        profiledElevator.goToHeight(Meters.of(0.75)),
+        characterizedElevator.goToHeight(Meters.of(0.75)),
+        arm.goToAngle(Degrees.of(90)),
+        profiledArm.goToAngle(Degrees.of(90)),
+        // Turrets start at mid-range (0°), so aim mid of the positive half instead
+        turret.goToAngle(Degrees.of(90)),
+        profiledTurret.goToAngle(Degrees.of(90)),
+        // Velocity mechanisms → half of the ~6000 RPM free speed
+        shooter.goToSpeed(RPM.of(3000)),
+        profiledShooter.goToSpeed(RPM.of(3000)),
+        jointedArm.goToAngles(Degrees.of(90), Degrees.of(0)),
+        wrist.goToAngles(Degrees.of(45), Degrees.of(30))
+    ).withName("AllMechanismsToMidpoints"));
   }
 }

@@ -227,6 +227,17 @@ crosses the replay bubble through an `@AutoLog` inputs class.
 After changing what the mechanisms log, run `/validate-replay` to confirm replay
 fidelity end-to-end.
 
+## Try them in the sim
+
+`RealRobot` instantiates every example mechanism in simulation (sim only — the CAN
+IDs don't exist on a real robot) and binds the **X button** to drive them all to a
+mid-travel point in parallel (elevators → 0.75 m, arms/turrets → 90°, shooters →
+3000 RPM, DJA → 90°/0°, wrist → 45°/30°). Run `./gradlew simulateJava`, enable,
+press X, and watch the Mechanism2d widgets under SmartDashboard →
+`<name>/mechanism`. Tests that construct `RobotContainer` must call
+`RealRobot.closeDemoMechanisms()` in teardown and pump time asynchronously
+(see gotcha 7) — `RobotContainerSmokeTest.pumpCycles` is the reference.
+
 ## Functional tests
 
 `src/test/java/frc/robot/mechanisms/YamsMechanismsFunctionalTest.java` builds each

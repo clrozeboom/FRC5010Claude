@@ -2,7 +2,12 @@ package frc.robot;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.simulation.DriverStationSim;
+import edu.wpi.first.wpilibj.simulation.SimHooks;
+import edu.wpi.first.wpilibj.simulation.XboxControllerSim;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.rebuilt.RealRobot;
 import org.frc5010.common.robot.Mode;
 import org.frc5010.common.robot.RobotMode;
 import org.frc5010.common.util.SimTestBase;
@@ -45,6 +50,11 @@ class RobotContainerSmokeTest extends SimTestBase {
   public void simTeardown() {
     System.clearProperty("testSim");
     System.clearProperty("visualTest");
+
+    // Stop the YAMS demo-mechanism closed-loop Notifier threads — the scheduler
+    // teardown doesn't, and stale loops would drive the shared CAN IDs (21–35)
+    // during YamsMechanismsFunctionalTest later in the same JVM.
+    RealRobot.closeDemoMechanisms();
 
     SimulatedArena.getInstance().shutDown();
     try {
@@ -111,6 +121,22 @@ class RobotContainerSmokeTest extends SimTestBase {
 
   // ── DemoIntake subsystem periodic ─────────────────────────────────────────
 
+  /**
+   * Pumps scheduler + sim time asynchronously. The container now owns YAMS demo
+   * mechanisms whose closed loops run in WPILib Notifiers; the synchronous
+   * {@code stepOneCycle()} deadlocks against them (see docs/mechanisms.md gotcha 7),
+   * so this mirrors YamsMechanismsFunctionalTest's pump.
+   */
+  private void pumpCycles(int cycles) throws InterruptedException {
+    for (int i = 0; i < cycles; i++) {
+      CommandScheduler.getInstance().run();
+      SimHooks.stepTimingAsync(LOOP_PERIOD_SECS);
+      Thread.sleep(10);
+      DriverStationSim.notifyNewData();
+      DriverStation.refreshData();
+    }
+  }
+
   @Test
   void demoIntakePeriodicRunsWhileEnabled() {
     // Construct in testSim mode — DemoIntake is wired via Trigger bindings (no default
@@ -122,12 +148,34 @@ class RobotContainerSmokeTest extends SimTestBase {
 
     enableTeleop();
 
-    assertDoesNotThrow(() -> {
-      for (int i = 0; i < 5; i++) {
-        CommandScheduler.getInstance().run();
-        stepOneCycle();
-      }
-    }, "Five enabled scheduler cycles must complete without exception");
+    assertDoesNotThrow(() -> pumpCycles(5),
+        "Five enabled scheduler cycles must complete without exception");
+  }
+
+  // ── X button → all mechanisms to midpoints ────────────────────────────────
+
+  @Test
+  void xButtonDrivesMechanismsTowardMidpoints() throws InterruptedException {
+    // End-to-end binding check (gotcha 11: run the flow, don't just construct): press
+    // X on the simulated controller and verify the demo elevator actually climbs
+    // toward its 0.75 m midpoint via the AllMechanismsToMidpoints parallel command.
+    System.setProperty("testSim", "true");
+    new RobotContainer();
+
+    var elevator = RealRobot.getDemoElevator().orElseThrow(
+        () -> new AssertionError("sim demo mechanisms should exist in simulation"));
+
+    enableTeleop();
+    XboxControllerSim controllerSim = new XboxControllerSim(0);
+    controllerSim.setXButton(true);
+    DriverStationSim.notifyNewData();
+    DriverStation.refreshData();
+
+    pumpCycles(100); // 2 s of sim time
+
+    double height = elevator.getHeight().in(edu.wpi.first.units.Units.Meters);
+    assertTrue(height > 0.3,
+        "X button should drive the demo elevator from 0.1 m toward 0.75 m, was " + height);
   }
 
   @Test
@@ -138,11 +186,7 @@ class RobotContainerSmokeTest extends SimTestBase {
     new RobotContainer();
 
     // Robot stays disabled (SimTestBase default)
-    assertDoesNotThrow(() -> {
-      for (int i = 0; i < 5; i++) {
-        CommandScheduler.getInstance().run();
-        stepOneCycle();
-      }
-    }, "Five disabled scheduler cycles must complete without exception");
+    assertDoesNotThrow(() -> pumpCycles(5),
+        "Five disabled scheduler cycles must complete without exception");
   }
 }

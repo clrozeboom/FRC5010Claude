@@ -42,6 +42,8 @@ YAMS mechanisms (org.frc5010.common.mechanisms — LQR-first wrappers over the Y
  ├── YamsDoubleJointedArm / YamsDifferentialMechanism    ← profiled PID only (LQR can't model coupled joints)
  ├── @AutoLog inputs per wrapper — getters/triggers read the inputs (replay-safe)
  └── frc.robot.mechanisms.Example* (TalonFX/Kraken: LQR CAN 21–28, ExampleProfiled* CAN 31–34)
+      └── RealRobot creates all of them in SIM; X button → all mechanisms to midpoints
+          (tests constructing RobotContainer: RealRobot.closeDemoMechanisms() + async pump)
 ```
 
 **Critical distinction — `instanceof GyroIOSim` in `AkitSwerveDrive.periodic()`:**
