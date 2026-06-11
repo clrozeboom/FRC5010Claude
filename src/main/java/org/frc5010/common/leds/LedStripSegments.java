@@ -70,6 +70,10 @@ public class LedStripSegments extends SubsystemBase implements AutoCloseable {
   /**
    * Creates and starts the strip. All LEDs are off until segments (or an override) are set.
    *
+   * <p>When the sim web UI is active ({@code -PwebUI}), the strip auto-binds to
+   * {@link org.frc5010.common.sim.WebControl} so the browser renders a live copy of it
+   * under the field — same pattern as {@link org.frc5010.common.sim.SimRobotState}.
+   *
    * @param pwmPort the roboRIO PWM header the strip's data line is plugged into
    * @param length  total number of LEDs on the strip
    */
@@ -78,6 +82,7 @@ public class LedStripSegments extends SubsystemBase implements AutoCloseable {
     buffer = new AddressableLEDBuffer(length);
     led.setLength(length);
     led.start();
+    org.frc5010.common.sim.WebControl.getInstance().ifPresent(wc -> wc.bindLeds(this));
   }
 
   /**

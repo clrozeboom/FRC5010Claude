@@ -71,6 +71,20 @@ feed it real mechanism state; in `ExampleRobot` it lives with the sim-only
 `DemoIntake` because that is where its states come from. Register
 `leds::close` via `registerMechanism(...)` so tests can free the PWM port.
 
+## Web UI display
+
+When the sim web UI is active (`./gradlew simulateJava -PwebUI`), `LedStripSegments`'s
+constructor auto-binds the strip to `WebControl` (same pattern as `SimRobotState`), and
+the browser renders a live copy of it as a row of glowing dots **under the field view**.
+
+- The colour snapshot is taken every cycle on the robot thread in
+  `WebDriveController.applyPendingControl()` — the always-running hook (gotcha 11), so
+  the display stays live in disabled/auto/teleop alike.
+- `/api/state` serves it as `"leds":["#rrggbb", …]`; the bar is hidden while the array
+  is empty (no strip constructed).
+- `WebUIFunctionalTest.ledStripSurfacesAndAnimatesInStateJson` (Layer 4) asserts the
+  array has all 30 colours and animates between polls.
+
 ## Tests
 
 - `org.frc5010.common.subsystem.LedStripSegmentsTest` — Layer 2: segment
