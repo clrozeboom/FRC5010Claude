@@ -1,0 +1,251 @@
+package org.frc5010.common.mechanisms;
+
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.DegreesPerSecond;
+import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
+import static edu.wpi.first.units.Units.Kilograms;
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static edu.wpi.first.units.Units.Second;
+
+import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.AngularAcceleration;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.Current;
+import edu.wpi.first.units.measure.Distance;
+import edu.wpi.first.units.measure.Mass;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
+import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import org.frc5010.common.robot.RobotMode;
+import org.frc5010.common.tuning.TunableGains;
+import org.littletonrobotics.junction.Logger;
+
+/**
+ * Differential (tilt + twist) wrist on two TalonFXs, with REAL / SIM / REPLAY support
+ * through one {@link MechanismIO} per motor.
+ *
+ * <p>Two motors drive one gear assembly: spinning together produces <em>tilt</em>,
+ * spinning opposite produces <em>twist</em>. The mixing convention here is
+ * {@code left = tilt + twist}, {@code right = tilt − twist}, so
+ * {@code tilt = (left + right) / 2} and {@code twist = (left − right) / 2}.
+ *
+ * <p><b>Controller:</b> profiled PID per motor via onboard MotionMagic — <em>not</em>
+ * LQR: the single-DOF LQR plants don't model the coupled differential. Gains are shared
+ * by both motors (the mechanism is symmetric) and live-tunable under
+ * {@code /Tuning/<name>/motors_*}.
+ */
+public class DifferentialMechanism extends SubsystemBase {
+
+  /** Robot-specific differential mechanism parameters. */
+  public static class Settings {
+    /** Mechanism name used for telemetry and tuning tables. */
+    public String name = "DiffWrist";
+    /** CAN ID of the left TalonFX. */
+    public int leftCanId;
+    /** CAN ID of the right TalonFX. */
+    public int rightCanId;
+    /** Motor physics model (both motors). */
+    public DCMotor motorModel = DCMotor.getKrakenX60(1);
+    /** Gear reduction stages, rotor → mechanism (both motors). */
+    public double[] gearReductionStages = {3, 4, 5};
+    /** Effective lever length for the MOI estimate. */
+    public Distance length = Meters.of(0.3);
+    /** Mass carried by the wrist for the MOI estimate. */
+    public Mass mass = Kilograms.of(1.8);
+    /** Tilt angle at robot power-on. */
+    public Angle startingTilt = Degrees.of(90);
+    /** Twist angle at robot power-on. */
+    public Angle startingTwist = Degrees.of(0);
+    /** Proportional gain, both motors, volts per rotation of error (onboard). */
+    public double kP = 16;
+    /** Integral gain. */
+    public double kI = 0;
+    /** Derivative gain. */
+    public double kD = 0;
+    /** Motion profile cruise velocity. */
+    public AngularVelocity maxVelocity = DegreesPerSecond.of(180);
+    /** Motion profile acceleration. */
+    public AngularAcceleration maxAcceleration = DegreesPerSecondPerSecond.of(360);
+    /** Stator current limit (both motors). */
+    public Current statorCurrentLimit = Amps.of(40);
+  }
+
+  private final Settings settings;
+  private final MechanismIO leftIo;
+  private final MechanismIO rightIo;
+  private final MechanismIOInputsAutoLogged leftInputs = new MechanismIOInputsAutoLogged();
+  private final MechanismIOInputsAutoLogged rightInputs = new MechanismIOInputsAutoLogged();
+  private final TunableGains gains;
+
+  private boolean hasGoal = false;
+  private double tiltGoalRot;
+  private double twistGoalRot;
+
+  private final Mechanism2d mech2d;
+  private final MechanismLigament2d tiltLigament;
+  private final MechanismLigament2d twistLigament;
+
+  /**
+   * Builds the differential mechanism subsystem, both IOs (per {@link RobotMode}), and sims.
+   *
+   * @param settings robot-specific parameters
+   */
+  public DifferentialMechanism(Settings settings) {
+    this.settings = settings;
+    setName(settings.name);
+    // left = tilt + twist, right = tilt − twist
+    double leftStartRot = (settings.startingTilt.in(Radians) + settings.startingTwist.in(Radians))
+        / (2 * Math.PI);
+    double rightStartRot = (settings.startingTilt.in(Radians) - settings.startingTwist.in(Radians))
+        / (2 * Math.PI);
+    leftIo = motorIo(settings.leftCanId, leftStartRot);
+    rightIo = motorIo(settings.rightCanId, rightStartRot);
+    gains = new TunableGains(settings.name, "motors",
+        settings.kP, settings.kI, settings.kD, 0);
+
+    mech2d = new Mechanism2d(1.0, 1.0);
+    tiltLigament = mech2d.getRoot(settings.name + "Root", 0.5, 0.5)
+        .append(new MechanismLigament2d("tilt", 0.3, settings.startingTilt.in(Degrees)));
+    twistLigament = tiltLigament.append(
+        new MechanismLigament2d("twist", 0.15, settings.startingTwist.in(Degrees), 4,
+            new edu.wpi.first.wpilibj.util.Color8Bit(edu.wpi.first.wpilibj.util.Color.kOrange)));
+    SmartDashboard.putData(settings.name + "/mechanism", mech2d);
+  }
+
+  private MechanismIO motorIo(int canId, double startingRot) {
+    var config = new MechanismIOTalonFX.Config();
+    config.canId = canId;
+    config.gearing = product(settings.gearReductionStages);
+    config.statorCurrentLimitAmps = settings.statorCurrentLimit.in(Amps);
+    config.startingPositionRot = startingRot;
+    config.motionMagicCruiseRotPerSec = settings.maxVelocity.in(RotationsPerSecond);
+    config.motionMagicAccelRotPerSecSq =
+        settings.maxAcceleration.in(RotationsPerSecond.per(Second));
+    config.kP = settings.kP;
+    config.kI = settings.kI;
+    config.kD = settings.kD;
+    config.gravityType = GravityTypeValue.Elevator_Static;
+
+    return switch (RobotMode.get()) {
+      case REPLAY -> new MechanismIO() {};
+      case SIM -> new MechanismIOTalonFXSim(config, motorSim(startingRot));
+      case REAL -> new MechanismIOTalonFX(config);
+    };
+  }
+
+  private MechanismSim motorSim(double startingRot) {
+    double moi = settings.mass.in(Kilograms) * Math.pow(settings.length.in(Meters), 2) / 3.0;
+    var sim = new DCMotorSim(
+        LinearSystemId.createDCMotorSystem(
+            settings.motorModel, moi, product(settings.gearReductionStages)),
+        settings.motorModel);
+    sim.setState(startingRot * 2 * Math.PI, 0);
+    return new MechanismSim() {
+      @Override
+      public void setInputVoltage(double volts) {
+        sim.setInputVoltage(volts);
+      }
+
+      @Override
+      public void update(double dtSeconds) {
+        sim.update(dtSeconds);
+      }
+
+      @Override
+      public double getPositionRot() {
+        return sim.getAngularPositionRad() / (2 * Math.PI);
+      }
+
+      @Override
+      public double getVelocityRotPerSec() {
+        return sim.getAngularVelocityRadPerSec() / (2 * Math.PI);
+      }
+    };
+  }
+
+  private static double product(double[] stages) {
+    double total = 1.0;
+    for (double stage : stages) {
+      total *= stage;
+    }
+    return total;
+  }
+
+  @Override
+  public void periodic() {
+    leftIo.updateInputs(leftInputs);
+    rightIo.updateInputs(rightInputs);
+    Logger.processInputs(settings.name + "/Left", leftInputs);
+    Logger.processInputs(settings.name + "/Right", rightInputs);
+
+    if (gains.hasChanged()) {
+      leftIo.setPidGains(gains.kP(), gains.kI(), gains.kD());
+      rightIo.setPidGains(gains.kP(), gains.kI(), gains.kD());
+    }
+
+    if (DriverStation.isEnabled() && hasGoal) {
+      leftIo.runPosition(tiltGoalRot + twistGoalRot);
+      rightIo.runPosition(tiltGoalRot - twistGoalRot);
+    }
+
+    Logger.recordOutput(settings.name + "/TiltDegrees", getTilt().in(Degrees));
+    Logger.recordOutput(settings.name + "/TwistDegrees", getTwist().in(Degrees));
+    tiltLigament.setAngle(getTilt().in(Degrees));
+    twistLigament.setAngle(getTwist().in(Degrees));
+  }
+
+  /** Command: drive the wrist to the given tilt and twist angles. Never finishes. */
+  public Command goToAngles(Angle tilt, Angle twist) {
+    Logger.recordOutput(settings.name + "/CommandedTiltDegrees", tilt.in(Degrees));
+    Logger.recordOutput(settings.name + "/CommandedTwistDegrees", twist.in(Degrees));
+    return Commands.run(() -> {
+      hasGoal = true;
+      tiltGoalRot = tilt.in(Radians) / (2 * Math.PI);
+      twistGoalRot = twist.in(Radians) / (2 * Math.PI);
+    }, this).withName(settings.name + " GoToAngles");
+  }
+
+  /** Command: open-loop duty cycle (tilt = common mode, twist = differential mode). */
+  public Command setDutyCycle(double tilt, double twist) {
+    return Commands.run(() -> {
+      hasGoal = false;
+      leftIo.setVoltage((tilt + twist) * 12.0);
+      rightIo.setVoltage((tilt - twist) * 12.0);
+    }, this).finallyDo(() -> {
+      leftIo.stop();
+      rightIo.stop();
+    }).withName(settings.name + " DutyCycle");
+  }
+
+  /** Current tilt angle (from the AdvantageKit inputs — replay-safe). */
+  public Angle getTilt() {
+    return Radians.of((leftInputs.positionRot + rightInputs.positionRot) * Math.PI);
+  }
+
+  /** Current twist angle (from the AdvantageKit inputs — replay-safe). */
+  public Angle getTwist() {
+    return Radians.of((leftInputs.positionRot - rightInputs.positionRot) * Math.PI);
+  }
+
+  /** The settings this mechanism was built with. */
+  public Settings getSettings() {
+    return settings;
+  }
+
+  /** Stops control and frees both CAN devices. For unit tests. */
+  public void close() {
+    leftIo.close();
+    rightIo.close();
+  }
+}

@@ -8,20 +8,19 @@ import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Volts;
 
 import edu.wpi.first.math.system.plant.DCMotor;
-import org.frc5010.common.mechanisms.MechanismMotor;
-import org.frc5010.common.mechanisms.YamsArm;
+import org.frc5010.common.mechanisms.Arm;
 
 /**
  * Example LQR arm: one Kraken X60 on a TalonFX (CAN 22), 50:1 gearbox, 0.6 m / 4 kg arm
  * sweeping from −30° to 210° (0° = horizontal).
  *
  * <p>Robot-specific numbers live here; all control logic is in the common
- * {@link YamsArm}. Copy this class and replace the constants for your robot.
+ * {@link Arm}. Copy this class and replace the constants for your robot.
  * kG (0.40 V, voltage to hold horizontal) was computed from the arm mass/length,
  * gearing, and Kraken motor constants — on a real robot, characterize it with
  * {@code sysId()} instead.
  */
-public class ExampleArm extends YamsArm {
+public class ExampleArm extends Arm {
 
   /** CAN ID of the arm TalonFX. */
   public static final int CAN_ID = 22;
@@ -33,7 +32,6 @@ public class ExampleArm extends YamsArm {
   private static Settings settings() {
     var s = new Settings();
     s.name = "ExampleArm";
-    s.vendor = MechanismMotor.Vendor.TALON_FX;
     s.canId = CAN_ID;
     s.motorModel = DCMotor.getKrakenX60(1);
     s.gearReductionStages = new double[] {10, 5}; // 50:1

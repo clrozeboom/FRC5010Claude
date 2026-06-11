@@ -5,18 +5,17 @@ import static edu.wpi.first.units.Units.Kilograms;
 import static edu.wpi.first.units.Units.Meters;
 
 import edu.wpi.first.math.system.plant.DCMotor;
-import org.frc5010.common.mechanisms.MechanismMotor;
-import org.frc5010.common.mechanisms.YamsDifferentialMechanism;
+import org.frc5010.common.mechanisms.DifferentialMechanism;
 
 /**
  * Example differential wrist: two Kraken X60s on TalonFXs (CAN 27 left, CAN 28 right),
  * 60:1, driving a tilt+twist differential gear assembly.
  *
- * <p>Per-motor profiled PID (the YAMS LQR does not model the coupled differential).
+ * <p>Per-motor profiled PID (the single-DOF LQR plants do not model the coupled differential).
  * Robot-specific numbers live here; control logic is in the common
- * {@link YamsDifferentialMechanism}.
+ * {@link DifferentialMechanism}.
  */
-public class ExampleDifferentialWrist extends YamsDifferentialMechanism {
+public class ExampleDifferentialWrist extends DifferentialMechanism {
 
   /** CAN ID of the left wrist TalonFX. */
   public static final int LEFT_CAN_ID = 27;
@@ -30,7 +29,6 @@ public class ExampleDifferentialWrist extends YamsDifferentialMechanism {
   private static Settings settings() {
     var s = new Settings();
     s.name = "ExampleDiffWrist";
-    s.vendor = MechanismMotor.Vendor.TALON_FX;
     s.leftCanId = LEFT_CAN_ID;
     s.rightCanId = RIGHT_CAN_ID;
     s.motorModel = DCMotor.getKrakenX60(1);

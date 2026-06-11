@@ -6,18 +6,17 @@ import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.KilogramSquareMeters;
 
 import edu.wpi.first.math.system.plant.DCMotor;
-import org.frc5010.common.mechanisms.MechanismMotor;
-import org.frc5010.common.mechanisms.YamsPivot;
+import org.frc5010.common.mechanisms.Pivot;
 
 /**
  * Example LQR turret: one Kraken X60 on a TalonFX (CAN 23), 40:1 ring-gear drive,
  * 0.5 kg·m² rotating assembly, ±180° wiring-limited travel.
  *
- * <p>A turret is the canonical {@link YamsPivot}: gravity-free rotation, so the
+ * <p>A turret is the canonical {@link Pivot}: gravity-free rotation, so the
  * ARM-type LQR plant applies with no gravity feedforward. Robot-specific numbers live
- * here; control logic is in the common {@link YamsPivot}.
+ * here; control logic is in the common {@link Pivot}.
  */
-public class ExampleTurret extends YamsPivot {
+public class ExampleTurret extends Pivot {
 
   /** CAN ID of the turret TalonFX. */
   public static final int CAN_ID = 23;
@@ -29,7 +28,6 @@ public class ExampleTurret extends YamsPivot {
   private static Settings settings() {
     var s = new Settings();
     s.name = "ExampleTurret";
-    s.vendor = MechanismMotor.Vendor.TALON_FX;
     s.canId = CAN_ID;
     s.motorModel = DCMotor.getKrakenX60(1);
     s.gearReductionStages = new double[] {10, 4}; // 40:1

@@ -1,17 +1,17 @@
-# /tune-mechanism — Tune a YAMS mechanism (LQR or PID)
+# /tune-mechanism — Tune a mechanism (LQR or PID)
 
 Agent playbook for tuning the mechanism subsystems built on
 `org.frc5010.common.mechanisms` (see [docs/mechanisms.md](../../docs/mechanisms.md)).
 
 ## Identify the controller first
 
-- `YamsElevator` / `YamsArm` / `YamsPivot` / `YamsFlywheel` with
+- `Elevator` / `Arm` / `Pivot` / `Flywheel` with
   `ControlStyle.LQR` (default) → **LQR** — tune tolerances under `/Tuning/<name>/lqr_*`.
 - The same four with `ControlStyle.PROFILED_PID` → **profiled PID** — tune gains under
   `/Tuning/<name>/pid_kP|kI|kD`. Gains are in **mechanism rotations** on TalonFX
   (onboard MotionMagic / VelocityVoltage): kP = volts per rotation of error, kV = volts
   per rotation/s (theoretical kV = 12 ÷ free speed in rot/s — flywheels need it set).
-- `YamsDoubleJointedArm` / `YamsDifferentialMechanism` → **profiled PID** —
+- `DoubleJointedArm` / `DifferentialMechanism` → **profiled PID** —
   tune gains under `/Tuning/<name>/*_kP|kI|kD`.
 
 ## LQR tuning workflow
@@ -28,9 +28,9 @@ optimal gains from the plant model (motor, gearing, mass/MOI):
 Procedure (sim: `./gradlew simulateJava`; real robot: tethered, mechanism clear):
 1. Open AdvantageScope/Shuffleboard → `/Tuning/<name>/`. Changes apply live — the
    wrapper rebuilds the regulator and restarts the loop at the current state.
-2. Command a mid-range setpoint, observe the YAMS telemetry (position vs setpoint).
+2. Command a mid-range setpoint, watch the AdvantageKit outputs (<name>/GoalMeters or GoalDegrees vs the inputs position).
 3. Adjust one weight at a time, factor-of-2 steps. Don't go below ~1 in / ~1° position
-   tolerance: the RIO loop has 20–40 ms delay and tighter weights oscillate.
+   tolerance: the RIO loop runs at 20 ms and tighter weights oscillate.
 4. If it *never* settles at the target (steady offset): that's gravity, not weights —
    fix `kG` (step below), LQR has no integrator.
 5. **Bake the final values into the `Settings`** in the team's subsystem class —
@@ -73,6 +73,6 @@ final gains into `Settings`.
 
 ## Validate
 
-`./gradlew test --tests "frc.robot.mechanisms.YamsMechanismsFunctionalTest"` must stay
+`./gradlew test --tests "frc.robot.mechanisms.MechanismsFunctionalTest"` must stay
 green with the baked-in values. If tuning sessions changed defaults, update the
 matching tolerance/time budget in the test rather than deleting assertions.

@@ -3,7 +3,7 @@ package org.frc5010.common.mechanisms;
 import org.frc5010.common.tuning.TunableDouble;
 
 /**
- * Live-tunable LQR weights for a YAMS mechanism, published under
+ * Live-tunable LQR weights for a mechanism, published under
  * {@code /Tuning/<table>/} in NetworkTables (see {@link TunableDouble}).
  *
  * <p>LQR is tuned with <em>tolerances</em>, not PID gains:
@@ -17,9 +17,8 @@ import org.frc5010.common.tuning.TunableDouble;
  *       less aggressive. 12 V (a full battery) is the standard starting point.</li>
  * </ul>
  *
- * <p>When {@link #hasChanged()} returns true, rebuild the {@code LQRConfig} and call
- * {@code LQRController.updateConfig(...)} — the wrappers in this package do this
- * automatically in {@code periodic()}.
+ * <p>When {@link #hasChanged()} returns true, rebuild the {@link MechanismLqr} loop —
+ * the subsystems in this package do this automatically in {@code periodic()}.
  */
 public class LqrTunables {
 

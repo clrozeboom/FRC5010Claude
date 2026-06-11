@@ -9,8 +9,7 @@ import static edu.wpi.first.units.Units.Volts;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import org.frc5010.common.mechanisms.ControlStyle;
-import org.frc5010.common.mechanisms.MechanismMotor;
-import org.frc5010.common.mechanisms.YamsElevator;
+import org.frc5010.common.mechanisms.Elevator;
 
 /**
  * Profiled-PID variant of {@link ExampleElevator}: same physical elevator (Kraken X60,
@@ -21,7 +20,7 @@ import org.frc5010.common.mechanisms.YamsElevator;
  * rotation/s (theoretical kV = 12 V ÷ 8.33 rot/s free speed ≈ 1.44). Pick this style
  * over LQR when you want hand-tunable gains and don't trust the mass/gearing model.
  */
-public class ExampleProfiledElevator extends YamsElevator {
+public class ExampleProfiledElevator extends Elevator {
 
   /** CAN ID of the elevator TalonFX. */
   public static final int CAN_ID = 31;
@@ -34,7 +33,6 @@ public class ExampleProfiledElevator extends YamsElevator {
     var s = new Settings();
     s.name = "ExampleProfiledElevator";
     s.controlStyle = ControlStyle.PROFILED_PID;
-    s.vendor = MechanismMotor.Vendor.TALON_FX;
     s.canId = CAN_ID;
     s.motorModel = DCMotor.getKrakenX60(1);
     s.gearReductionStages = new double[] {4, 3}; // 12:1

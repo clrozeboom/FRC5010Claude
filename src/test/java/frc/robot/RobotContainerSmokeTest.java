@@ -51,9 +51,9 @@ class RobotContainerSmokeTest extends SimTestBase {
     System.clearProperty("testSim");
     System.clearProperty("visualTest");
 
-    // Stop the YAMS demo-mechanism closed-loop Notifier threads — the scheduler
-    // teardown doesn't, and stale loops would drive the shared CAN IDs (21–35)
-    // during YamsMechanismsFunctionalTest later in the same JVM.
+    // Free the demo mechanisms' CAN devices (IDs 21–35) — the scheduler teardown
+    // doesn't, and stale handles would collide with MechanismsFunctionalTest later
+    // in the same JVM.
     org.frc5010.common.profiles.SwerveRobotContainer.closeMechanisms();
 
     SimulatedArena.getInstance().shutDown();
@@ -122,10 +122,10 @@ class RobotContainerSmokeTest extends SimTestBase {
   // ── DemoIntake subsystem periodic ─────────────────────────────────────────
 
   /**
-   * Pumps scheduler + sim time asynchronously. The container now owns YAMS demo
-   * mechanisms whose closed loops run in WPILib Notifiers; the synchronous
-   * {@code stepOneCycle()} deadlocks against them (see docs/mechanisms.md gotcha 7),
-   * so this mirrors YamsMechanismsFunctionalTest's pump.
+   * Pumps scheduler + sim time. The container owns TalonFX demo mechanisms whose
+   * simulated devices process controls on a real-time thread, so each cycle feeds DS
+   * data and sleeps briefly (see docs/mechanisms.md gotcha 6), mirroring
+   * MechanismsFunctionalTest's pump.
    */
   private void pumpCycles(int cycles) throws InterruptedException {
     for (int i = 0; i < cycles; i++) {

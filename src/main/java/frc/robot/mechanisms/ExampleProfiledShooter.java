@@ -5,8 +5,7 @@ import static edu.wpi.first.units.Units.Kilograms;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import org.frc5010.common.mechanisms.ControlStyle;
-import org.frc5010.common.mechanisms.MechanismMotor;
-import org.frc5010.common.mechanisms.YamsFlywheel;
+import org.frc5010.common.mechanisms.Flywheel;
 
 /**
  * Velocity-PID variant of {@link ExampleShooter}: same physical wheel (Kraken X60
@@ -16,7 +15,7 @@ import org.frc5010.common.mechanisms.YamsFlywheel;
  * <p>For velocity PID the kV feedforward does most of the work
  * (theoretical kV = 12 V ÷ 100 rot/s free speed = 0.12); kP only trims the residual.
  */
-public class ExampleProfiledShooter extends YamsFlywheel {
+public class ExampleProfiledShooter extends Flywheel {
 
   /** CAN ID of the shooter TalonFX. */
   public static final int CAN_ID = 34;
@@ -29,7 +28,6 @@ public class ExampleProfiledShooter extends YamsFlywheel {
     var s = new Settings();
     s.name = "ExampleProfiledShooter";
     s.controlStyle = ControlStyle.PROFILED_PID;
-    s.vendor = MechanismMotor.Vendor.TALON_FX;
     s.canId = CAN_ID;
     s.motorModel = DCMotor.getKrakenX60(1);
     s.gearReductionStages = new double[] {1.0}; // direct drive

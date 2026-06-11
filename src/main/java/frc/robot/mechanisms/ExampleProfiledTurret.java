@@ -7,8 +7,7 @@ import static edu.wpi.first.units.Units.KilogramSquareMeters;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import org.frc5010.common.mechanisms.ControlStyle;
-import org.frc5010.common.mechanisms.MechanismMotor;
-import org.frc5010.common.mechanisms.YamsPivot;
+import org.frc5010.common.mechanisms.Pivot;
 
 /**
  * Profiled-PID variant of {@link ExampleTurret}: same physical turret (Kraken X60,
@@ -17,7 +16,7 @@ import org.frc5010.common.mechanisms.YamsPivot;
  *
  * <p>Gains in mechanism rotations: kV theoretical = 12 V ÷ 2.5 rot/s free speed = 4.8.
  */
-public class ExampleProfiledTurret extends YamsPivot {
+public class ExampleProfiledTurret extends Pivot {
 
   /** CAN ID of the turret TalonFX. */
   public static final int CAN_ID = 33;
@@ -30,7 +29,6 @@ public class ExampleProfiledTurret extends YamsPivot {
     var s = new Settings();
     s.name = "ExampleProfiledTurret";
     s.controlStyle = ControlStyle.PROFILED_PID;
-    s.vendor = MechanismMotor.Vendor.TALON_FX;
     s.canId = CAN_ID;
     s.motorModel = DCMotor.getKrakenX60(1);
     s.gearReductionStages = new double[] {10, 4}; // 40:1

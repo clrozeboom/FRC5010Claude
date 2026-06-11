@@ -24,7 +24,7 @@ import org.frc5010.common.profiles.SwerveRobotContainer;
 /**
  * Example team robot container for the 2026 Rebuilt season — the template teams copy.
  * Extends {@link SwerveRobotContainer} with hardware constants ({@link ExampleRobotProfile}),
- * the {@link DemoIntake} demo, and the YAMS demo mechanisms.
+ * the {@link DemoIntake} demo, and the demo mechanisms.
  *
  * <p>Auto registration is handled in {@link #buildAutos()}, which the base class schedules
  * automatically on the first scheduler tick (disabled, before the first autonomous mode).
@@ -92,7 +92,7 @@ public class ExampleRobot extends SwerveRobotContainer {
   }
 
   /**
-   * Instantiates every YAMS example mechanism (sim only — CAN 21–35 don't exist on the
+   * Instantiates every example mechanism (sim only — CAN 21–35 don't exist on the
    * real robot; a competition robot would create just its own mechanisms, outside the
    * sim guard) and binds X to drive them all to a mid-travel point at once. Watch them
    * under SmartDashboard → {@code <name>/mechanism} or in AdvantageScope.

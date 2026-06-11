@@ -1,18 +1,19 @@
 package org.frc5010.common.mechanisms;
 
 /**
- * Closed-loop control style for the single-DOF YAMS mechanism wrappers
- * ({@link YamsElevator}, {@link YamsArm}, {@link YamsPivot}, {@link YamsFlywheel}).
+ * Closed-loop control style for the single-DOF mechanism subsystems
+ * ({@link Elevator}, {@link Arm}, {@link Pivot}, {@link Flywheel}).
  *
  * <p>Selected via {@code settings.controlStyle}; both styles use the same settings,
  * commands, telemetry, and motion profile limits, so switching is a one-line change.
  */
 public enum ControlStyle {
   /**
-   * State-space LQR + Kalman filter, running on the RIO in the YAMS closed-loop
-   * Notifier. Tuned with physical tolerances (qelms/relms) under
+   * State-space LQR + Kalman filter, computed synchronously in {@code periodic()} on
+   * the RIO at 20 ms. Tuned with physical tolerances (qelms/relms) under
    * {@code /Tuning/<name>/lqr_*}; gains are computed from the plant model, so the
-   * mechanism's mass/MOI/gearing settings must be accurate.
+   * mechanism's mass/MOI/gearing settings must be accurate (or characterized via
+   * SysId — see docs/mechanisms.md).
    */
   LQR,
   /**

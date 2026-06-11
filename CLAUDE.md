@@ -37,13 +37,15 @@ SwerveRobotContainer (abstract) ← keyboard drive, alliance pose, visual-test a
 
 SimRobotState (abstract SubsystemBase) ──► frc.robot.DemoIntake (2026 Fuel intake + ballistic firing)
 
-YAMS mechanisms (org.frc5010.common.mechanisms — LQR-first wrappers over the YAMS vendordep)
- ├── YamsElevator / YamsArm / YamsPivot / YamsFlywheel   ← ControlStyle.LQR (default) or PROFILED_PID, live NT tuning
- ├── YamsDoubleJointedArm / YamsDifferentialMechanism    ← profiled PID only (LQR can't model coupled joints)
- ├── @AutoLog inputs per wrapper — getters/triggers read the inputs (replay-safe)
- └── frc.robot.mechanisms.Example* (TalonFX/Kraken: LQR CAN 21–28, ExampleProfiled* CAN 31–34)
+Mechanisms (org.frc5010.common.mechanisms — TalonFX-native, LQR-first, no third-party lib)
+ ├── Elevator / Arm / Pivot / Flywheel       ← ControlStyle.LQR (RIO, in periodic) or PROFILED_PID (onboard MotionMagic)
+ ├── DoubleJointedArm / DifferentialMechanism ← onboard MotionMagic only (LQR can't model coupled joints)
+ ├── MechanismIO (@AutoLog, mechanism rotations) ──► MechanismIOTalonFX (REAL)
+ │                                                   MechanismIOTalonFXSim (SIM — WPILib physics → Phoenix sim state)
+ │                                                   new MechanismIO(){} (REPLAY) — selected via RobotMode.get()
+ └── frc.robot.mechanisms.Example* (Kraken/TalonFX: LQR CAN 21–28+35, ExampleProfiled* CAN 31–34)
       └── ExampleRobot creates all of them in SIM; X button held → midpoints; released → start points
-          (tests constructing RobotContainer: SwerveRobotContainer.closeMechanisms() + async pump)
+          (tests constructing RobotContainer: SwerveRobotContainer.closeMechanisms())
 ```
 
 **Critical distinction — `instanceof GyroIOSim` in `AkitSwerveDrive.periodic()`:**
@@ -116,12 +118,12 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 - **Web telemetry (`poseBuf`, demo-state suppliers) must update in ALL robot states.** Anything that reads the drive subsystem only via the default command goes stale whenever an auto/other command owns `drive`. Put per-cycle web snapshots in the always-running `applyPendingControl()` (the `WebControlApply` command requires no subsystems and `ignoringDisable(true)`).
 - **Game-piece autos must be routed against the ACTUAL spawn positions in `GamePieceSpawner` (center grid x 7.43–9.11), not assumptions.** pickupAndScore originally stopped at x=6.0 and collected nothing because the Fuel grid starts at x=7.43. When asserting "it collects," require collection *beyond* any preload (`maxHeld > preload`), or the `DemoIntake` 8-piece preload masks a robot that grabbed nothing.
 
-### 12. YAMS mechanisms — published-jar bugs and test timing (full list in docs/mechanisms.md)
-- **YAMS 2026.4.10.3's ARM/ELEVATOR LQR Kalman filter is broken** (unsliced 2-output plant → native DARE reads garbage: "R was not symmetric" or silently useless gains). Always build LQR configs via `MechanismLqrConfig`, never raw `LQRConfig`.
-- **Never pump YAMS mechanism tests with synchronous `SimHooks.stepTiming`** — it deadlocks against the YAMS closed-loop Notifier. Use `stepTimingAsync(0.02)` + ~10 ms real sleep per cycle (`YamsMechanismsFunctionalTest.runScheduledFor`).
-- **TalonFX outputs silently neutral in tests** when DS packets / Phoenix enable starve for ~100 ms real time. Feed `DriverStationSim.notifyNewData()` + `Unmanaged.feedEnable(...)` every cycle.
-- **Profile cruise velocity must be physically achievable** (free speed ÷ gearing × circumference) or the LQR chases an unreachable reference and overshoots hard.
-- The released YAMS jar's API differs from GitHub main (`withSoftLimit` vs `withSoftLimits`, etc.) — `javap` the jar, don't trust the repo source.
+### 12. Mechanisms — Phoenix sim timing and plant rules (full list in docs/mechanisms.md)
+- **Set `RobotMode` before constructing any mechanism** — IO selection reads `RobotMode.get()`, which throws if unset. Tests: `RobotMode.set(Mode.SIM)` in setup, `resetForTesting()` in teardown.
+- **TalonFX outputs silently neutral in tests** when DS packets / Phoenix enable starve for ~100 ms real time. Feed `DriverStationSim.notifyNewData()` + `Unmanaged.feedEnable(...)` every cycle — AND sleep a few ms per cycle: the simulated TalonFX processes controls on a real-time device thread, so a flat-out paused-clock loop starves it (`MechanismsFunctionalTest.runScheduledFor`). Plain synchronous `stepOneCycle()` is otherwise fine — no Notifier threads in this design.
+- **Profile cruise velocity must be physically achievable** (free speed ÷ gearing × circumference) or the controller chases an unreachable reference and overshoots hard.
+- **WPILib position plants have 2 outputs but only position is measured** — build Kalman filters on `plant.slice(0)` (`MechanismLqr` does this) or the native DARE solver reads garbage ("R was not symmetric").
+- **No kV feedforward in LQR style** (plant inversion built in); PROFILED_PID flywheels NEED kV (≈ 12 ÷ free speed in rot/s).
 
 ---
 
@@ -169,10 +171,11 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Teleop drive-to-pose commands (game-specific) | `src/main/java/frc/robot/example/TeleopRoutines.java` |
 | Deployed BLine paths + config | `src/main/deploy/autos/` |
 | BLine sim test | `src/test/java/org/frc5010/common/subsystem/BLineFollowPathSimPhysicsTest.java` |
-| YAMS mechanism wrappers (LQR + tuning) | `src/main/java/org/frc5010/common/mechanisms/` |
-| YAMS LQR Kalman-bug workaround | `src/main/java/org/frc5010/common/mechanisms/MechanismLqrConfig.java` |
+| Mechanism subsystems (LQR/MotionMagic + tuning) | `src/main/java/org/frc5010/common/mechanisms/` |
+| Mechanism IO layer (REAL/SIM/REPLAY) | `src/main/java/org/frc5010/common/mechanisms/MechanismIO*.java` |
+| LQR loop construction (sliced Kalman, characterized plants) | `src/main/java/org/frc5010/common/mechanisms/MechanismLqr.java` |
 | Mechanism examples (TalonFX, team-code pattern) | `src/main/java/frc/robot/mechanisms/` |
-| Mechanism functional tests | `src/test/java/frc/robot/mechanisms/YamsMechanismsFunctionalTest.java` |
+| Mechanism functional tests | `src/test/java/frc/robot/mechanisms/MechanismsFunctionalTest.java` |
 
 ---
 
@@ -185,7 +188,7 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Simulation scenarios, Gradle flags (`-PtestSim` / `-PvisualTest` / `-PwebUI`), AdvantageScope | [docs/simulation.md](docs/simulation.md) |
 | Test pyramid in depth, per-cycle call order, `SimulatedArena` teardown, log analysis | [docs/testing.md](docs/testing.md) |
 | Vision architecture (IO pattern, design decisions, usage example) | [docs/vision.md](docs/vision.md) |
-| YAMS mechanisms — LQR control, tuning, gotchas, test pump pattern | [docs/mechanisms.md](docs/mechanisms.md) |
+| Mechanisms — TalonFX-native LQR/MotionMagic, tuning, gotchas, test pump | [docs/mechanisms.md](docs/mechanisms.md) |
 | Motor calibration workflow (sim ramp → SysId → apply gains) | [docs/calibration.md](docs/calibration.md) |
 | BLine path-following — auto chooser, JSON + code-defined paths, drive-to-pose button | [docs/auto.md](docs/auto.md) |
 | High-level architecture overview | [docs/architecture.md](docs/architecture.md) |
@@ -211,8 +214,8 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 - `/new-game-field` — build a 2D web field + custom IronMaple arena (barriers + game pieces) from a new season's game manual, for when IronMaple hasn't shipped the season arena yet
 - `/validate-replay` — validate replay fidelity after non-trivial logging changes (produce log → replay → check anomalies)
 - `/calibrate-drive` — agent-guided step-by-step motor calibration (sim ramp → SysId → apply gains to TunerX or DriveConstants)
-- `/new-yams-mechanism` — add an elevator/arm/pivot/flywheel/DJA/differential subsystem using the YAMS wrappers
-- `/tune-mechanism` — tune a YAMS mechanism (LQR qelms/relms over NT, kG via sysId, PID for dual-motor mechanisms)
+- `/new-mechanism` — add an elevator/arm/pivot/flywheel/DJA/differential subsystem using the TalonFX mechanism classes
+- `/tune-mechanism` — tune a mechanism (LQR qelms/relms over NT, kG/kV/kA via sysId, PID for dual-motor mechanisms)
 
 ---
 

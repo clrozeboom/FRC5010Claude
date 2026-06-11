@@ -9,8 +9,7 @@ import static edu.wpi.first.units.Units.Volts;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import org.frc5010.common.mechanisms.ControlStyle;
-import org.frc5010.common.mechanisms.MechanismMotor;
-import org.frc5010.common.mechanisms.YamsArm;
+import org.frc5010.common.mechanisms.Arm;
 
 /**
  * Profiled-PID variant of {@link ExampleArm}: same physical arm (Kraken X60, 50:1,
@@ -20,7 +19,7 @@ import org.frc5010.common.mechanisms.YamsArm;
  * <p>Gains in mechanism rotations: kP volts/rotation, kV volts per rotation/s
  * (theoretical kV = 12 V ÷ 2 rot/s free speed = 6.0).
  */
-public class ExampleProfiledArm extends YamsArm {
+public class ExampleProfiledArm extends Arm {
 
   /** CAN ID of the arm TalonFX. */
   public static final int CAN_ID = 32;
@@ -33,7 +32,6 @@ public class ExampleProfiledArm extends YamsArm {
     var s = new Settings();
     s.name = "ExampleProfiledArm";
     s.controlStyle = ControlStyle.PROFILED_PID;
-    s.vendor = MechanismMotor.Vendor.TALON_FX;
     s.canId = CAN_ID;
     s.motorModel = DCMotor.getKrakenX60(1);
     s.gearReductionStages = new double[] {10, 5}; // 50:1

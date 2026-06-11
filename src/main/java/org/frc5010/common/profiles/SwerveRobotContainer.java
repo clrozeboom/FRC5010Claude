@@ -94,10 +94,10 @@ public abstract class SwerveRobotContainer {
 
   /**
    * Close handles for mechanism subsystems registered via {@link #registerMechanism(Runnable)}.
-   * Static so tests that construct robot containers can stop background threads (e.g. the
-   * YAMS closed-loop Notifiers) in teardown — {@code CommandScheduler.unregisterAllSubsystems()}
-   * does NOT stop them, and stale loops would keep driving the shared CAN IDs during later
-   * tests in the same JVM.
+   * Static so tests that construct robot containers can free hardware handles (CAN
+   * devices, background threads) in teardown — {@code CommandScheduler.unregisterAllSubsystems()}
+   * does NOT release them, and stale handles would collide with later tests in the
+   * same JVM.
    */
   private static final java.util.List<Runnable> mechanismCloseables =
       new java.util.ArrayList<>();

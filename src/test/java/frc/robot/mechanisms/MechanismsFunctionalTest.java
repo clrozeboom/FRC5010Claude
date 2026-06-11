@@ -9,54 +9,66 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.ctre.phoenix6.unmanaged.Unmanaged;
 import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.simulation.DriverStationSim;
-import edu.wpi.first.wpilibj.simulation.SimHooks;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import java.util.concurrent.TimeUnit;
+import org.frc5010.common.robot.Mode;
+import org.frc5010.common.robot.RobotMode;
 import org.frc5010.common.util.SimTestBase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 /**
- * High-level functional tests for the YAMS mechanism examples: each test builds the
- * real example subsystem (TalonFX wrapper + YAMS physics sim + LQR/PID closed loop),
- * schedules its public command, and asserts the mechanism actually reaches the
- * commanded state.
+ * High-level functional tests for the mechanism examples: each test builds the real
+ * example subsystem (TalonFX IO + Phoenix sim state + WPILib physics sim + LQR/PID
+ * closed loop), schedules its public command, and asserts the mechanism actually
+ * reaches the commanded state.
  *
- * <p>These validate the full chain — settings → motor config → YAMS closed-loop
- * Notifier → vendor sim → mechanism physics — not individual classes.
+ * <p>These validate the full chain — settings → TalonFX config → controller →
+ * sim-state physics — not individual classes. The closed loop runs synchronously in
+ * {@code periodic()}, so plain deterministic {@code stepOneCycle()} stepping works
+ * (no Notifier threads). The Phoenix enable watchdog still applies: feed
+ * {@code DriverStationSim.notifyNewData()} + {@code Unmanaged.feedEnable(...)} every
+ * cycle or TalonFX outputs silently neutral after ~100 ms of real time.
  *
- * <p><b>Timing:</b> the YAMS closed loop runs in a WPILib Notifier thread. The
- * synchronous {@code SimHooks.stepTiming} deadlocks against that Notifier (it waits
- * for an alarm acknowledgment the YAMS thread never delivers), so this test pumps
- * time the same way YAMS's own test suite does: {@code stepTimingAsync} to advance
- * the paused sim clock plus a short real-time sleep so the Notifier callback can run.
- *
- * <p>Each test closes its subsystem so CAN IDs and Notifier threads are released
- * for the next test.
+ * <p>Each test closes its subsystem so CAN IDs are released for the next test.
  */
 @Timeout(value = 3, unit = TimeUnit.MINUTES)
-public class YamsMechanismsFunctionalTest extends SimTestBase {
+public class MechanismsFunctionalTest extends SimTestBase {
+
+  @BeforeEach
+  @Override
+  public void simSetup() {
+    super.simSetup();
+    RobotMode.set(Mode.SIM); // mechanism IO selection requires an explicit mode
+  }
+
+  @AfterEach
+  @Override
+  public void simTeardown() {
+    RobotMode.resetForTesting();
+    super.simTeardown();
+  }
 
   /** Runs the scheduler + sim for the given sim-time duration. */
   private void runScheduledFor(double seconds) {
     int cycles = (int) Math.round(seconds / LOOP_PERIOD_SECS);
     for (int i = 0; i < cycles; i++) {
       CommandScheduler.getInstance().run();
-      SimHooks.stepTimingAsync(LOOP_PERIOD_SECS);
+      // Keep DS packets fresh and feed the Phoenix enable watchdog directly: TalonFX
+      // outputs silently neutral (duty cycle 0) if either starves for ~100 ms real time.
+      DriverStationSim.notifyNewData();
+      Unmanaged.feedEnable(200);
       try {
-        Thread.sleep(10); // let the YAMS closed-loop Notifier callback run
+        Thread.sleep(4); // the simulated TalonFX processes controls on a real-time thread
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new RuntimeException(e);
       }
-      // Keep DS packets fresh and feed the Phoenix enable watchdog directly: TalonFX
-      // outputs silently neutral (duty cycle 0) if either starves for ~100 ms real time.
-      DriverStationSim.notifyNewData();
-      DriverStation.refreshData();
-      Unmanaged.feedEnable(200);
+      stepOneCycle();
     }
   }
 
@@ -85,9 +97,8 @@ public class YamsMechanismsFunctionalTest extends SimTestBase {
   public void elevatorReachesCommandedHeight() {
     ExampleElevator elevator = new ExampleElevator();
     try {
-      double start = elevator.getHeight().in(Meters);
       scheduleAndRun(elevator.goToHeight(Meters.of(0.8)), 4.0);
-      assertTrue(Math.abs(elevator.getHeight().in(Meters) - start) > 0.3,
+      assertTrue(Math.abs(elevator.getHeight().in(Meters) - 0.1) > 0.3,
           "elevator should have moved from its starting height");
       assertConverges(() -> elevator.getHeight().in(Meters), 0.8, 0.05, 4.0,
           "elevator should settle at the commanded height");
@@ -108,6 +119,37 @@ public class YamsMechanismsFunctionalTest extends SimTestBase {
       scheduleAndRun(elevator.goToHeight(Meters.of(0.6)), 4.0);
       assertConverges(() -> elevator.getHeight().in(Meters), 0.6, 0.05, 4.0,
           "elevator should still converge after a live LQR retune");
+    } finally {
+      elevator.close();
+    }
+  }
+
+  @Test
+  public void advantageKitInputsTrackMechanismState() {
+    ExampleElevator elevator = new ExampleElevator();
+    try {
+      // Sample mid-travel (the move takes ~0.7 s) so velocity is meaningfully nonzero.
+      scheduleAndRun(elevator.goToHeight(Meters.of(0.5)), 0.5);
+      // The public getters read from the @AutoLog IO inputs (the replay bubble) —
+      // verify they reflect real motion, not defaults.
+      assertTrue(elevator.getHeight().in(Meters) > 0.15,
+          "inputs should reflect actual motion, not stay at defaults");
+      assertTrue(elevator.getVelocity().in(MetersPerSecond) > 0.05,
+          "velocity input should be populated while climbing");
+    } finally {
+      elevator.close();
+    }
+  }
+
+  @Test
+  public void characterizedPlantElevatorConverges() {
+    // Same elevator as ExampleElevator, but the LQR plant comes from measured kV/kA
+    // (SysId) instead of carriage mass — proving mass need not be known directly.
+    ExampleCharacterizedElevator elevator = new ExampleCharacterizedElevator();
+    try {
+      scheduleAndRun(elevator.goToHeight(Meters.of(0.8)), 4.0);
+      assertConverges(() -> elevator.getHeight().in(Meters), 0.8, 0.05, 4.0,
+          "characterized-plant (kV/kA) elevator should settle at the commanded height");
     } finally {
       elevator.close();
     }
@@ -149,44 +191,7 @@ public class YamsMechanismsFunctionalTest extends SimTestBase {
     }
   }
 
-  @Test
-  public void advantageKitInputsTrackMechanismState() {
-    ExampleElevator elevator = new ExampleElevator();
-    try {
-      scheduleAndRun(elevator.goToHeight(Meters.of(0.5)), 1.0);
-      // The public getters read from the @AutoLog inputs (the replay bubble), not the
-      // mechanism directly — verify the inputs are being populated each periodic()
-      // and match the live simulated mechanism state.
-      // Inputs are a snapshot from the last periodic(); the sim advances up to one
-      // cycle past it, so compare with a one-cycle-of-motion tolerance.
-      assertEquals(elevator.getMechanism().getHeight().in(Meters),
-          elevator.getHeight().in(Meters), 0.05,
-          "inputs-based height getter should track the live mechanism");
-      assertTrue(elevator.getHeight().in(Meters) > 0.1,
-          "inputs should reflect actual motion, not stay at defaults");
-      // The closed-loop setpoint crossed into the inputs too.
-      assertTrue(Math.abs(elevator.getVelocity().in(MetersPerSecond)) >= 0,
-          "velocity input should be populated");
-    } finally {
-      elevator.close();
-    }
-  }
-
-  @Test
-  public void characterizedPlantElevatorConverges() {
-    // Same elevator as ExampleElevator, but the LQR plant comes from measured kV/kA
-    // (SysId) instead of carriage mass — proving mass need not be known directly.
-    ExampleCharacterizedElevator elevator = new ExampleCharacterizedElevator();
-    try {
-      scheduleAndRun(elevator.goToHeight(Meters.of(0.8)), 4.0);
-      assertConverges(() -> elevator.getHeight().in(Meters), 0.8, 0.05, 4.0,
-          "characterized-plant (kV/kA) elevator should settle at the commanded height");
-    } finally {
-      elevator.close();
-    }
-  }
-
-  // --- PROFILED_PID style: same mechanisms, trapezoid profile + (onboard) PID ---
+  // --- PROFILED_PID style: same mechanisms, trapezoid profile + onboard control ---
 
   @Test
   public void profiledElevatorReachesCommandedHeight() {
