@@ -162,7 +162,7 @@ HTML report: `build/reports/tests/functionalTest/index.html`
 
 ### When to run
 
-After major changes to `RobotContainer` / `RealRobot`, `SwerveRobotContainer`, `DemoIntake`,
+After major changes to `RobotContainer` / `ExampleRobot`, `SwerveRobotContainer`, `DemoIntake`,
 `WebDriveController`, or the Gradle simulation configuration. Not intended for every commit —
 startup overhead is 30–60 seconds. Not in CI.
 
@@ -246,7 +246,7 @@ class MyRobotTest extends SimTestBase {
   private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
       .moduleType(ModuleType.SIM)   // SIM regardless — hardware IO not available in tests
       .gyroType(GyroType.SIM)
-      .trackWidth(Inches.of(22.75)) // same values as RealRobotProfile
+      .trackWidth(Inches.of(22.75)) // same values as ExampleRobotProfile
       .wheelBase(Inches.of(22.75))
       .wheelRadius(Inches.of(2.0))
       .build();

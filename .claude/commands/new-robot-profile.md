@@ -1,4 +1,4 @@
-# /new-robot-profile — Wire a real robot into RealRobotProfile
+# /new-robot-profile — Wire a real robot into ExampleRobotProfile
 
 Use this playbook when a team wants to run their actual robot's hardware (Falcons, Krakens, Pigeon 2, NavX) instead of the simulation defaults.
 
@@ -6,7 +6,7 @@ Use this playbook when a team wants to run their actual robot's hardware (Falcon
 
 ## Step 0 — Understand what already exists
 
-`src/main/java/frc/robot/RealRobotProfile.java` is the team's entry point. It already:
+`src/main/java/frc/robot/example/ExampleRobotProfile.java` is the team's entry point. It already:
 - Defines a `SwerveConstants.Builder` with placeholder CAN IDs and measurements
 - Branches on `RobotBase.isReal()` in `createDrive()`
 - Returns `SwerveFactory.build(CONSTANTS, BLUE_START)` in sim (IronMaple physics)
@@ -52,7 +52,7 @@ private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
     .build();
 ```
 
-**Required static imports at the top of `RealRobotProfile.java`:**
+**Required static imports at the top of `ExampleRobotProfile.java`:**
 ```java
 import static edu.wpi.first.units.Units.Hertz;
 import static edu.wpi.first.units.Units.Inches;
@@ -131,7 +131,7 @@ Module index 0–3 maps to FL, FR, BL, BR (matches the CAN ID arrays in `SwerveC
 Before deploying to hardware, verify the sim path works with real robot parameters:
 
 ```powershell
-# Default — uses RealRobotProfile, IronMaple physics, real robot mass/geometry
+# Default — uses ExampleRobotProfile, IronMaple physics, real robot mass/geometry
 .\gradlew.bat simulateJava
 
 # Or the visual auto-test sequence (drives a box pattern)

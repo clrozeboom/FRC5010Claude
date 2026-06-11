@@ -2,7 +2,12 @@ package frc.robot;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.simulation.DriverStationSim;
+import edu.wpi.first.wpilibj.simulation.SimHooks;
+import edu.wpi.first.wpilibj.simulation.XboxControllerSim;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.example.ExampleRobot;
 import org.frc5010.common.robot.Mode;
 import org.frc5010.common.robot.RobotMode;
 import org.frc5010.common.util.SimTestBase;
@@ -18,7 +23,7 @@ import swervelib.simulation.ironmaple.simulation.SimulatedArena;
  * <ul>
  *   <li>{@link RobotContainer} constructs without error in both testSim and default-sim modes</li>
  *   <li>{@link RobotContainer#getAutonomousCommand()} delegates correctly to the inner
- *       {@link RealRobot}, returning the chooser's default ({@code Commands.none()}) without
+ *       {@link ExampleRobot}, returning the chooser's default ({@code Commands.none()}) without
  *       {@code -PvisualTest} and the {@code SwerveVisualTest} sequence with it</li>
  *   <li>{@link RobotContainer#resetToAllianceStart()} delegates without throwing</li>
  *   <li>The {@link DemoIntake} subsystem runs its default command for several enabled cycles
@@ -27,7 +32,7 @@ import swervelib.simulation.ironmaple.simulation.SimulatedArena;
  *
  * <p>Each test creates a {@link RobotContainer} (which calls {@code SwerveFactory.build()}
  * internally via {@link org.frc5010.common.profiles.SimRobotProfile} or
- * {@link RealRobotProfile}) and therefore owns an IronMaple {@link SimulatedArena}.
+ * {@link ExampleRobotProfile}) and therefore owns an IronMaple {@link SimulatedArena}.
  * The teardown shuts down the arena and resets its singleton via reflection, following
  * the same pattern as {@code AkitSwerveDriveSimPhysicsTest}.
  */
@@ -45,6 +50,11 @@ class RobotContainerSmokeTest extends SimTestBase {
   public void simTeardown() {
     System.clearProperty("testSim");
     System.clearProperty("visualTest");
+
+    // Stop the YAMS demo-mechanism closed-loop Notifier threads — the scheduler
+    // teardown doesn't, and stale loops would drive the shared CAN IDs (21–35)
+    // during YamsMechanismsFunctionalTest later in the same JVM.
+    org.frc5010.common.profiles.SwerveRobotContainer.closeMechanisms();
 
     SimulatedArena.getInstance().shutDown();
     try {
@@ -71,7 +81,7 @@ class RobotContainerSmokeTest extends SimTestBase {
 
   @Test
   void defaultSimModeConstructsWithRealProfile() {
-    // No testSim → RealRobotProfile instantiated reflectively; createDrive() uses SIM branch
+    // No testSim → ExampleRobotProfile instantiated reflectively; createDrive() uses SIM branch
     RobotContainer container = new RobotContainer();
     assertNotNull(container, "RobotContainer must construct without error in default sim mode");
   }
@@ -106,10 +116,26 @@ class RobotContainerSmokeTest extends SimTestBase {
     System.setProperty("testSim", "true");
     RobotContainer container = new RobotContainer();
     assertDoesNotThrow(container::resetToAllianceStart,
-        "resetToAllianceStart() must delegate to RealRobot without throwing");
+        "resetToAllianceStart() must delegate to ExampleRobot without throwing");
   }
 
   // ── DemoIntake subsystem periodic ─────────────────────────────────────────
+
+  /**
+   * Pumps scheduler + sim time asynchronously. The container now owns YAMS demo
+   * mechanisms whose closed loops run in WPILib Notifiers; the synchronous
+   * {@code stepOneCycle()} deadlocks against them (see docs/mechanisms.md gotcha 7),
+   * so this mirrors YamsMechanismsFunctionalTest's pump.
+   */
+  private void pumpCycles(int cycles) throws InterruptedException {
+    for (int i = 0; i < cycles; i++) {
+      CommandScheduler.getInstance().run();
+      SimHooks.stepTimingAsync(LOOP_PERIOD_SECS);
+      Thread.sleep(10);
+      DriverStationSim.notifyNewData();
+      DriverStation.refreshData();
+    }
+  }
 
   @Test
   void demoIntakePeriodicRunsWhileEnabled() {
@@ -122,12 +148,44 @@ class RobotContainerSmokeTest extends SimTestBase {
 
     enableTeleop();
 
-    assertDoesNotThrow(() -> {
-      for (int i = 0; i < 5; i++) {
-        CommandScheduler.getInstance().run();
-        stepOneCycle();
-      }
-    }, "Five enabled scheduler cycles must complete without exception");
+    assertDoesNotThrow(() -> pumpCycles(5),
+        "Five enabled scheduler cycles must complete without exception");
+  }
+
+  // ── X button → all mechanisms to midpoints ────────────────────────────────
+
+  @Test
+  void xButtonDrivesMechanismsTowardMidpoints() throws InterruptedException {
+    // End-to-end binding check (gotcha 11: run the flow, don't just construct): press
+    // X on the simulated controller and verify the demo elevator actually climbs
+    // toward its 0.75 m midpoint via the AllMechanismsToMidpoints parallel command.
+    System.setProperty("testSim", "true");
+    new RobotContainer();
+
+    var elevator = ExampleRobot.getDemoElevator().orElseThrow(
+        () -> new AssertionError("sim demo mechanisms should exist in simulation"));
+
+    enableTeleop();
+    XboxControllerSim controllerSim = new XboxControllerSim(0);
+    controllerSim.setXButton(true);
+    DriverStationSim.notifyNewData();
+    DriverStation.refreshData();
+
+    pumpCycles(100); // 2 s of sim time
+
+    double height = elevator.getHeight().in(edu.wpi.first.units.Units.Meters);
+    assertTrue(height > 0.3,
+        "X button should drive the demo elevator from 0.1 m toward 0.75 m, was " + height);
+
+    // Releasing X must send everything back to its start point (0.1 m for the elevator).
+    controllerSim.setXButton(false);
+    DriverStationSim.notifyNewData();
+    DriverStation.refreshData();
+    pumpCycles(150); // 3 s of sim time to descend
+
+    double restored = elevator.getHeight().in(edu.wpi.first.units.Units.Meters);
+    assertTrue(restored < 0.3,
+        "Releasing X should return the demo elevator toward its 0.1 m start, was " + restored);
   }
 
   @Test
@@ -138,11 +196,7 @@ class RobotContainerSmokeTest extends SimTestBase {
     new RobotContainer();
 
     // Robot stays disabled (SimTestBase default)
-    assertDoesNotThrow(() -> {
-      for (int i = 0; i < 5; i++) {
-        CommandScheduler.getInstance().run();
-        stepOneCycle();
-      }
-    }, "Five disabled scheduler cycles must complete without exception");
+    assertDoesNotThrow(() -> pumpCycles(5),
+        "Five disabled scheduler cycles must complete without exception");
   }
 }

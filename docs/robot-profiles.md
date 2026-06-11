@@ -9,24 +9,24 @@ The `RobotProfile` pattern lets you swap robot configurations without changing a
 | Scenario | Profile used | How to trigger |
 |----------|-------------|----------------|
 | Library CI / unit dev | `SimRobotProfile` | `.\gradlew.bat test -PtestSim` |
-| VSCode "Simulate Robot Code" | `RealRobotProfile` | `.\gradlew.bat simulateJava` (default) |
-| Real hardware | `RealRobotProfile` | Deploy to RoboRIO |
+| VSCode "Simulate Robot Code" | `ExampleRobotProfile` | `.\gradlew.bat simulateJava` (default) |
+| Real hardware | `ExampleRobotProfile` | Deploy to RoboRIO |
 
 `SwerveRobotContainer.selectProfile()` picks automatically:
 
 ```java
 // Returns SimRobotProfile when -PtestSim is set.
-// Otherwise reflectively instantiates the named class (RealRobotProfile by default):
+// Otherwise reflectively instantiates the named class (ExampleRobotProfile by default):
 if (Boolean.getBoolean("testSim")) return new SimRobotProfile();
 return (RobotProfile) Class.forName(realProfileClassName)
     .getDeclaredConstructor().newInstance();
 ```
 
-`RealRobot` passes the profile class name:
+`ExampleRobot` passes the profile class name:
 
 ```java
-public RealRobot() {
-    super(SwerveRobotContainer.selectProfile("frc.robot.RealRobotProfile"));
+public ExampleRobot() {
+    super(SwerveRobotContainer.selectProfile("frc.robot.example.ExampleRobotProfile"));
 }
 ```
 
@@ -38,9 +38,9 @@ public RealRobot() {
 
 ---
 
-## `RealRobotProfile` — your robot
+## `ExampleRobotProfile` — your robot
 
-`src/main/java/frc/robot/RealRobotProfile.java` is the team's entry point. It already has the right structure; you only need to fill in real values.
+`src/main/java/frc/robot/example/ExampleRobotProfile.java` is the team's entry point. It already has the right structure; you only need to fill in real values.
 
 ### Step 1 — Fill in SwerveConstants
 
@@ -126,7 +126,7 @@ if (RobotBase.isReal()) {
 
 ## `SwerveRobotContainer` — what you get for free
 
-`frc.robot.RealRobot` extends `SwerveRobotContainer`, which provides:
+`frc.robot.ExampleRobot` extends `SwerveRobotContainer`, which provides:
 
 | Feature | Details |
 |---------|---------|
@@ -137,10 +137,10 @@ if (RobotBase.isReal()) {
 
 ### Customising bindings
 
-`controller` is an `XboxConfigurableController` (protected field from `SwerveRobotContainer`). Add bindings by overriding `configureBindings()` in `RealRobot.java`:
+`controller` is an `XboxConfigurableController` (protected field from `SwerveRobotContainer`). Add bindings by overriding `configureBindings()` in `ExampleRobot.java`:
 
 ```java
-// In RealRobot.java
+// In ExampleRobot.java
 @Override
 protected void configureBindings() {
     super.configureBindings();           // keeps keyboard drive on port 0
@@ -153,7 +153,7 @@ protected void configureBindings() {
 To replace the keyboard drive with an Xbox controller (typical for competition):
 
 ```java
-// In RealRobot.java
+// In ExampleRobot.java
 @Override
 protected void configureBindings() {
     // Do NOT call super — we're replacing the entire default command.
@@ -186,10 +186,10 @@ protected void configureBindings() {
 
 ### Customising auto
 
-Override `getAutonomousCommand()` in `RealRobot.java` to integrate PathPlanner, Choreo, etc.:
+Override `getAutonomousCommand()` in `ExampleRobot.java` to integrate PathPlanner, Choreo, etc.:
 
 ```java
-// In RealRobot.java
+// In ExampleRobot.java
 @Override
 public Command getAutonomousCommand() {
     if (Boolean.getBoolean("visualTest")) return SwerveVisualTest.build(drive, vision, this::getAllianceStartPose);
@@ -204,7 +204,7 @@ public Command getAutonomousCommand() {
 The default field length is **16.540988 m** (Arena2026Rebuilt). To override for a different year:
 
 ```java
-// In your RealRobotProfile or RobotContainer subclass
+// In your ExampleRobotProfile or RobotContainer subclass
 @Override
 public Distance getFieldLength() {
     return Meters.of(16.541);  // 2026 standard; adjust for other years

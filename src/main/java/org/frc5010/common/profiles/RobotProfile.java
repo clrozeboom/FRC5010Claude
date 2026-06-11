@@ -28,7 +28,7 @@ import org.frc5010.common.vision.Vision;
  *
  * <h3>Template for a real robot project</h3>
  * <pre>{@code
- * public class RealRobotProfile extends RobotProfile {
+ * public class ExampleRobotProfile extends RobotProfile {
  *
  *   // Physical constants — used by both hardware and simulation.
  *   private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()

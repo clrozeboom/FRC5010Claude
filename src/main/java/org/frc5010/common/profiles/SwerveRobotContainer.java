@@ -41,13 +41,13 @@ import org.frc5010.common.vision.Vision;
  *
  * <h3>Minimal subclass for simulation</h3>
  * <pre>{@code
- * public class RealRobot extends SwerveRobotContainer {
+ * public class ExampleRobot extends SwerveRobotContainer {
  *   private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
  *       .moduleType(ModuleType.SIM).gyroType(GyroType.SIM).build();
  *   private static final Pose2d BLUE_START = new Pose2d(1.5, 2.0, new Rotation2d());
  *
- *   public RealRobot() {
- *     super(SwerveRobotContainer.selectProfile("frc.robot.RealRobotProfile"));
+ *   public ExampleRobot() {
+ *     super(SwerveRobotContainer.selectProfile("frc.robot.ExampleRobotProfile"));
  *   }
  * }
  * }</pre>
@@ -92,6 +92,34 @@ public abstract class SwerveRobotContainer {
   /** Auto selected from the web UI driver-station panel. Written by the web-select callback. */
   private volatile String webSelectedAuto;
 
+  /**
+   * Close handles for mechanism subsystems registered via {@link #registerMechanism(Runnable)}.
+   * Static so tests that construct robot containers can stop background threads (e.g. the
+   * YAMS closed-loop Notifiers) in teardown — {@code CommandScheduler.unregisterAllSubsystems()}
+   * does NOT stop them, and stale loops would keep driving the shared CAN IDs during later
+   * tests in the same JVM.
+   */
+  private static final java.util.List<Runnable> mechanismCloseables =
+      new java.util.ArrayList<>();
+
+  /**
+   * Registers a cleanup hook for a mechanism subsystem (typically {@code mechanism::close}).
+   * Register every mechanism that owns background resources — closed-loop threads, CAN
+   * devices — so tests and tooling can tear the robot down cleanly. Run and removed by
+   * {@link #closeMechanisms()}.
+   *
+   * @param closer cleanup to run when mechanisms are torn down
+   */
+  protected static void registerMechanism(Runnable closer) {
+    mechanismCloseables.add(closer);
+  }
+
+  /** Stops and frees all registered mechanisms. Call from test teardown. */
+  public static void closeMechanisms() {
+    mechanismCloseables.forEach(Runnable::run);
+    mechanismCloseables.clear();
+  }
+
   // Stored when constructed from a RobotProfile; null when constructed from a bare drive.
   private final RobotProfile profile;
 
@@ -100,7 +128,7 @@ public abstract class SwerveRobotContainer {
    *
    * <p>Returns {@link SimRobotProfile} when {@code -PtestSim} is set. Otherwise
    * reflectively instantiates the class named by {@code realProfileClassName}
-   * (no-arg constructor required). Teams can subclass {@code RealRobotProfile}
+   * (no-arg constructor required). Teams can subclass {@code ExampleRobotProfile}
    * and pass the subclass name here without changing any common-library code.
    *
    * <p>Note: the named class is not instantiated in {@code testSim} mode. If

@@ -113,12 +113,12 @@ For 2026 REEFSCAPE, a typical starting pose is around x=1.5 m, y=4.0 m for a cen
 
 ---
 
-## Step 4 — Edit `RealRobotProfile.java`
+## Step 4 — Edit `ExampleRobotProfile.java`
 
 This is the one file that describes your robot. Open it in VS Code:
 
 ```
-src/main/java/frc/robot/RealRobotProfile.java
+src/main/java/frc/robot/example/ExampleRobotProfile.java
 ```
 
 ### 4a — Fill in `SwerveConstants`
@@ -267,7 +267,7 @@ TalonFX modules require **CTRE Phoenix Tuner X** to generate a `TunerConstants` 
 
 #### Wire the real IO
 
-In `RealRobotProfile.java`, find the `createDrive()` method. The `if (RobotBase.isReal())` block contains commented-out code. Uncomment it:
+In `ExampleRobotProfile.java`, find the `createDrive()` method. The `if (RobotBase.isReal())` block contains commented-out code. Uncomment it:
 
 ```java
 @Override
@@ -354,7 +354,7 @@ Before enabling for the first time on hardware, go through this list:
 
 The default wiring uses keyboard controls (WASD + ER) mapped to joystick port 0 in simulation. For a real match you need an Xbox (or similar) controller at Driver Station port 0.
 
-The library provides `XboxConfigurableController` — a wrapper that gives each button and axis a named method and applies a chainable transform pipeline (deadzone, response curve, scaling). Override `configureBindings()` in `RealRobot.java` to replace the keyboard drive with it:
+The library provides `XboxConfigurableController` — a wrapper that gives each button and axis a named method and applies a chainable transform pipeline (deadzone, response curve, scaling). Override `configureBindings()` in `ExampleRobot.java` to replace the keyboard drive with it:
 
 ```java
 @Override
@@ -420,7 +420,7 @@ import org.frc5010.common.input.XboxConfigurableController;
 
 ## Step 9 — Add an autonomous routine (optional)
 
-Override `getAutonomousCommand()` in `RealRobot.java`:
+Override `getAutonomousCommand()` in `ExampleRobot.java`:
 
 ```java
 @Override
@@ -461,7 +461,7 @@ PathPlanner must be configured separately. See the [PathPlannerLib docs](https:/
 | Error message | Fix |
 |---------------|-----|
 | `cannot find symbol: ModuleIOTalonFXReal` | Add the import line listed in Step 6a |
-| `UnsupportedOperationException: RealRobotProfile.createDrive() not yet implemented` | You deployed with `isReal()` path still throwing. Complete Step 6. |
+| `UnsupportedOperationException: ExampleRobotProfile.createDrive() not yet implemented` | You deployed with `isReal()` path still throwing. Complete Step 6. |
 | `IllegalArgumentException: wheelRadius must be > 0` | Your `wheelRadius` value is zero or negative |
 | `IllegalArgumentException: bumperLength must be >= 0.5 m` | Your bumper measurement is under 19.7 in — double-check and convert to inches |
 

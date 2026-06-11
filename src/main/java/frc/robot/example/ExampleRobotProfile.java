@@ -1,4 +1,4 @@
-package frc.robot.rebuilt;
+package frc.robot.example;
 
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
@@ -38,7 +38,7 @@ import org.frc5010.common.vision.VisionFactory;
  * ({@code ./gradlew simulateJava}). Automated testing agents use {@code -PtestSim} instead to
  * get the lightweight {@link org.frc5010.common.profiles.SimRobotProfile}.
  */
-public class RealRobotProfile extends RobotProfile {
+public class ExampleRobotProfile extends RobotProfile {
 
   // TODO: Replace with actual robot measurements and CAN IDs.
   private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
@@ -77,7 +77,7 @@ public class RealRobotProfile extends RobotProfile {
       //   };
       //   return new AkitSwerveDrive(CONSTANTS, gyro, modules);
       throw new UnsupportedOperationException(
-          "RealRobotProfile.createDrive() not yet implemented for REAL mode. "
+          "ExampleRobotProfile.createDrive() not yet implemented for REAL mode. "
           + "See the TODO comments in this file.");
     }
     // In simulation: IronMaple uses the real robot's mass/geometry for accurate physics.

@@ -1,4 +1,4 @@
-package frc.robot.rebuilt;
+package frc.robot.example;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -13,7 +13,7 @@ import org.frc5010.common.drive.swerve.auto.BLineSwerveAuto;
  *
  * <p>Counterpart to {@link AutoRoutines}: {@code AutoRoutines} hosts autonomous-mode
  * sequences; this file hosts teleop-mode commands that are bound to driver buttons in
- * {@link RealRobot#configureBindings()}.
+ * {@link ExampleRobot#configureBindings()}.
  *
  * <p>Coordinates here reference the 2026 Blue-side Reef / Hub. BLine's
  * {@code .withDefaultShouldFlip()} mirrors the path for the Red alliance, so the same

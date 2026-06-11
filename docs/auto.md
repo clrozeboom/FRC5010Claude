@@ -19,7 +19,7 @@ BLine-GUI, or built at runtime.
 | Common-library wrapper (game-agnostic) | [BLineSwerveAuto.java](../src/main/java/org/frc5010/common/drive/swerve/auto/BLineSwerveAuto.java) |
 | Example auto routines (game-specific) | [AutoRoutines.java](../src/main/java/frc/robot/AutoRoutines.java) |
 | Teleop drive-to-pose commands (game-specific) | [TeleopRoutines.java](../src/main/java/frc/robot/TeleopRoutines.java) |
-| Auto chooser + Y-button binding | [RealRobot.java](../src/main/java/frc/robot/RealRobot.java) |
+| Auto chooser + Y-button binding | [ExampleRobot.java](../src/main/java/frc/robot/example/ExampleRobot.java) |
 | Global default constraints (deployed) | [src/main/deploy/autos/config.json](../src/main/deploy/autos/config.json) |
 | JSON path example (deployed) | [src/main/deploy/autos/paths/ExampleScore.json](../src/main/deploy/autos/paths/ExampleScore.json) |
 | Layer 3 integration test | [BLineFollowPathSimPhysicsTest.java](../src/test/java/org/frc5010/common/subsystem/BLineFollowPathSimPhysicsTest.java) |
@@ -46,7 +46,7 @@ their robot's measured response.**
 
 ## Auto-mode examples
 
-`RealRobot` constructs a `SendableChooser<Command>` exposed as the `Auto Mode` widget on
+`ExampleRobot` constructs a `SendableChooser<Command>` exposed as the `Auto Mode` widget on
 SmartDashboard / Driver Station:
 
 | Chooser option | Behaviour |
@@ -56,7 +56,7 @@ SmartDashboard / Driver Station:
 | `BLine: Example Score (code)` | Same trajectory as above, defined inline in `AutoRoutines.exampleScoreInCode` |
 | `BLine: Pickup + Score` | Drives out, intakes Fuel, drives back into the scoring zone, fires at the Hub. **Sim-only** — registered only when `DemoIntake` is present. |
 
-The `-PvisualTest` Gradle flag still wins: `RealRobot.getAutonomousCommand()` calls
+The `-PvisualTest` Gradle flag still wins: `ExampleRobot.getAutonomousCommand()` calls
 `super.getAutonomousCommand()` first, which returns `SwerveVisualTest` under the flag.
 
 ### Composing BLine with mechanism commands
@@ -101,7 +101,7 @@ return Commands.sequence(
 
 ## Driver button: drive-to-pose
 
-`RealRobot.configureBindings()` binds the **Y** button to
+`ExampleRobot.configureBindings()` binds the **Y** button to
 `TeleopRoutines.driveToHub(drive)`. The implementation lives in
 [TeleopRoutines.java](../src/main/java/frc/robot/TeleopRoutines.java) (game-specific —
 2026 Reef coordinates), and routes the robot to a fixed Reef-approach pose using two

@@ -24,7 +24,7 @@ import org.junit.jupiter.api.*;
  */
 class DriveRegressionTest extends SimTestBase {
 
-  // Match RealRobotProfile's constants exactly — tests are meaningless if
+  // Match ExampleRobotProfile's constants exactly — tests are meaningless if
   // they use different geometry than the deployed code.
   private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
       .moduleType(ModuleType.SIM)

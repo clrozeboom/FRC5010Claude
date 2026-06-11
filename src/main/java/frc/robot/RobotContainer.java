@@ -1,23 +1,23 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.rebuilt.RealRobot;
+import frc.robot.example.ExampleRobot;
 
 /**
  * Top-level entry point wired by {@link Robot}.
  *
- * <p>Delegates all robot behaviour to {@link RealRobot}, which extends
+ * <p>Delegates all robot behaviour to {@link ExampleRobot}, which extends
  * {@link org.frc5010.common.profiles.SwerveRobotContainer} and owns drive wiring,
- * vision, and the {@link frc.robot.rebuilt.DemoIntake} demo. Team-specific code lives in
- * {@link RealRobot}; common library code lives in
+ * vision, and the {@link frc.robot.example.DemoIntake} demo. Team-specific code lives in
+ * {@link ExampleRobot}; common library code lives in
  * {@link org.frc5010.common.profiles.SwerveRobotContainer}.
  */
 public class RobotContainer {
 
-  private final RealRobot robot;
+  private final ExampleRobot robot;
 
   public RobotContainer() {
-    robot = new RealRobot();
+    robot = new ExampleRobot();
   }
 
   public Command getAutonomousCommand() {

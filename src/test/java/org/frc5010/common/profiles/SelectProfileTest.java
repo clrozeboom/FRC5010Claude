@@ -21,23 +21,23 @@ class SelectProfileTest {
   @Test
   void testSimPropertyReturnsSimRobotProfile() {
     System.setProperty("testSim", "true");
-    RobotProfile profile = SwerveRobotContainer.selectProfile("frc.robot.rebuilt.RealRobotProfile");
+    RobotProfile profile = SwerveRobotContainer.selectProfile("frc.robot.example.ExampleRobotProfile");
     assertInstanceOf(SimRobotProfile.class, profile,
         "testSim=true must substitute SimRobotProfile regardless of the class name argument");
   }
 
   @Test
   void noPropertyInstantiatesNamedClassReflectively() {
-    // testSim not set → selectProfile must reflectively instantiate RealRobotProfile.
+    // testSim not set → selectProfile must reflectively instantiate ExampleRobotProfile.
     // We check the class name rather than importing frc.robot types into the common package.
-    RobotProfile profile = SwerveRobotContainer.selectProfile("frc.robot.rebuilt.RealRobotProfile");
-    assertEquals("frc.robot.rebuilt.RealRobotProfile", profile.getClass().getName(),
+    RobotProfile profile = SwerveRobotContainer.selectProfile("frc.robot.example.ExampleRobotProfile");
+    assertEquals("frc.robot.example.ExampleRobotProfile", profile.getClass().getName(),
         "Without testSim, selectProfile must reflectively instantiate the named class");
   }
 
   @Test
-  void subclassOfRealRobotProfileInstantiatedByName() {
-    // A team-supplied subclass of RealRobotProfile can be passed without changing library code.
+  void subclassOfExampleRobotProfileInstantiatedByName() {
+    // A team-supplied subclass of ExampleRobotProfile can be passed without changing library code.
     // We use SimRobotProfile as a stand-in (it has a no-arg constructor and extends RobotProfile).
     RobotProfile profile = SwerveRobotContainer.selectProfile(
         "org.frc5010.common.profiles.SimRobotProfile");

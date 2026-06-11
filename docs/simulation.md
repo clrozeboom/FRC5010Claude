@@ -17,7 +17,7 @@ Uses `SimRobotProfile` — small square robot, no real CAN IDs. Intended for lib
 
 ### 2. Real-robot-in-sim (default)
 
-Uses `RealRobotProfile` with your robot's actual `SwerveConstants`. IronMaple runs the physics using your real robot's mass, bumper footprint, and wheel geometry, so the simulation behaves like your actual robot. This is the default when you click **Simulate Robot Code** in VS Code.
+Uses `ExampleRobotProfile` with your robot's actual `SwerveConstants`. IronMaple runs the physics using your real robot's mass, bumper footprint, and wheel geometry, so the simulation behaves like your actual robot. This is the default when you click **Simulate Robot Code** in VS Code.
 
 ```powershell
 .\gradlew.bat simulateJava   # Windows — default
@@ -46,7 +46,7 @@ Opt-in browser-based UI on `http://localhost:5800` — field view, virtual gamep
 
 `WebDriveController` drives `DriverStationSim` programmatically (setEnabled + setDsAttached + alliance + autonomous), so the Glass DS widget isn't needed. Plain `simulateJava` is the reverse — Glass only, no HTTP server on port 5800, no demo intake instance.
 
-**Running an autonomous routine from the web UI:** pick a routine from the **Auto Routine** dropdown (mirrors the Glass `SendableChooser` registered in `RealRobot`), click **Auto** under **Mode**, then click **Enable**. Like a real Driver Station, the mode applies on the next enable — to switch back, **Disable**, click **Teleop**, then **Enable**. The selector and mode buttons drive `/api/control` (`mode`, `auto` fields) and `/api/autos`; the chosen routine becomes what `RealRobot.getAutonomousCommand()` returns when `autonomousInit()` fires.
+**Running an autonomous routine from the web UI:** pick a routine from the **Auto Routine** dropdown (mirrors the Glass `SendableChooser` registered in `ExampleRobot`), click **Auto** under **Mode**, then click **Enable**. Like a real Driver Station, the mode applies on the next enable — to switch back, **Disable**, click **Teleop**, then **Enable**. The selector and mode buttons drive `/api/control` (`mode`, `auto` fields) and `/api/autos`; the chosen routine becomes what `ExampleRobot.getAutonomousCommand()` returns when `autonomousInit()` fires.
 
 #### Keyboard controls
 
@@ -64,7 +64,7 @@ The on-screen sticks and buttons can also be driven from the keyboard (each butt
 | `G` | **Y** — drive-to-Hub (BLine drive-to-pose) |
 | `C` / `V` | **B** / **X** — unbound in the demo (available for your bindings) |
 
-Movement is alliance-aware: "forward" always faces the opponent's wall. The button-key → gamepad-button map lives in `KEY_BUTTON_MAP` in `index.html`; the button → command bindings live in `RealRobot.configureBindings()`.
+Movement is alliance-aware: "forward" always faces the opponent's wall. The button-key → gamepad-button map lives in `KEY_BUTTON_MAP` in `index.html`; the button → command bindings live in `ExampleRobot.configureBindings()`.
 
 ---
 

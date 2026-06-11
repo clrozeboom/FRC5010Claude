@@ -73,7 +73,7 @@ public final class BLineSwerveAuto {
    * Builds a {@link FollowPath.Builder} pre-wired to the given drive subsystem.
    *
    * <p>Also installs default global constraints via {@link Path#setDefaultGlobalConstraints}.
-   * Call this once at robot init (e.g. inside {@code RealRobot}) and reuse the returned builder
+   * Call this once at robot init (e.g. inside {@code ExampleRobot}) and reuse the returned builder
    * across all paths.
    *
    * <p>Chains {@link FollowPath.Builder#withDefaultShouldFlip()} so paths are alliance-mirrored

@@ -26,7 +26,7 @@ AkitSwerveDrive (SubsystemBase — AdvantageKit IO abstraction)
 
 RobotProfile (abstract)
  ├── SimRobotProfile           (library CI / dev — no real CAN IDs)
- └── RealRobotProfile          (frc.robot — team's robot; branches on RobotBase.isReal())
+ └── ExampleRobotProfile          (frc.robot — team's robot; branches on RobotBase.isReal())
 
 SwerveRobotContainer (abstract — keyboard drive, alliance pose, auto dispatch)
  ├── ConfigurableController    (wraps GenericHID port → JoystickAxis + Trigger)
@@ -35,7 +35,7 @@ SwerveRobotContainer (abstract — keyboard drive, alliance pose, auto dispatch)
  │    └── JoystickAxis   (chainable: deadzone → power → scale → limit → negate)
  │         └── DriveVector    (two JoystickAxis → Translation2d, magnitude transforms, unitCircle())
  ├── WebControl (optional singleton — HTTP server port 5800, web button injection; -PwebUI only)
- └── frc.robot.RealRobot (concrete — extends SwerveRobotContainer, owns DemoIntake)
+ └── frc.robot.ExampleRobot (concrete — extends SwerveRobotContainer, owns DemoIntake)
       └── frc.robot.RobotContainer (thin shell — delegates getAutonomousCommand() and resetToAllianceStart())
 
 SimRobotState (abstract SubsystemBase — IntakeSimulation lifecycle, web UI state binding)
@@ -55,7 +55,7 @@ SimRobotState (abstract SubsystemBase — IntakeSimulation lifecycle, web UI sta
 | `REAL` with `TALON_FX` or `SPARK_TALON` | throws `UnsupportedOperationException` | throws |
 | `REPLAY` | no-op `ModuleIO` + `GyroIO` | same |
 
-The throw-by-design for hardware types in REAL mode is intentional — the factory cannot construct motor configs without full TunerX gear-ratio and gain constants. Teams wire those directly in `RealRobotProfile.createDrive()`.
+The throw-by-design for hardware types in REAL mode is intentional — the factory cannot construct motor configs without full TunerX gear-ratio and gain constants. Teams wire those directly in `ExampleRobotProfile.createDrive()`.
 
 ---
 

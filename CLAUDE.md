@@ -27,15 +27,23 @@ AkitSwerveDrive (SubsystemBase)
                        ModuleIOTalonFXReal / ModuleIOSparkTalon (REAL)
 
 RobotProfile (abstract) ──► SimRobotProfile (library CI/dev)
-                             RealRobotProfile (frc.robot — team's robot)
+                             ExampleRobotProfile (frc.robot — team's robot)
         │
         ▼
 SwerveRobotContainer (abstract) ← keyboard drive, alliance pose, visual-test auto
  ├── WebControl (optional singleton — HTTP server port 5800; -PwebUI only)
- └── frc.robot.RealRobot (concrete — extends SwerveRobotContainer, owns DemoIntake)
+ └── frc.robot.ExampleRobot (concrete — extends SwerveRobotContainer, owns DemoIntake)
       └── frc.robot.RobotContainer (thin shell — delegates getAutonomousCommand / resetToAllianceStart)
 
 SimRobotState (abstract SubsystemBase) ──► frc.robot.DemoIntake (2026 Fuel intake + ballistic firing)
+
+YAMS mechanisms (org.frc5010.common.mechanisms — LQR-first wrappers over the YAMS vendordep)
+ ├── YamsElevator / YamsArm / YamsPivot / YamsFlywheel   ← ControlStyle.LQR (default) or PROFILED_PID, live NT tuning
+ ├── YamsDoubleJointedArm / YamsDifferentialMechanism    ← profiled PID only (LQR can't model coupled joints)
+ ├── @AutoLog inputs per wrapper — getters/triggers read the inputs (replay-safe)
+ └── frc.robot.mechanisms.Example* (TalonFX/Kraken: LQR CAN 21–28, ExampleProfiled* CAN 31–34)
+      └── ExampleRobot creates all of them in SIM; X button held → midpoints; released → start points
+          (tests constructing RobotContainer: SwerveRobotContainer.closeMechanisms() + async pump)
 ```
 
 **Critical distinction — `instanceof GyroIOSim` in `AkitSwerveDrive.periodic()`:**
@@ -108,6 +116,13 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 - **Web telemetry (`poseBuf`, demo-state suppliers) must update in ALL robot states.** Anything that reads the drive subsystem only via the default command goes stale whenever an auto/other command owns `drive`. Put per-cycle web snapshots in the always-running `applyPendingControl()` (the `WebControlApply` command requires no subsystems and `ignoringDisable(true)`).
 - **Game-piece autos must be routed against the ACTUAL spawn positions in `GamePieceSpawner` (center grid x 7.43–9.11), not assumptions.** pickupAndScore originally stopped at x=6.0 and collected nothing because the Fuel grid starts at x=7.43. When asserting "it collects," require collection *beyond* any preload (`maxHeld > preload`), or the `DemoIntake` 8-piece preload masks a robot that grabbed nothing.
 
+### 12. YAMS mechanisms — published-jar bugs and test timing (full list in docs/mechanisms.md)
+- **YAMS 2026.4.10.3's ARM/ELEVATOR LQR Kalman filter is broken** (unsliced 2-output plant → native DARE reads garbage: "R was not symmetric" or silently useless gains). Always build LQR configs via `MechanismLqrConfig`, never raw `LQRConfig`.
+- **Never pump YAMS mechanism tests with synchronous `SimHooks.stepTiming`** — it deadlocks against the YAMS closed-loop Notifier. Use `stepTimingAsync(0.02)` + ~10 ms real sleep per cycle (`YamsMechanismsFunctionalTest.runScheduledFor`).
+- **TalonFX outputs silently neutral in tests** when DS packets / Phoenix enable starve for ~100 ms real time. Feed `DriverStationSim.notifyNewData()` + `Unmanaged.feedEnable(...)` every cycle.
+- **Profile cruise velocity must be physically achievable** (free speed ÷ gearing × circumference) or the LQR chases an unreachable reference and overshoots hard.
+- The released YAMS jar's API differs from GitHub main (`withSoftLimit` vs `withSoftLimits`, etc.) — `javap` the jar, don't trust the repo source.
+
 ---
 
 ## Key file locations
@@ -125,10 +140,10 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Xbox-specific named accessors | `src/main/java/org/frc5010/common/input/XboxConfigurableController.java` |
 | Robot profile interface | `src/main/java/org/frc5010/common/profiles/RobotProfile.java` |
 | Sim robot profile (CI / library dev) | `src/main/java/org/frc5010/common/profiles/SimRobotProfile.java` |
-| Real robot profile placeholder | `src/main/java/frc/robot/RealRobotProfile.java` |
+| Example robot profile (team-code placeholder) | `src/main/java/frc/robot/example/ExampleRobotProfile.java` |
 | Top-level robot container | `src/main/java/frc/robot/RobotContainer.java` |
 | Browser-based web UI controller (sim only, `-PwebUI`) | `src/main/java/org/frc5010/common/sim/WebDriveController.java` |
-| Demo intake (team-code example) | `src/main/java/frc/robot/DemoIntake.java` |
+| Demo intake (team-code example) | `src/main/java/frc/robot/example/DemoIntake.java` |
 | Physics module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSimPhysics.java` |
 | Physics gyro IO | `src/main/java/org/frc5010/common/drive/swerve/akit/GyroIOSimPhysics.java` |
 | DCMotorSim module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSim.java` |
@@ -150,10 +165,14 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Calibration result record | `src/main/java/org/frc5010/common/drive/swerve/calibration/CalibrationResult.java` |
 | Calibration data-collection routine | `src/main/java/org/frc5010/common/drive/swerve/calibration/MotorCalibrationRoutine.java` |
 | BLine path-follower wrapper (game-agnostic) | `src/main/java/org/frc5010/common/drive/swerve/auto/BLineSwerveAuto.java` |
-| Auto routines (game-specific BLine examples) | `src/main/java/frc/robot/AutoRoutines.java` |
-| Teleop drive-to-pose commands (game-specific) | `src/main/java/frc/robot/TeleopRoutines.java` |
+| Auto routines (game-specific BLine examples) | `src/main/java/frc/robot/example/AutoRoutines.java` |
+| Teleop drive-to-pose commands (game-specific) | `src/main/java/frc/robot/example/TeleopRoutines.java` |
 | Deployed BLine paths + config | `src/main/deploy/autos/` |
 | BLine sim test | `src/test/java/org/frc5010/common/subsystem/BLineFollowPathSimPhysicsTest.java` |
+| YAMS mechanism wrappers (LQR + tuning) | `src/main/java/org/frc5010/common/mechanisms/` |
+| YAMS LQR Kalman-bug workaround | `src/main/java/org/frc5010/common/mechanisms/MechanismLqrConfig.java` |
+| Mechanism examples (TalonFX, team-code pattern) | `src/main/java/frc/robot/mechanisms/` |
+| Mechanism functional tests | `src/test/java/frc/robot/mechanisms/YamsMechanismsFunctionalTest.java` |
 
 ---
 
@@ -166,6 +185,7 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Simulation scenarios, Gradle flags (`-PtestSim` / `-PvisualTest` / `-PwebUI`), AdvantageScope | [docs/simulation.md](docs/simulation.md) |
 | Test pyramid in depth, per-cycle call order, `SimulatedArena` teardown, log analysis | [docs/testing.md](docs/testing.md) |
 | Vision architecture (IO pattern, design decisions, usage example) | [docs/vision.md](docs/vision.md) |
+| YAMS mechanisms — LQR control, tuning, gotchas, test pump pattern | [docs/mechanisms.md](docs/mechanisms.md) |
 | Motor calibration workflow (sim ramp → SysId → apply gains) | [docs/calibration.md](docs/calibration.md) |
 | BLine path-following — auto chooser, JSON + code-defined paths, drive-to-pose button | [docs/auto.md](docs/auto.md) |
 | High-level architecture overview | [docs/architecture.md](docs/architecture.md) |
@@ -185,12 +205,14 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 ## Slash commands available
 
 - `/new-sim-test` — step-by-step playbook for adding a Layer 2 or Layer 3 sim test (includes team-specific test location)
-- `/new-robot-profile` — step-by-step guide for wiring a real robot's hardware IO into `RealRobotProfile`
+- `/new-robot-profile` — step-by-step guide for wiring a real robot's hardware IO into `ExampleRobotProfile`
 - `/diagnose-log` — agent workflow for reading `.wpilog` files, interpreting anomaly flags, replay, and performance comparison
 - `/new-vision-camera` — step-by-step guide for adding a PhotonVision or Limelight camera to the Vision subsystem
 - `/new-game-field` — build a 2D web field + custom IronMaple arena (barriers + game pieces) from a new season's game manual, for when IronMaple hasn't shipped the season arena yet
 - `/validate-replay` — validate replay fidelity after non-trivial logging changes (produce log → replay → check anomalies)
 - `/calibrate-drive` — agent-guided step-by-step motor calibration (sim ramp → SysId → apply gains to TunerX or DriveConstants)
+- `/new-yams-mechanism` — add an elevator/arm/pivot/flywheel/DJA/differential subsystem using the YAMS wrappers
+- `/tune-mechanism` — tune a YAMS mechanism (LQR qelms/relms over NT, kG via sysId, PID for dual-motor mechanisms)
 
 ---
 
