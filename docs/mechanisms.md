@@ -237,7 +237,7 @@ configured start point (read from each mechanism's `getSettings()`, flywheels sp
 down to 0). Run `./gradlew simulateJava`, enable,
 press X, and watch the Mechanism2d widgets under SmartDashboard →
 `<name>/mechanism`. Tests that construct `RobotContainer` must call
-`SwerveRobotContainer.closeDemoMechanisms()` in teardown and pump time asynchronously
+`SwerveRobotContainer.closeMechanisms()` in teardown and pump time asynchronously
 (see gotcha 7) — `RobotContainerSmokeTest.pumpCycles` is the reference.
 
 ## Functional tests

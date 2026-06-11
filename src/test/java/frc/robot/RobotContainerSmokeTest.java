@@ -54,7 +54,7 @@ class RobotContainerSmokeTest extends SimTestBase {
     // Stop the YAMS demo-mechanism closed-loop Notifier threads — the scheduler
     // teardown doesn't, and stale loops would drive the shared CAN IDs (21–35)
     // during YamsMechanismsFunctionalTest later in the same JVM.
-    org.frc5010.common.profiles.SwerveRobotContainer.closeDemoMechanisms();
+    org.frc5010.common.profiles.SwerveRobotContainer.closeMechanisms();
 
     SimulatedArena.getInstance().shutDown();
     try {

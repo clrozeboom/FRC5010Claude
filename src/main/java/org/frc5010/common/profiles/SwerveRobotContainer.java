@@ -93,30 +93,31 @@ public abstract class SwerveRobotContainer {
   private volatile String webSelectedAuto;
 
   /**
-   * Close handles for sim-only demo subsystems (YAMS mechanisms etc.) registered via
-   * {@link #registerDemoMechanism(Runnable)}. Static so tests that construct robot
-   * containers can stop background threads (e.g. the YAMS closed-loop Notifiers) in
-   * teardown — {@code CommandScheduler.unregisterAllSubsystems()} does NOT stop them,
-   * and stale loops would keep driving the shared CAN IDs during later tests in the
-   * same JVM.
+   * Close handles for mechanism subsystems registered via {@link #registerMechanism(Runnable)}.
+   * Static so tests that construct robot containers can stop background threads (e.g. the
+   * YAMS closed-loop Notifiers) in teardown — {@code CommandScheduler.unregisterAllSubsystems()}
+   * does NOT stop them, and stale loops would keep driving the shared CAN IDs during later
+   * tests in the same JVM.
    */
-  private static final java.util.List<Runnable> demoMechanismCloseables =
+  private static final java.util.List<Runnable> mechanismCloseables =
       new java.util.ArrayList<>();
 
   /**
-   * Registers a cleanup hook for a sim-only demo mechanism (typically
-   * {@code mechanism::close}). Run and removed by {@link #closeDemoMechanisms()}.
+   * Registers a cleanup hook for a mechanism subsystem (typically {@code mechanism::close}).
+   * Register every mechanism that owns background resources — closed-loop threads, CAN
+   * devices — so tests and tooling can tear the robot down cleanly. Run and removed by
+   * {@link #closeMechanisms()}.
    *
-   * @param closer cleanup to run when demo mechanisms are torn down
+   * @param closer cleanup to run when mechanisms are torn down
    */
-  protected static void registerDemoMechanism(Runnable closer) {
-    demoMechanismCloseables.add(closer);
+  protected static void registerMechanism(Runnable closer) {
+    mechanismCloseables.add(closer);
   }
 
-  /** Stops and frees all registered sim demo mechanisms. Call from test teardown. */
-  public static void closeDemoMechanisms() {
-    demoMechanismCloseables.forEach(Runnable::run);
-    demoMechanismCloseables.clear();
+  /** Stops and frees all registered mechanisms. Call from test teardown. */
+  public static void closeMechanisms() {
+    mechanismCloseables.forEach(Runnable::run);
+    mechanismCloseables.clear();
   }
 
   // Stored when constructed from a RobotProfile; null when constructed from a bare drive.

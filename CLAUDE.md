@@ -43,7 +43,7 @@ YAMS mechanisms (org.frc5010.common.mechanisms — LQR-first wrappers over the Y
  ├── @AutoLog inputs per wrapper — getters/triggers read the inputs (replay-safe)
  └── frc.robot.mechanisms.Example* (TalonFX/Kraken: LQR CAN 21–28, ExampleProfiled* CAN 31–34)
       └── ExampleRobot creates all of them in SIM; X button held → midpoints; released → start points
-          (tests constructing RobotContainer: SwerveRobotContainer.closeDemoMechanisms() + async pump)
+          (tests constructing RobotContainer: SwerveRobotContainer.closeMechanisms() + async pump)
 ```
 
 **Critical distinction — `instanceof GyroIOSim` in `AkitSwerveDrive.periodic()`:**

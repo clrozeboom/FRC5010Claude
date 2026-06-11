@@ -111,12 +111,12 @@ public class ExampleRobot extends SwerveRobotContainer {
     var characterizedElevator = new ExampleCharacterizedElevator();
 
     demoElevator = elevator;
-    registerDemoMechanism(() -> demoElevator = null);
+    registerMechanism(() -> demoElevator = null);
     List.of((Runnable) elevator::close, arm::close, turret::close, shooter::close,
             jointedArm::close, wrist::close,
             profiledElevator::close, profiledArm::close, profiledTurret::close,
             profiledShooter::close, characterizedElevator::close)
-        .forEach(SwerveRobotContainer::registerDemoMechanism);
+        .forEach(SwerveRobotContainer::registerMechanism);
 
     controller.x().onTrue(Commands.parallel(
         // Position mechanisms → middle of their travel range
