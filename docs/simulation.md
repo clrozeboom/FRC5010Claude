@@ -37,7 +37,7 @@ Once Glass opens, find the **Driver Station** panel, set mode to **Autonomous**,
 
 ### 4. Browser web UI (`-PwebUI`)
 
-Opt-in browser-based UI on `http://localhost:5800` — field view, virtual gamepad, and a Driver Station panel with alliance/enable controls, an **Auto/Teleop mode** toggle, an **auto-routine selector**, and the `DemoIntake` demo. `-PwebUI` skips `wpi.sim.addGui()` / `addDriverstation()`, so **no Glass window opens**; the browser is the only UI.
+Opt-in browser-based UI on `http://localhost:5800` — field view, virtual gamepad, a Driver Station panel with alliance/enable controls, an **Auto/Teleop mode** toggle, an **auto-routine selector**, the `DemoIntake` demo, and a **live LED strip display** under the field (mirrors the robot's `LedStripSegments` colours via the `"leds"` array in `/api/state`; hidden when the robot has no strip — see [docs/leds.md](leds.md)). `-PwebUI` skips `wpi.sim.addGui()` / `addDriverstation()`, so **no Glass window opens**; the browser is the only UI.
 
 ```powershell
 .\gradlew.bat simulateJava -PwebUI         # Windows

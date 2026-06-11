@@ -37,6 +37,10 @@ SwerveRobotContainer (abstract) ← keyboard drive, alliance pose, visual-test a
 
 SimRobotState (abstract SubsystemBase) ──► frc.robot.DemoIntake (2026 Fuel intake + ballistic firing)
 
+LedStripSegments (org.frc5010.common.leds — one AddressableLED split into per-segment LEDPatterns + whole-strip override)
+ ├── LedAnimations (custom patterns: Larson scanner, laser bolt)
+ └── frc.robot.example.DemoLeds (30-LED demo: startup alliance colour, disabled rainbow, intake Larson, shooting laser)
+
 YAMS mechanisms (org.frc5010.common.mechanisms — LQR-first wrappers over the YAMS vendordep)
  ├── YamsElevator / YamsArm / YamsPivot / YamsFlywheel   ← ControlStyle.LQR (default) or PROFILED_PID, live NT tuning
  ├── YamsDoubleJointedArm / YamsDifferentialMechanism    ← profiled PID only (LQR can't model coupled joints)
@@ -144,6 +148,9 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Top-level robot container | `src/main/java/frc/robot/RobotContainer.java` |
 | Browser-based web UI controller (sim only, `-PwebUI`) | `src/main/java/org/frc5010/common/sim/WebDriveController.java` |
 | Demo intake (team-code example) | `src/main/java/frc/robot/example/DemoIntake.java` |
+| Segmented LED strip (library) | `src/main/java/org/frc5010/common/leds/LedStripSegments.java` |
+| Custom LED animations (Larson, laser) | `src/main/java/org/frc5010/common/leds/LedAnimations.java` |
+| Demo LED state mapping (team-code example) | `src/main/java/frc/robot/example/DemoLeds.java` |
 | Physics module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSimPhysics.java` |
 | Physics gyro IO | `src/main/java/org/frc5010/common/drive/swerve/akit/GyroIOSimPhysics.java` |
 | DCMotorSim module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSim.java` |
@@ -186,6 +193,7 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Test pyramid in depth, per-cycle call order, `SimulatedArena` teardown, log analysis | [docs/testing.md](docs/testing.md) |
 | Vision architecture (IO pattern, design decisions, usage example) | [docs/vision.md](docs/vision.md) |
 | YAMS mechanisms — LQR control, tuning, gotchas, test pump pattern | [docs/mechanisms.md](docs/mechanisms.md) |
+| LED strips — segments, custom animations, robot-state mapping | [docs/leds.md](docs/leds.md) |
 | Motor calibration workflow (sim ramp → SysId → apply gains) | [docs/calibration.md](docs/calibration.md) |
 | BLine path-following — auto chooser, JSON + code-defined paths, drive-to-pose button | [docs/auto.md](docs/auto.md) |
 | High-level architecture overview | [docs/architecture.md](docs/architecture.md) |

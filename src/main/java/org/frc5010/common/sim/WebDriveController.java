@@ -66,6 +66,12 @@ public class WebDriveController {
     private volatile BooleanSupplier intakeExtendedSupplier = () -> false;
     private volatile IntSupplier scoredFuelSupplier    = () -> 0;
 
+    // LED strip bound by {@link #bindLeds}; null when the robot has no strip. The colour
+    // snapshot is rebuilt each cycle on the robot thread in applyPendingControl (the strip's
+    // buffer is not thread-safe to read from HTTP threads) and served from ledsBuf.
+    private volatile org.frc5010.common.leds.LedStripSegments ledStrip = null;
+    private final AtomicReference<String> ledsBuf = new AtomicReference<>("[]");
+
     // Pending DriverStation control — written by HTTP, applied on robot thread.
     // Nullable: null means "not set in this POST" so the robot thread skips that field.
     private final AtomicReference<Boolean> pendingEnabled = new AtomicReference<>(null);
@@ -140,6 +146,19 @@ public class WebDriveController {
         // field freezes for the whole duration of an auto routine.
         Pose2d pose = drive.getPose();
         poseBuf.set(new double[]{pose.getX(), pose.getY(), pose.getRotation().getRadians()});
+
+        // Snapshot the LED colours every cycle for the same reason as the pose above:
+        // this is the only per-cycle hook that runs in ALL robot states (gotcha 11).
+        org.frc5010.common.leds.LedStripSegments strip = ledStrip;
+        if (strip != null) {
+            int length = strip.getLength();
+            StringBuilder sb = new StringBuilder(length * 10 + 2).append('[');
+            for (int i = 0; i < length; i++) {
+                if (i > 0) sb.append(',');
+                sb.append('"').append(strip.getColor(i).toHexString()).append('"');
+            }
+            ledsBuf.set(sb.append(']').toString());
+        }
 
         if (controlPending.compareAndSet(true, false)) {
             String alliance = pendingAlliance.getAndSet(null);
@@ -222,6 +241,15 @@ public class WebDriveController {
         this.heldFuelSupplier      = heldFuel;
         this.intakeExtendedSupplier = intakeExtended;
         this.scoredFuelSupplier    = scoredFuel;
+    }
+
+    /**
+     * Binds the LED strip whose colours are surfaced in {@code /api/state} as a
+     * {@code "leds"} array of hex strings. The strip's buffer is read only on the robot
+     * thread (in {@link #applyPendingControl}); pass the strip the robot renders to.
+     */
+    public void bindLeds(org.frc5010.common.leds.LedStripSegments strip) {
+        this.ledStrip = strip;
     }
 
     /**
@@ -341,11 +369,13 @@ public class WebDriveController {
             "\"fieldWidth\":16.540988,\"fieldHeight\":8.21," +
             "\"enabled\":%b,\"alliance\":\"%s\",\"connected\":%b," +
             "\"mode\":\"%s\",\"selectedAuto\":\"%s\"," +
-            "\"heldFuel\":%d,\"intakeExtended\":%b,\"scoredFuel\":%d}",
+            "\"heldFuel\":%d,\"intakeExtended\":%b,\"scoredFuel\":%d," +
+            "\"leds\":%s}",
             p[0], p[1], p[2], maxLinearMps, maxAngularRps,
             enabledBuf.get(), allianceBuf.get(), isConnected(),
             modeBuf.get(), jsonEscape(selectedAutoBuf.get()),
-            heldFuelSupplier.getAsInt(), intakeExtendedSupplier.getAsBoolean(), scoredFuelSupplier.getAsInt());
+            heldFuelSupplier.getAsInt(), intakeExtendedSupplier.getAsBoolean(), scoredFuelSupplier.getAsInt(),
+            ledsBuf.get());
         respond(ex, 200, "application/json", json);
     }
 
