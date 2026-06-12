@@ -11,6 +11,7 @@ import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.Current;
@@ -19,43 +20,28 @@ import edu.wpi.first.units.measure.LinearAcceleration;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.units.measure.Mass;
 import edu.wpi.first.units.measure.Voltage;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.util.Color;
+import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-import org.frc5010.common.robot.Mode;
+import java.util.Set;
 import org.frc5010.common.robot.RobotMode;
-import org.frc5010.common.tuning.TunableGains;
 import org.littletonrobotics.junction.Logger;
 
 /**
  * TalonFX elevator with selectable control style and full REAL / SIM / REPLAY support.
- *
- * <p><b>Architecture</b> (same IO pattern as the swerve drive): hardware access goes
- * through {@link MechanismIO} with {@code @AutoLog} inputs; REAL uses
- * {@link MechanismIOTalonFX}, SIM uses {@link MechanismIOTalonFXSim} fed by a WPILib
- * {@link ElevatorSim}, REPLAY uses the no-op IO and reads inputs from the log. All
- * getters and triggers read the inputs, so subsystem logic is replay-safe.
- *
- * <p><b>Control styles</b> ({@code settings.controlStyle}):
- * <ul>
- *   <li>{@link ControlStyle#LQR} (default) — state-space {@code LinearSystemLoop}
- *       (LQR + Kalman + plant inversion) running synchronously in {@code periodic()}
- *       at 20 ms, fed by a trapezoid profile, plus a kG feedforward (gravity is not in
- *       the linear plant and LQR has no integrator). Tuned with physical tolerances
- *       under {@code /Tuning/<name>/lqr_*}; supports SysId-characterized plants.</li>
- *   <li>{@link ControlStyle#PROFILED_PID} — TalonFX onboard MotionMagic at 1 kHz with
- *       Slot0 kP/kI/kD/kS/kV/kG (Elevator_Static). Gains in mechanism (drum) rotations,
- *       tunable under {@code /Tuning/<name>/pid_*}.</li>
- * </ul>
+ * The shared engine (goal state machine, LQR/MotionMagic dispatch, tuning, alerts,
+ * enable transitions) lives in {@link SingleDofMechanism}; this class supplies the
+ * linear units, the elevator LQR plant, the {@link ElevatorSim}, homing, and the
+ * meters-based command/getter API. Native unit: meters.
  */
-public class Elevator extends SubsystemBase {
+public class Elevator extends SingleDofMechanism {
 
   /** Robot-specific elevator parameters. Populate the fields, then construct {@link Elevator}. */
   public static class Settings {
@@ -65,7 +51,11 @@ public class Elevator extends SubsystemBase {
     public ControlStyle controlStyle = ControlStyle.LQR;
     /** CAN ID of the TalonFX. */
     public int canId;
-    /** Motor physics model (count = motors on the gearbox). */
+    /** CAN ID of a follower TalonFX on the same gearbox; −1 = single motor. */
+    public int followerCanId = -1;
+    /** True if the follower is mounted opposing the lead motor. */
+    public boolean followerOpposed = false;
+    /** Motor physics model (count = motors on the gearbox, including the follower). */
     public DCMotor motorModel = DCMotor.getKrakenX60(1);
     /** Gear reduction stages, rotor → mechanism (e.g. {4, 3} = 12:1). */
     public double[] gearReductionStages = {4, 3};
@@ -91,9 +81,25 @@ public class Elevator extends SubsystemBase {
     public Voltage kG = Volts.of(0);
     /** Stator current limit. */
     public Current statorCurrentLimit = Amps.of(40);
+    /** Drop the goal when the robot is disabled (stay put on re-enable). */
+    public boolean clearGoalOnDisable = false;
+
+    // --- Homing (current-spike zeroing; see homeCommand()) ---
+    /** Voltage applied while homing toward the bottom hard stop (negative = down). */
+    public Voltage homingVoltage = Volts.of(-1.5);
+    /**
+     * Stator current that indicates the hard stop has been reached. Keep well below
+     * {@link #statorCurrentLimit}: the Talon's limiter caps the stall current, so a
+     * threshold at/above the limit never triggers (in sim the observable ceiling is
+     * ~0.75 × the limit because Phoenix and WPILib use slightly different motor models).
+     */
+    public Current homingCurrentThreshold = Amps.of(25);
 
     // --- LQR weights (live-tunable; these are the initial values) ---
-    /** Position error tolerance. Smaller = more aggressive. */
+    /**
+     * Position error tolerance. Smaller = more aggressive. Note the RIO loop runs at
+     * 20 ms, so weights tighter than ~1 inch tend to oscillate.
+     */
     public Distance qelmsPosition = Inches.of(2);
     /** Velocity error tolerance. Smaller = more aggressive. */
     public LinearVelocity qelmsVelocity = MetersPerSecond.of(0.5);
@@ -133,31 +139,9 @@ public class Elevator extends SubsystemBase {
     public double characterizedKa = 0;
   }
 
-  private enum OutputMode {
-    /** No command yet — output neutral. */
-    IDLE,
-    /** Tracking {@code goalMeters} with the configured control style. */
-    GOAL,
-    /** A command (duty cycle / SysId) is driving {@link MechanismIO#setVoltage} directly. */
-    VOLTAGE
-  }
-
   private final Settings settings;
-  private final double gearing;
   private final double metersPerRot;
-  private final MechanismIO io;
-  private final MechanismIOInputsAutoLogged inputs = new MechanismIOInputsAutoLogged();
-  private MechanismLqr lqr; // null in PROFILED_PID style; rebuilt on retune
-  private final TrapezoidProfile profile;
-  private TrapezoidProfile.State profileState = new TrapezoidProfile.State();
-  private final LqrTunables lqrTunables; // null in PROFILED_PID style
-  private final TunableGains pidGains; // null in LQR style
   private final SysIdRoutine sysIdRoutine;
-
-  private OutputMode mode = OutputMode.IDLE;
-  private double goalMeters;
-  private boolean wasEnabled = false;
-
   private final Mechanism2d mech2d;
   private final MechanismLigament2d carriageLigament;
   private final MechanismLigament2d goalLigament;
@@ -168,13 +152,38 @@ public class Elevator extends SubsystemBase {
    * @param settings robot-specific elevator parameters
    */
   public Elevator(Settings settings) {
+    super(baseParams(settings));
     this.settings = settings;
-    setName(settings.name);
-    gearing = product(settings.gearReductionStages);
-    metersPerRot = settings.drumCircumference.in(Meters);
+    this.metersPerRot = settings.drumCircumference.in(Meters);
+
+    sysIdRoutine = new SysIdRoutine(
+        new SysIdRoutine.Config(Volts.of(1).per(Second), Volts.of(7), Seconds.of(10)),
+        new SysIdRoutine.Mechanism(
+            volts -> io.setVoltage(volts.in(Volts)),
+            log -> log.motor(settings.name)
+                .voltage(Volts.of(inputs.appliedVolts))
+                .linearPosition(Meters.of(positionNative()))
+                .linearVelocity(MetersPerSecond.of(velocityNative())),
+            this));
+
+    double maxM = settings.maxHeight.in(Meters);
+    mech2d = new Mechanism2d(maxM, maxM * 1.2);
+    carriageLigament = mech2d.getRoot(settings.name + "Root", maxM / 2, 0)
+        .append(new MechanismLigament2d("carriage", settings.startingHeight.in(Meters), 90));
+    goalLigament = mech2d.getRoot(settings.name + "GoalRoot", maxM / 2 + 0.05, 0)
+        .append(new MechanismLigament2d("goal", settings.startingHeight.in(Meters), 90, 3,
+            new Color8Bit(Color.kWhite)));
+    SmartDashboard.putData(settings.name + "/mechanism", mech2d);
+  }
+
+  private static BaseParams baseParams(Settings settings) {
+    double gearing = totalReduction(settings.gearReductionStages);
+    double metersPerRot = settings.drumCircumference.in(Meters);
 
     var config = new MechanismIOTalonFX.Config();
     config.canId = settings.canId;
+    config.followerCanId = settings.followerCanId;
+    config.followerOpposed = settings.followerOpposed;
     config.gearing = gearing;
     config.statorCurrentLimitAmps = settings.statorCurrentLimit.in(Amps);
     config.softLimitLowRot = settings.minHeight.in(Meters) / metersPerRot;
@@ -191,50 +200,41 @@ public class Elevator extends SubsystemBase {
     config.kG = settings.kG.in(Volts);
     config.gravityType = GravityTypeValue.Elevator_Static;
 
-    io = switch (RobotMode.get()) {
+    var params = new BaseParams();
+    params.name = settings.name;
+    params.nativePerRot = metersPerRot;
+    params.displayPerNative = 1.0; // tunables in meters = native units
+    params.io = switch (RobotMode.get()) {
       case REPLAY -> new MechanismIO() {};
-      case SIM -> new MechanismIOTalonFXSim(config, elevatorSim());
+      case SIM -> new MechanismIOTalonFXSim(config, elevatorSim(settings, gearing, metersPerRot));
       case REAL -> new MechanismIOTalonFX(config);
     };
-
-    boolean useLqr = settings.controlStyle == ControlStyle.LQR;
-    lqr = useLqr ? buildLqr(
-        settings.qelmsPosition.in(Meters),
-        settings.qelmsVelocity.in(MetersPerSecond),
-        settings.relms.in(Volts)) : null;
-    profile = new TrapezoidProfile(new TrapezoidProfile.Constraints(
+    params.profileConstraints = new TrapezoidProfile.Constraints(
         settings.maxVelocity.in(MetersPerSecond),
-        settings.maxAcceleration.in(MetersPerSecondPerSecond)));
-    lqrTunables = useLqr
-        ? new LqrTunables(settings.name,
-            settings.qelmsPosition.in(Meters),
-            settings.qelmsVelocity.in(MetersPerSecond),
-            settings.relms.in(Volts))
+        settings.maxAcceleration.in(MetersPerSecondPerSecond));
+    params.lqrFactory = settings.controlStyle == ControlStyle.LQR
+        ? (qPos, qVel, relms) -> MechanismLqr.elevator(
+            settings.motorModel, gearing,
+            settings.carriageMass.in(Kilograms), metersPerRot / (2 * Math.PI),
+            qPos, qVel, relms,
+            settings.modelPositionTrust.in(Meters),
+            settings.modelVelocityTrust.in(MetersPerSecond),
+            settings.encoderPositionTrust.in(Meters),
+            settings.characterizedKv, settings.characterizedKa)
         : null;
-    pidGains = useLqr ? null
-        : new TunableGains(settings.name, "pid", settings.kP, settings.kI, settings.kD, 0);
-
-    sysIdRoutine = new SysIdRoutine(
-        new SysIdRoutine.Config(Volts.of(1).per(Second), Volts.of(7), Seconds.of(10)),
-        new SysIdRoutine.Mechanism(
-            volts -> io.setVoltage(volts.in(Volts)),
-            log -> log.motor(settings.name)
-                .voltage(Volts.of(inputs.appliedVolts))
-                .linearPosition(Meters.of(getHeightMeters()))
-                .linearVelocity(MetersPerSecond.of(inputs.velocityRotPerSec * metersPerRot)),
-            this));
-
-    double maxM = settings.maxHeight.in(Meters);
-    mech2d = new Mechanism2d(maxM, maxM * 1.2);
-    carriageLigament = mech2d.getRoot(settings.name + "Root", maxM / 2, 0)
-        .append(new MechanismLigament2d("carriage", settings.startingHeight.in(Meters), 90));
-    goalLigament = mech2d.getRoot(settings.name + "GoalRoot", maxM / 2 + 0.05, 0)
-        .append(new MechanismLigament2d("goal", settings.startingHeight.in(Meters), 90, 3,
-            new edu.wpi.first.wpilibj.util.Color8Bit(edu.wpi.first.wpilibj.util.Color.kWhite)));
-    SmartDashboard.putData(settings.name + "/mechanism", mech2d);
+    params.initialQelmsPosDisplay = settings.qelmsPosition.in(Meters);
+    params.initialQelmsVelDisplay = settings.qelmsVelocity.in(MetersPerSecond);
+    params.initialRelmsVolts = settings.relms.in(Volts);
+    params.kP = settings.kP;
+    params.kI = settings.kI;
+    params.kD = settings.kD;
+    params.kGVolts = settings.kG.in(Volts);
+    params.cosineGravity = false;
+    params.clearGoalOnDisable = settings.clearGoalOnDisable;
+    return params;
   }
 
-  private MechanismSim elevatorSim() {
+  private static MechanismSim elevatorSim(Settings settings, double gearing, double metersPerRot) {
     var sim = new ElevatorSim(
         settings.motorModel,
         gearing,
@@ -264,26 +264,15 @@ public class Elevator extends SubsystemBase {
       public double getVelocityRotPerSec() {
         return sim.getVelocityMetersPerSecond() / metersPerRot;
       }
+
+      @Override
+      public double getCurrentDrawAmps() {
+        return sim.getCurrentDrawAmps();
+      }
     };
   }
 
-  private MechanismLqr buildLqr(double qelmsPosM, double qelmsVelMps, double relmsVolts) {
-    return MechanismLqr.elevator(
-        settings.motorModel,
-        gearing,
-        settings.carriageMass.in(Kilograms),
-        metersPerRot / (2 * Math.PI),
-        qelmsPosM,
-        qelmsVelMps,
-        relmsVolts,
-        settings.modelPositionTrust.in(Meters),
-        settings.modelVelocityTrust.in(MetersPerSecond),
-        settings.encoderPositionTrust.in(Meters),
-        settings.characterizedKv,
-        settings.characterizedKa);
-  }
-
-  private static double product(double[] stages) {
+  private static double totalReduction(double[] stages) {
     double total = 1.0;
     for (double stage : stages) {
       total *= stage;
@@ -291,83 +280,46 @@ public class Elevator extends SubsystemBase {
     return total;
   }
 
-  private double getHeightMeters() {
-    return inputs.positionRot * metersPerRot;
+  @Override
+  protected void logGoal(double goalNative) {
+    Logger.recordOutput(settings.name + "/GoalMeters", goalNative);
   }
 
   @Override
-  public void periodic() {
-    io.updateInputs(inputs);
-    Logger.processInputs(settings.name, inputs);
-
-    if (lqrTunables != null && lqrTunables.hasChanged()) {
-      lqr = buildLqr(lqrTunables.qelmsPosition(), lqrTunables.qelmsVelocity(), lqrTunables.relms());
-      resetControlState();
-    }
-    if (pidGains != null && pidGains.hasChanged()) {
-      io.setPidGains(pidGains.kP(), pidGains.kI(), pidGains.kD());
-    }
-
-    boolean enabled = DriverStation.isEnabled();
-    if (enabled && !wasEnabled) {
-      resetControlState(); // re-seed profile + observer at the current state on enable
-    }
-    wasEnabled = enabled;
-
-    if (!enabled || mode == OutputMode.VOLTAGE) {
-      // Disabled (Talon neutrals itself) or an external command owns the output.
-      resetProfileToCurrent();
-    } else if (mode == OutputMode.GOAL) {
-      if (lqr != null) {
-        profileState = profile.calculate(0.02, profileState,
-            new TrapezoidProfile.State(goalMeters, 0));
-        double volts = lqr.calculatePosition(
-            getHeightMeters(), profileState.position, profileState.velocity)
-            + settings.kG.in(Volts);
-        io.setVoltage(volts);
-      } else {
-        io.runPosition(goalMeters / metersPerRot);
-      }
-    } else {
-      io.stop();
-    }
-
-    Logger.recordOutput(settings.name + "/GoalMeters",
-        mode == OutputMode.GOAL ? goalMeters : getHeightMeters());
-    carriageLigament.setLength(Math.max(0.02, getHeightMeters()));
-    goalLigament.setLength(Math.max(0.02, mode == OutputMode.GOAL ? goalMeters : getHeightMeters()));
-  }
-
-  private void resetControlState() {
-    resetProfileToCurrent();
-    if (lqr != null) {
-      lqr.reset(getHeightMeters(), inputs.velocityRotPerSec * metersPerRot);
-    }
-  }
-
-  private void resetProfileToCurrent() {
-    profileState = new TrapezoidProfile.State(
-        getHeightMeters(), inputs.velocityRotPerSec * metersPerRot);
+  protected void updateVisualization() {
+    carriageLigament.setLength(Math.max(0.02, positionNative()));
+    goalLigament.setLength(Math.max(0.02, mode == OutputMode.GOAL ? goalNative : positionNative()));
   }
 
   /** Command: drive the carriage to the given height. Never finishes. */
   public Command goToHeight(Distance height) {
     Logger.recordOutput(settings.name + "/CommandedHeightMeters", height.in(Meters));
-    return Commands.run(() -> {
-      mode = OutputMode.GOAL;
-      goalMeters = height.in(Meters);
-    }, this).withName(settings.name + " GoToHeight");
+    return goalCommand(height.in(Meters), settings.name + " GoToHeight");
   }
 
-  /** Command: open-loop duty cycle (e.g. for manual jog). Neutral when it ends. */
-  public Command setDutyCycle(double dutyCycle) {
-    return Commands.run(() -> {
-      mode = OutputMode.VOLTAGE;
-      io.setVoltage(dutyCycle * 12.0);
-    }, this).finallyDo(() -> {
-      mode = OutputMode.IDLE;
-      io.stop();
-    }).withName(settings.name + " DutyCycle");
+  /**
+   * Command: home the elevator — drive gently into the bottom hard stop (soft limits
+   * temporarily disabled), detect the stall via a debounced current spike, re-seed the
+   * sensor to {@code minHeight}, and stop. Run this once after power-on whenever the
+   * carriage may not be at its configured starting position.
+   */
+  public Command homeCommand() {
+    return Commands.defer(() -> {
+      Debouncer stalled = new Debouncer(0.25);
+      return Commands.runOnce(() -> {
+            enterVoltageMode();
+            io.setSoftLimitsEnabled(false);
+          })
+          .andThen(Commands.run(() -> io.setVoltage(settings.homingVoltage.in(Volts)), this)
+              .until(() -> stalled.calculate(
+                  inputs.statorCurrentAmps > settings.homingCurrentThreshold.in(Amps))))
+          .andThen(Commands.runOnce(
+              () -> io.setSensorPosition(settings.minHeight.in(Meters) / metersPerRot)))
+          .finallyDo(() -> {
+            io.setSoftLimitsEnabled(true);
+            exitVoltageMode();
+          });
+    }, Set.of(this)).withName(settings.name + " Home");
   }
 
   /** Command: SysId routine for characterizing kG/kS/kV/kA, guarded by the travel limits. */
@@ -375,41 +327,33 @@ public class Elevator extends SubsystemBase {
     Trigger nearTop = isAtHeight(settings.maxHeight, Inches.of(3));
     Trigger nearBottom = isAtHeight(settings.minHeight, Inches.of(3));
     return Commands.sequence(
-            Commands.runOnce(() -> mode = OutputMode.VOLTAGE),
+            Commands.runOnce(this::enterVoltageMode),
             sysIdRoutine.quasistatic(SysIdRoutine.Direction.kForward).until(nearTop),
             sysIdRoutine.quasistatic(SysIdRoutine.Direction.kReverse).until(nearBottom),
             sysIdRoutine.dynamic(SysIdRoutine.Direction.kForward).until(nearTop),
             sysIdRoutine.dynamic(SysIdRoutine.Direction.kReverse).until(nearBottom))
-        .finallyDo(() -> {
-          mode = OutputMode.IDLE;
-          io.stop();
-        })
+        .finallyDo(this::exitVoltageMode)
         .withName(settings.name + " SysId");
   }
 
   /** Current carriage height (from the AdvantageKit inputs — replay-safe). */
   public Distance getHeight() {
-    return Meters.of(getHeightMeters());
+    return Meters.of(positionNative());
   }
 
   /** Current carriage velocity (from the AdvantageKit inputs — replay-safe). */
   public LinearVelocity getVelocity() {
-    return MetersPerSecond.of(inputs.velocityRotPerSec * metersPerRot);
+    return MetersPerSecond.of(velocityNative());
   }
 
   /** Trigger: true while the carriage is within {@code tolerance} of {@code height}. */
   public Trigger isAtHeight(Distance height, Distance tolerance) {
     return new Trigger(
-        () -> Math.abs(getHeightMeters() - height.in(Meters)) <= tolerance.in(Meters));
+        () -> Math.abs(positionNative() - height.in(Meters)) <= tolerance.in(Meters));
   }
 
   /** The settings this mechanism was built with (start positions, limits, ...). */
   public Settings getSettings() {
     return settings;
-  }
-
-  /** Stops control and frees the CAN device. For unit tests. */
-  public void close() {
-    io.close();
   }
 }

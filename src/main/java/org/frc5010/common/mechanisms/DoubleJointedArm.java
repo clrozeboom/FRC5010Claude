@@ -94,6 +94,9 @@ public class DoubleJointedArm extends SubsystemBase {
   private final TunableGains lowerGains;
   private final TunableGains upperGains;
 
+  private final edu.wpi.first.wpilibj.Alert lowerDisconnectedAlert;
+  private final edu.wpi.first.wpilibj.Alert upperDisconnectedAlert;
+
   private boolean hasGoal = false;
   private double lowerGoalRot;
   private double upperGoalRot;
@@ -116,6 +119,12 @@ public class DoubleJointedArm extends SubsystemBase {
         settings.lowerJoint.kP, settings.lowerJoint.kI, settings.lowerJoint.kD, 0);
     upperGains = new TunableGains(settings.name, "upperJoint",
         settings.upperJoint.kP, settings.upperJoint.kI, settings.upperJoint.kD, 0);
+    lowerDisconnectedAlert = new edu.wpi.first.wpilibj.Alert(
+        settings.name + " lower TalonFX disconnected",
+        edu.wpi.first.wpilibj.Alert.AlertType.kError);
+    upperDisconnectedAlert = new edu.wpi.first.wpilibj.Alert(
+        settings.name + " upper TalonFX disconnected",
+        edu.wpi.first.wpilibj.Alert.AlertType.kError);
 
     double reach = settings.lowerJoint.length.in(Meters) + settings.upperJoint.length.in(Meters);
     mech2d = new Mechanism2d(reach * 2.5, reach * 2.5);
@@ -197,6 +206,8 @@ public class DoubleJointedArm extends SubsystemBase {
     upperIo.updateInputs(upperInputs);
     Logger.processInputs(settings.name + "/Lower", lowerInputs);
     Logger.processInputs(settings.name + "/Upper", upperInputs);
+    lowerDisconnectedAlert.set(!lowerInputs.connected);
+    upperDisconnectedAlert.set(!upperInputs.connected);
 
     if (lowerGains.hasChanged()) {
       lowerIo.setPidGains(lowerGains.kP(), lowerGains.kI(), lowerGains.kD());
@@ -231,8 +242,8 @@ public class DoubleJointedArm extends SubsystemBase {
   public Command setDutyCycle(double lowerDutyCycle, double upperDutyCycle) {
     return Commands.run(() -> {
       hasGoal = false;
-      lowerIo.setVoltage(lowerDutyCycle * 12.0);
-      upperIo.setVoltage(upperDutyCycle * 12.0);
+      lowerIo.setDutyCycle(lowerDutyCycle);
+      upperIo.setDutyCycle(upperDutyCycle);
     }, this).finallyDo(() -> {
       lowerIo.stop();
       upperIo.stop();

@@ -191,6 +191,43 @@ public class MechanismsFunctionalTest extends SimTestBase {
     }
   }
 
+  @Test
+  public void elevatorHomingZerosAtBottom() {
+    ExampleElevator elevator = new ExampleElevator();
+    try {
+      enableTeleop();
+      // Start at 0.1 m; homing drives into the bottom hard stop (soft limits
+      // temporarily disabled), detects the debounced current spike, and re-seeds the
+      // sensor to minHeight.
+      var home = elevator.homeCommand();
+      CommandScheduler.getInstance().schedule(home);
+      double t = 0;
+      while (CommandScheduler.getInstance().isScheduled(home) && t < 6.0) {
+        runScheduledFor(0.25);
+        t += 0.25;
+      }
+      assertTrue(t < 6.0, "homing should detect the hard-stop current spike and finish");
+      assertEquals(0.0, elevator.getHeight().in(Meters), 0.03,
+          "after homing, the sensor should read the configured minimum height");
+    } finally {
+      elevator.close();
+    }
+  }
+
+  @Test
+  public void turretWithFusedCancoderConverges() {
+    // ExampleProfiledTurret runs on a fused CANcoder (absolute, 1:1 on the mechanism);
+    // onboard MotionMagic consumes the fused sensor natively.
+    ExampleProfiledTurret turret = new ExampleProfiledTurret();
+    try {
+      scheduleAndRun(turret.goToAngle(Degrees.of(-45)), 3.0);
+      assertConverges(() -> turret.getAngle().in(Degrees), -45, 5, 4.0,
+          "fused-CANcoder turret should settle at the commanded angle");
+    } finally {
+      turret.close();
+    }
+  }
+
   // --- PROFILED_PID style: same mechanisms, trapezoid profile + onboard control ---
 
   @Test

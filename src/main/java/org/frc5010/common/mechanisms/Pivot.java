@@ -7,6 +7,7 @@ import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.KilogramSquareMeters;
 import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
@@ -22,29 +23,31 @@ import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.MomentOfInertia;
 import edu.wpi.first.units.measure.Voltage;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.util.Color;
+import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import org.frc5010.common.robot.RobotMode;
-import org.frc5010.common.tuning.TunableGains;
 import org.littletonrobotics.junction.Logger;
 
 /**
  * TalonFX pivot (turret, hood, gravity-free wrist) with selectable control style and
- * REAL / SIM / REPLAY support. Same architecture as {@link Elevator} (see its javadoc).
+ * REAL / SIM / REPLAY support. The shared engine lives in {@link SingleDofMechanism};
+ * this class supplies the angular units, the ARM-type LQR plant (same rotational plant
+ * as an arm, no gravity), the {@link DCMotorSim}, and the angle-based command/getter
+ * API. Native unit: radians.
  *
- * <p>A pivot is the same rotational plant as an arm but without gravity, so the LQR
- * style uses the ARM-type plant with the configured MOI and no kG; PROFILED_PID runs
- * onboard MotionMagic with optional kS/kV (no gravity type).
+ * <p>Supports an absolute CANcoder mounted 1:1 on the pivot
+ * ({@code settings.cancoderId}) — fused onboard, so position is correct at power-on
+ * without seeding.
  */
-public class Pivot extends SubsystemBase {
+public class Pivot extends SingleDofMechanism {
 
   /** Robot-specific pivot parameters. */
   public static class Settings {
@@ -54,6 +57,14 @@ public class Pivot extends SubsystemBase {
     public ControlStyle controlStyle = ControlStyle.LQR;
     /** CAN ID of the TalonFX. */
     public int canId;
+    /** CAN ID of a follower TalonFX on the same gearbox; −1 = single motor. */
+    public int followerCanId = -1;
+    /** True if the follower is mounted opposing the lead motor. */
+    public boolean followerOpposed = false;
+    /** CAN ID of a fused CANcoder mounted 1:1 on the pivot; −1 = rotor sensor. */
+    public int cancoderId = -1;
+    /** CANcoder reading at the pivot's zero, for the magnet offset. */
+    public Angle cancoderOffset = Degrees.of(0);
     /** Motor physics model. */
     public DCMotor motorModel = DCMotor.getKrakenX60(1);
     /** Gear reduction stages, rotor → mechanism (e.g. {10, 4} = 40:1). */
@@ -64,7 +75,7 @@ public class Pivot extends SubsystemBase {
     public Angle minAngle = Degrees.of(-180);
     /** Upper limit. */
     public Angle maxAngle = Degrees.of(180);
-    /** Pivot angle at robot power-on. */
+    /** Pivot angle at robot power-on (ignored when a CANcoder is configured). */
     public Angle startingAngle = Degrees.of(0);
     /** Motion profile cruise velocity — keep below free speed ÷ gearing. */
     public AngularVelocity maxVelocity = DegreesPerSecond.of(360);
@@ -72,8 +83,10 @@ public class Pivot extends SubsystemBase {
     public AngularAcceleration maxAcceleration = DegreesPerSecondPerSecond.of(720);
     /** Stator current limit. */
     public Current statorCurrentLimit = Amps.of(40);
+    /** Drop the goal when the robot is disabled (stay put on re-enable). */
+    public boolean clearGoalOnDisable = false;
 
-    // --- LQR weights (live-tunable; these are the initial values) ---
+    // --- LQR weights (live-tunable in ROTATIONS; these are the initial values) ---
     /** Position error tolerance. Smaller = more aggressive. */
     public Angle qelmsPosition = Degrees.of(1.0);
     /** Velocity error tolerance. Smaller = more aggressive. */
@@ -114,23 +127,8 @@ public class Pivot extends SubsystemBase {
     public double characterizedKa = 0;
   }
 
-  private enum OutputMode { IDLE, GOAL, VOLTAGE }
-
   private final Settings settings;
-  private final double gearing;
-  private final MechanismIO io;
-  private final MechanismIOInputsAutoLogged inputs = new MechanismIOInputsAutoLogged();
-  private MechanismLqr lqr; // null in PROFILED_PID style
-  private final TrapezoidProfile profile;
-  private TrapezoidProfile.State profileState = new TrapezoidProfile.State();
-  private final LqrTunables lqrTunables; // null in PROFILED_PID style
-  private final TunableGains pidGains; // null in LQR style
   private final SysIdRoutine sysIdRoutine;
-
-  private OutputMode mode = OutputMode.IDLE;
-  private double goalRad;
-  private boolean wasEnabled = false;
-
   private final Mechanism2d mech2d;
   private final MechanismLigament2d pivotLigament;
   private final MechanismLigament2d goalLigament;
@@ -141,17 +139,42 @@ public class Pivot extends SubsystemBase {
    * @param settings robot-specific pivot parameters
    */
   public Pivot(Settings settings) {
+    super(baseParams(settings));
     this.settings = settings;
-    setName(settings.name);
-    gearing = product(settings.gearReductionStages);
+
+    sysIdRoutine = new SysIdRoutine(
+        new SysIdRoutine.Config(Volts.of(1).per(Second), Volts.of(3), Seconds.of(10)),
+        new SysIdRoutine.Mechanism(
+            volts -> io.setVoltage(volts.in(Volts)),
+            log -> log.motor(settings.name)
+                .voltage(Volts.of(inputs.appliedVolts))
+                .angularPosition(Radians.of(positionNative()))
+                .angularVelocity(RadiansPerSecond.of(velocityNative())),
+            this));
+
+    mech2d = new Mechanism2d(1.0, 1.0);
+    pivotLigament = mech2d.getRoot(settings.name + "Root", 0.5, 0.5)
+        .append(new MechanismLigament2d("pivot", 0.4, settings.startingAngle.in(Degrees)));
+    goalLigament = mech2d.getRoot(settings.name + "GoalRoot", 0.5, 0.5)
+        .append(new MechanismLigament2d("goal", 0.4, settings.startingAngle.in(Degrees), 3,
+            new Color8Bit(Color.kWhite)));
+    SmartDashboard.putData(settings.name + "/mechanism", mech2d);
+  }
+
+  private static BaseParams baseParams(Settings settings) {
+    double gearing = totalReduction(settings.gearReductionStages);
 
     var config = new MechanismIOTalonFX.Config();
     config.canId = settings.canId;
+    config.followerCanId = settings.followerCanId;
+    config.followerOpposed = settings.followerOpposed;
+    config.cancoderId = settings.cancoderId;
+    config.cancoderOffsetRot = settings.cancoderOffset.in(Rotations);
     config.gearing = gearing;
     config.statorCurrentLimitAmps = settings.statorCurrentLimit.in(Amps);
-    config.softLimitLowRot = settings.minAngle.in(Radians) / (2 * Math.PI);
-    config.softLimitHighRot = settings.maxAngle.in(Radians) / (2 * Math.PI);
-    config.startingPositionRot = settings.startingAngle.in(Radians) / (2 * Math.PI);
+    config.softLimitLowRot = settings.minAngle.in(Rotations);
+    config.softLimitHighRot = settings.maxAngle.in(Rotations);
+    config.startingPositionRot = settings.startingAngle.in(Rotations);
     config.motionMagicCruiseRotPerSec = settings.maxVelocity.in(RotationsPerSecond);
     config.motionMagicAccelRotPerSecSq =
         settings.maxAcceleration.in(RotationsPerSecond.per(Second));
@@ -163,49 +186,43 @@ public class Pivot extends SubsystemBase {
     config.kG = 0; // gravity-free mechanism
     config.gravityType = GravityTypeValue.Elevator_Static;
 
-    io = switch (RobotMode.get()) {
+    var params = new BaseParams();
+    params.name = settings.name;
+    params.nativePerRot = 2 * Math.PI; // radians per mechanism rotation
+    params.displayPerNative = 1.0 / (2 * Math.PI); // tunables displayed in rotations
+    params.io = switch (RobotMode.get()) {
       case REPLAY -> new MechanismIO() {};
-      case SIM -> new MechanismIOTalonFXSim(config, pivotSim());
+      case SIM -> new MechanismIOTalonFXSim(config, pivotSim(settings, gearing));
       case REAL -> new MechanismIOTalonFX(config);
     };
-
-    boolean useLqr = settings.controlStyle == ControlStyle.LQR;
-    lqr = useLqr ? buildLqr(
-        settings.qelmsPosition.in(Radians),
-        settings.qelmsVelocity.in(RadiansPerSecond),
-        settings.relms.in(Volts)) : null;
-    profile = new TrapezoidProfile(new TrapezoidProfile.Constraints(
+    params.profileConstraints = new TrapezoidProfile.Constraints(
         settings.maxVelocity.in(RadiansPerSecond),
-        settings.maxAcceleration.in(RadiansPerSecond.per(Second))));
-    lqrTunables = useLqr
-        ? new LqrTunables(settings.name,
-            settings.qelmsPosition.in(Radians),
-            settings.qelmsVelocity.in(RadiansPerSecond),
-            settings.relms.in(Volts))
+        settings.maxAcceleration.in(RadiansPerSecond.per(Second)));
+    params.lqrFactory = settings.controlStyle == ControlStyle.LQR
+        ? (qPos, qVel, relms) -> MechanismLqr.arm(
+            settings.motorModel, gearing,
+            settings.moi.in(KilogramSquareMeters),
+            qPos, qVel, relms,
+            settings.modelPositionTrust.in(Radians),
+            settings.modelVelocityTrust.in(RadiansPerSecond),
+            settings.encoderPositionTrust.in(Radians),
+            // Settings take SysId's rotation units; the plant works in radians.
+            settings.characterizedKv / (2 * Math.PI),
+            settings.characterizedKa / (2 * Math.PI))
         : null;
-    pidGains = useLqr ? null
-        : new TunableGains(settings.name, "pid", settings.kP, settings.kI, settings.kD, 0);
-
-    sysIdRoutine = new SysIdRoutine(
-        new SysIdRoutine.Config(Volts.of(1).per(Second), Volts.of(3), Seconds.of(10)),
-        new SysIdRoutine.Mechanism(
-            volts -> io.setVoltage(volts.in(Volts)),
-            log -> log.motor(settings.name)
-                .voltage(Volts.of(inputs.appliedVolts))
-                .angularPosition(Radians.of(getAngleRad()))
-                .angularVelocity(RadiansPerSecond.of(getVelocityRadPerSec())),
-            this));
-
-    mech2d = new Mechanism2d(1.0, 1.0);
-    pivotLigament = mech2d.getRoot(settings.name + "Root", 0.5, 0.5)
-        .append(new MechanismLigament2d("pivot", 0.4, settings.startingAngle.in(Degrees)));
-    goalLigament = mech2d.getRoot(settings.name + "GoalRoot", 0.5, 0.5)
-        .append(new MechanismLigament2d("goal", 0.4, settings.startingAngle.in(Degrees), 3,
-            new edu.wpi.first.wpilibj.util.Color8Bit(edu.wpi.first.wpilibj.util.Color.kWhite)));
-    SmartDashboard.putData(settings.name + "/mechanism", mech2d);
+    params.initialQelmsPosDisplay = settings.qelmsPosition.in(Rotations);
+    params.initialQelmsVelDisplay = settings.qelmsVelocity.in(RotationsPerSecond);
+    params.initialRelmsVolts = settings.relms.in(Volts);
+    params.kP = settings.kP;
+    params.kI = settings.kI;
+    params.kD = settings.kD;
+    params.kGVolts = 0;
+    params.cosineGravity = false;
+    params.clearGoalOnDisable = settings.clearGoalOnDisable;
+    return params;
   }
 
-  private MechanismSim pivotSim() {
+  private static MechanismSim pivotSim(Settings settings, double gearing) {
     var sim = new DCMotorSim(
         LinearSystemId.createDCMotorSystem(
             settings.motorModel, settings.moi.in(KilogramSquareMeters), gearing),
@@ -231,26 +248,15 @@ public class Pivot extends SubsystemBase {
       public double getVelocityRotPerSec() {
         return sim.getAngularVelocityRadPerSec() / (2 * Math.PI);
       }
+
+      @Override
+      public double getCurrentDrawAmps() {
+        return sim.getCurrentDrawAmps();
+      }
     };
   }
 
-  private MechanismLqr buildLqr(double qelmsPosRad, double qelmsVelRadPerSec, double relmsVolts) {
-    return MechanismLqr.arm(
-        settings.motorModel,
-        gearing,
-        settings.moi.in(KilogramSquareMeters),
-        qelmsPosRad,
-        qelmsVelRadPerSec,
-        relmsVolts,
-        settings.modelPositionTrust.in(Radians),
-        settings.modelVelocityTrust.in(RadiansPerSecond),
-        settings.encoderPositionTrust.in(Radians),
-        // Settings take SysId's rotation units; the pivot (arm-type) plant works in radians.
-        settings.characterizedKv / (2 * Math.PI),
-        settings.characterizedKa / (2 * Math.PI));
-  }
-
-  private static double product(double[] stages) {
+  private static double totalReduction(double[] stages) {
     double total = 1.0;
     for (double stage : stages) {
       total *= stage;
@@ -258,87 +264,21 @@ public class Pivot extends SubsystemBase {
     return total;
   }
 
-  private double getAngleRad() {
-    return inputs.positionRot * 2 * Math.PI;
-  }
-
-  private double getVelocityRadPerSec() {
-    return inputs.velocityRotPerSec * 2 * Math.PI;
+  @Override
+  protected void logGoal(double goalNative) {
+    Logger.recordOutput(settings.name + "/GoalDegrees", Math.toDegrees(goalNative));
   }
 
   @Override
-  public void periodic() {
-    io.updateInputs(inputs);
-    Logger.processInputs(settings.name, inputs);
-
-    if (lqrTunables != null && lqrTunables.hasChanged()) {
-      // Tunables are published in rotations; the loop runs in radians.
-      lqr = buildLqr(
-          lqrTunables.qelmsPosition() * 2 * Math.PI,
-          lqrTunables.qelmsVelocity() * 2 * Math.PI,
-          lqrTunables.relms());
-      resetControlState();
-    }
-    if (pidGains != null && pidGains.hasChanged()) {
-      io.setPidGains(pidGains.kP(), pidGains.kI(), pidGains.kD());
-    }
-
-    boolean enabled = DriverStation.isEnabled();
-    if (enabled && !wasEnabled) {
-      resetControlState();
-    }
-    wasEnabled = enabled;
-
-    if (!enabled || mode == OutputMode.VOLTAGE) {
-      resetProfileToCurrent();
-    } else if (mode == OutputMode.GOAL) {
-      if (lqr != null) {
-        profileState = profile.calculate(0.02, profileState,
-            new TrapezoidProfile.State(goalRad, 0));
-        io.setVoltage(
-            lqr.calculatePosition(getAngleRad(), profileState.position, profileState.velocity));
-      } else {
-        io.runPosition(goalRad / (2 * Math.PI));
-      }
-    } else {
-      io.stop();
-    }
-
-    Logger.recordOutput(settings.name + "/GoalDegrees",
-        Math.toDegrees(mode == OutputMode.GOAL ? goalRad : getAngleRad()));
-    pivotLigament.setAngle(Math.toDegrees(getAngleRad()));
-    goalLigament.setAngle(Math.toDegrees(mode == OutputMode.GOAL ? goalRad : getAngleRad()));
-  }
-
-  private void resetControlState() {
-    resetProfileToCurrent();
-    if (lqr != null) {
-      lqr.reset(getAngleRad(), getVelocityRadPerSec());
-    }
-  }
-
-  private void resetProfileToCurrent() {
-    profileState = new TrapezoidProfile.State(getAngleRad(), getVelocityRadPerSec());
+  protected void updateVisualization() {
+    pivotLigament.setAngle(Math.toDegrees(positionNative()));
+    goalLigament.setAngle(Math.toDegrees(mode == OutputMode.GOAL ? goalNative : positionNative()));
   }
 
   /** Command: rotate the pivot to the given angle. Never finishes. */
   public Command goToAngle(Angle angle) {
     Logger.recordOutput(settings.name + "/CommandedAngleDegrees", angle.in(Degrees));
-    return Commands.run(() -> {
-      mode = OutputMode.GOAL;
-      goalRad = angle.in(Radians);
-    }, this).withName(settings.name + " GoToAngle");
-  }
-
-  /** Command: open-loop duty cycle (e.g. for manual jog). Neutral when it ends. */
-  public Command setDutyCycle(double dutyCycle) {
-    return Commands.run(() -> {
-      mode = OutputMode.VOLTAGE;
-      io.setVoltage(dutyCycle * 12.0);
-    }, this).finallyDo(() -> {
-      mode = OutputMode.IDLE;
-      io.stop();
-    }).withName(settings.name + " DutyCycle");
+    return goalCommand(angle.in(Radians), settings.name + " GoToAngle");
   }
 
   /** Command: SysId routine for characterizing kS/kV/kA, guarded by the travel limits. */
@@ -346,36 +286,28 @@ public class Pivot extends SubsystemBase {
     Trigger nearMax = isAtAngle(settings.maxAngle, Degrees.of(8));
     Trigger nearMin = isAtAngle(settings.minAngle, Degrees.of(8));
     return Commands.sequence(
-            Commands.runOnce(() -> mode = OutputMode.VOLTAGE),
+            Commands.runOnce(this::enterVoltageMode),
             sysIdRoutine.quasistatic(SysIdRoutine.Direction.kForward).until(nearMax),
             sysIdRoutine.quasistatic(SysIdRoutine.Direction.kReverse).until(nearMin),
             sysIdRoutine.dynamic(SysIdRoutine.Direction.kForward).until(nearMax),
             sysIdRoutine.dynamic(SysIdRoutine.Direction.kReverse).until(nearMin))
-        .finallyDo(() -> {
-          mode = OutputMode.IDLE;
-          io.stop();
-        })
+        .finallyDo(this::exitVoltageMode)
         .withName(settings.name + " SysId");
   }
 
   /** Current pivot angle (from the AdvantageKit inputs — replay-safe). */
   public Angle getAngle() {
-    return Radians.of(getAngleRad());
+    return Radians.of(positionNative());
   }
 
   /** Trigger: true while the pivot is within {@code tolerance} of {@code angle}. */
   public Trigger isAtAngle(Angle angle, Angle tolerance) {
     return new Trigger(
-        () -> Math.abs(getAngleRad() - angle.in(Radians)) <= tolerance.in(Radians));
+        () -> Math.abs(positionNative() - angle.in(Radians)) <= tolerance.in(Radians));
   }
 
   /** The settings this mechanism was built with (start positions, limits, ...). */
   public Settings getSettings() {
     return settings;
-  }
-
-  /** Stops control and frees the CAN device. For unit tests. */
-  public void close() {
-    io.close();
   }
 }

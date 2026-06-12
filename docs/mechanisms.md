@@ -16,7 +16,9 @@ Settings (public fields — robot-specific numbers ONLY, incl. controlStyle)
    │
    ▼
 Subsystem (org.frc5010.common.mechanisms)             Controller (ControlStyle.LQR default)
- ├── Elevator   ─ ELEVATOR plant (meters) + trapezoid profile + kG FF
+ ├── SingleDofMechanism (abstract) ─ shared engine: goal state machine, profile+LQR or
+ │    MotionMagic dispatch, live tuning, enable/disable transitions, disconnect Alert
+ ├── Elevator   ─ ELEVATOR plant (meters) + trapezoid profile + kG FF + current-spike homing
  ├── Arm        ─ ARM plant (radians) + trapezoid profile + kG·cos(θ) FF
  ├── Pivot      ─ ARM plant, no gravity FF — turrets, hoods, wrists
  ├── Flywheel   ─ velocity plant (plant-inversion FF built in)
@@ -93,9 +95,27 @@ public class MyElevator extends Elevator {
 ```
 
 Commands: `goToHeight(Distance)` / `goToAngle(Angle)` / `goToSpeed(AngularVelocity)`,
-`setDutyCycle(...)`, `sysId()` (limit-guarded quasistatic+dynamic); triggers:
-`isAtHeight` / `isAtAngle` / `isAtSpeed`; `getSettings()` for start points;
-`close()` frees the CAN ID for tests.
+`setDutyCycle(...)`, `sysId()` (limit-guarded quasistatic+dynamic), and
+`Elevator.homeCommand()`; triggers: `isAtHeight` / `isAtAngle` / `isAtSpeed`;
+`getSettings()` for start points; `close()` frees the CAN IDs for tests.
+
+**Real-robot hardware options** (all in Settings):
+- `followerCanId`/`followerOpposed` — second TalonFX on the same gearbox (set
+  `motorModel = DCMotor.getKrakenX60(2)` so the plant/sim include both motors).
+- Arm/Pivot `cancoderId`/`cancoderOffset` — absolute CANcoder mounted 1:1 on the
+  joint, fused onboard (position correct at power-on, no seeding). Best paired with
+  PROFILED_PID: onboard MotionMagic consumes the fused sensor at 1 kHz
+  (`ExampleProfiledTurret` demonstrates it). The RIO-side LQR adds a sensor hop of
+  latency on top of the fusion — prefer the rotor sensor or onboard control there.
+- `Elevator.homeCommand()` — drives gently into the bottom hard stop with soft limits
+  temporarily disabled, detects a debounced stator-current spike, and re-seeds the
+  sensor to `minHeight`. `homingCurrentThreshold` must sit well below
+  `statorCurrentLimit` (the Talon's limiter caps stall current — a threshold at the
+  limit never triggers; in sim the observable ceiling is ~0.75 × the limit).
+- `clearGoalOnDisable` — drop the goal when disabled so the mechanism stays put on
+  re-enable instead of driving back to a stale target (default false = resume).
+- Every motor gets a WPILib `Alert` ("<name> TalonFX disconnected") driven by the
+  `connected` input.
 
 ## LQR tuning
 
@@ -199,7 +219,17 @@ the model error the characterized plant eliminates.
    synchronous `stepOneCycle()` is otherwise fine — there are no Notifier threads in
    this design.
 
-7. **Mechanism rotations are the IO unit.** `SensorToMechanismRatio` = gearing, so
+7. **Homing threshold vs. current limit.** `homingCurrentThreshold` ≥
+   `statorCurrentLimit` can never trigger — the Talon's limiter caps the stall
+   current below it (and Phoenix's motor model differs slightly from WPILib's, so in
+   sim the ceiling reads ~0.75 × the limit). Default 25 A against a 40 A limit.
+
+8. **Fused CANcoder + RIO-side LQR don't mix well in sim.** The fusion adds a sensor
+   hop of latency that destabilizes an aggressive 20 ms LQR. Use the CANcoder with
+   PROFILED_PID (onboard MotionMagic consumes it natively at 1 kHz) or keep the rotor
+   sensor for LQR mechanisms.
+
+9. **Mechanism rotations are the IO unit.** `SensorToMechanismRatio` = gearing, so
    soft limits, MotionMagic constraints, and onboard gains are all in mechanism
    rotations (drum rotations for elevators). Subsystems convert to meters/radians at
    the boundary; getters return WPILib units.

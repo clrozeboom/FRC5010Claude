@@ -44,6 +44,12 @@ measured (or you've checked everything and it's still off), characterize the pla
 from a SysId run instead — see the next section; the measured kV/kA make mass
 irrelevant to the controller.
 
+### Before tuning a real elevator: home it
+Run `Elevator.homeCommand()` once after power-on if the carriage may not be at its
+configured start — it zeroes the sensor against the bottom hard stop via a current
+spike (threshold must be well below the stator current limit; see docs/mechanisms.md).
+Arms/pivots with a CANcoder (`cancoderId`) are absolute and need no homing.
+
 ### SysId characterization (real robot) — kG AND the plant itself
 1. Run the wrapper's `sysId()` command (quasistatic+dynamic, logs via WPILib SysId).
 2. Load the log in the SysId tool (units: meters for elevators, rotations otherwise)

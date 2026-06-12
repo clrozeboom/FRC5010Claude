@@ -35,8 +35,11 @@ public interface MechanismIO {
   /** Updates the loggable inputs from hardware. */
   default void updateInputs(MechanismIOInputs inputs) {}
 
-  /** Applies a raw output voltage (used by the RIO-side LQR and SysId). */
+  /** Applies a raw output voltage (used by the RIO-side LQR, homing, and SysId). */
   default void setVoltage(double volts) {}
+
+  /** Applies an open-loop duty cycle (−1..1), battery-compensated by the controller. */
+  default void setDutyCycle(double dutyCycle) {}
 
   /**
    * Runs the onboard MotionMagic position controller to the given mechanism position
@@ -65,6 +68,21 @@ public interface MechanismIO {
    */
   default void setPidGains(double kP, double kI, double kD) {}
 
-  /** Frees the hardware handle (CAN ID) for unit tests. */
+  /**
+   * Re-seeds the sensor (homing): declares the mechanism's current physical position.
+   *
+   * @param positionRot the true mechanism position, rotations
+   */
+  default void setSensorPosition(double positionRot) {}
+
+  /**
+   * Enables/disables the configured soft limits. Homing routines disable them while
+   * driving into the hard stop (a mis-seeded encoder makes soft limits meaningless).
+   *
+   * @param enabled true to enforce the configured soft limits
+   */
+  default void setSoftLimitsEnabled(boolean enabled) {}
+
+  /** Frees the hardware handles (CAN IDs) for unit tests. */
   default void close() {}
 }

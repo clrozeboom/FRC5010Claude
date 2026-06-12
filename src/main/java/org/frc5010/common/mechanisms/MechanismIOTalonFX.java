@@ -2,14 +2,20 @@ package org.frc5010.common.mechanisms;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
+import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
+import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
@@ -20,11 +26,15 @@ import edu.wpi.first.units.measure.Voltage;
  * TalonFX implementation of {@link MechanismIO}.
  *
  * <p>Configures the Talon so its feedback is in <b>mechanism rotations</b>
- * ({@code SensorToMechanismRatio} = gearing), letting the onboard MotionMagic /
+ * ({@code SensorToMechanismRatio} = gearing, or a fused CANcoder when
+ * {@link Config#cancoderId} is set), letting the onboard MotionMagic /
  * VelocityVoltage controllers and the soft limits all work in mechanism units.
  * Feedforward gains (kS/kV/kG with the configured {@link GravityTypeValue}) run
  * onboard at 1 kHz in PROFILED_PID style; the LQR style drives {@link #setVoltage}
  * from the RIO instead.
+ *
+ * <p>Optionally drives a second TalonFX as a {@link Follower}
+ * ({@link Config#followerCanId}) — common for two-motor elevator gearboxes.
  */
 public class MechanismIOTalonFX implements MechanismIO {
 
@@ -40,7 +50,7 @@ public class MechanismIOTalonFX implements MechanismIO {
     public boolean brakeMode = true;
     /** Stator current limit, amps. */
     public double statorCurrentLimitAmps = 40;
-    /** Enable + set soft limits, mechanism rotations. NaN disables. */
+    /** Lower soft limit, mechanism rotations. NaN disables. */
     public double softLimitLowRot = Double.NaN;
     /** Upper soft limit, mechanism rotations. NaN disables. */
     public double softLimitHighRot = Double.NaN;
@@ -64,9 +74,23 @@ public class MechanismIOTalonFX implements MechanismIO {
     public double kG = 0;
     /** How the onboard controller applies kG. */
     public GravityTypeValue gravityType = GravityTypeValue.Elevator_Static;
+    /**
+     * CAN ID of a fused CANcoder mounted 1:1 on the mechanism; −1 = use the rotor
+     * sensor. When set, position is absolute — the starting position is read from the
+     * CANcoder instead of {@link #startingPositionRot}.
+     */
+    public int cancoderId = -1;
+    /** CANcoder magnet offset, rotations (reading at the mechanism's zero). */
+    public double cancoderOffsetRot = 0;
+    /** CAN ID of a follower TalonFX (two-motor gearbox); −1 = none. */
+    public int followerCanId = -1;
+    /** True if the follower is mounted opposing the lead motor. */
+    public boolean followerOpposed = false;
   }
 
   protected final TalonFX talon;
+  protected final CANcoder cancoder; // null when not configured
+  protected final TalonFX follower; // null when not configured
   protected final Config config;
 
   private final StatusSignal<Angle> position;
@@ -75,6 +99,7 @@ public class MechanismIOTalonFX implements MechanismIO {
   private final StatusSignal<Current> statorCurrent;
 
   private final VoltageOut voltageRequest = new VoltageOut(0);
+  private final DutyCycleOut dutyCycleRequest = new DutyCycleOut(0);
   private final MotionMagicVoltage positionRequest = new MotionMagicVoltage(0);
   private final VelocityVoltage velocityRequest = new VelocityVoltage(0);
   private final NeutralOut neutralRequest = new NeutralOut();
@@ -82,7 +107,7 @@ public class MechanismIOTalonFX implements MechanismIO {
   private final TalonFXConfiguration talonConfig;
 
   /**
-   * Creates and configures the TalonFX.
+   * Creates and configures the TalonFX (and CANcoder / follower when configured).
    *
    * @param config hardware configuration
    */
@@ -91,7 +116,19 @@ public class MechanismIOTalonFX implements MechanismIO {
     talon = new TalonFX(config.canId);
 
     talonConfig = new TalonFXConfiguration();
-    talonConfig.Feedback.SensorToMechanismRatio = config.gearing;
+    if (config.cancoderId >= 0) {
+      cancoder = new CANcoder(config.cancoderId);
+      var cancoderConfig = new CANcoderConfiguration();
+      cancoderConfig.MagnetSensor.MagnetOffset = -config.cancoderOffsetRot;
+      cancoder.getConfigurator().apply(cancoderConfig);
+      talonConfig.Feedback.FeedbackRemoteSensorID = config.cancoderId;
+      talonConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
+      talonConfig.Feedback.RotorToSensorRatio = config.gearing;
+      talonConfig.Feedback.SensorToMechanismRatio = 1.0;
+    } else {
+      cancoder = null;
+      talonConfig.Feedback.SensorToMechanismRatio = config.gearing;
+    }
     talonConfig.MotorOutput.NeutralMode =
         config.brakeMode ? NeutralModeValue.Brake : NeutralModeValue.Coast;
     talonConfig.MotorOutput.Inverted =
@@ -116,7 +153,22 @@ public class MechanismIOTalonFX implements MechanismIO {
     talonConfig.Slot0.kG = config.kG;
     talonConfig.Slot0.GravityType = config.gravityType;
     talon.getConfigurator().apply(talonConfig);
-    talon.setPosition(config.startingPositionRot);
+    if (cancoder == null) {
+      talon.setPosition(config.startingPositionRot);
+    }
+
+    if (config.followerCanId >= 0) {
+      follower = new TalonFX(config.followerCanId);
+      var followerConfig = new TalonFXConfiguration();
+      followerConfig.MotorOutput.NeutralMode = talonConfig.MotorOutput.NeutralMode;
+      followerConfig.CurrentLimits.StatorCurrentLimit = config.statorCurrentLimitAmps;
+      followerConfig.CurrentLimits.StatorCurrentLimitEnable = true;
+      follower.getConfigurator().apply(followerConfig);
+      follower.setControl(new Follower(config.canId,
+          config.followerOpposed ? MotorAlignmentValue.Opposed : MotorAlignmentValue.Aligned));
+    } else {
+      follower = null;
+    }
 
     position = talon.getPosition();
     velocity = talon.getVelocity();
@@ -138,6 +190,11 @@ public class MechanismIOTalonFX implements MechanismIO {
   @Override
   public void setVoltage(double volts) {
     talon.setControl(voltageRequest.withOutput(volts));
+  }
+
+  @Override
+  public void setDutyCycle(double dutyCycle) {
+    talon.setControl(dutyCycleRequest.withOutput(dutyCycle));
   }
 
   @Override
@@ -164,7 +221,27 @@ public class MechanismIOTalonFX implements MechanismIO {
   }
 
   @Override
+  public void setSensorPosition(double positionRot) {
+    talon.setPosition(positionRot);
+  }
+
+  @Override
+  public void setSoftLimitsEnabled(boolean enabled) {
+    talonConfig.SoftwareLimitSwitch.ReverseSoftLimitEnable =
+        enabled && !Double.isNaN(config.softLimitLowRot);
+    talonConfig.SoftwareLimitSwitch.ForwardSoftLimitEnable =
+        enabled && !Double.isNaN(config.softLimitHighRot);
+    talon.getConfigurator().apply(talonConfig.SoftwareLimitSwitch);
+  }
+
+  @Override
   public void close() {
     talon.close();
+    if (cancoder != null) {
+      cancoder.close();
+    }
+    if (follower != null) {
+      follower.close();
+    }
   }
 }

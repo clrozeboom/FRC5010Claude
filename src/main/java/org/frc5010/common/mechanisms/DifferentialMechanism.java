@@ -88,6 +88,9 @@ public class DifferentialMechanism extends SubsystemBase {
   private final MechanismIOInputsAutoLogged rightInputs = new MechanismIOInputsAutoLogged();
   private final TunableGains gains;
 
+  private final edu.wpi.first.wpilibj.Alert leftDisconnectedAlert;
+  private final edu.wpi.first.wpilibj.Alert rightDisconnectedAlert;
+
   private boolean hasGoal = false;
   private double tiltGoalRot;
   private double twistGoalRot;
@@ -113,6 +116,12 @@ public class DifferentialMechanism extends SubsystemBase {
     rightIo = motorIo(settings.rightCanId, rightStartRot);
     gains = new TunableGains(settings.name, "motors",
         settings.kP, settings.kI, settings.kD, 0);
+    leftDisconnectedAlert = new edu.wpi.first.wpilibj.Alert(
+        settings.name + " left TalonFX disconnected",
+        edu.wpi.first.wpilibj.Alert.AlertType.kError);
+    rightDisconnectedAlert = new edu.wpi.first.wpilibj.Alert(
+        settings.name + " right TalonFX disconnected",
+        edu.wpi.first.wpilibj.Alert.AlertType.kError);
 
     mech2d = new Mechanism2d(1.0, 1.0);
     tiltLigament = mech2d.getRoot(settings.name + "Root", 0.5, 0.5)
@@ -188,6 +197,8 @@ public class DifferentialMechanism extends SubsystemBase {
     rightIo.updateInputs(rightInputs);
     Logger.processInputs(settings.name + "/Left", leftInputs);
     Logger.processInputs(settings.name + "/Right", rightInputs);
+    leftDisconnectedAlert.set(!leftInputs.connected);
+    rightDisconnectedAlert.set(!rightInputs.connected);
 
     if (gains.hasChanged()) {
       leftIo.setPidGains(gains.kP(), gains.kI(), gains.kD());
@@ -220,8 +231,8 @@ public class DifferentialMechanism extends SubsystemBase {
   public Command setDutyCycle(double tilt, double twist) {
     return Commands.run(() -> {
       hasGoal = false;
-      leftIo.setVoltage((tilt + twist) * 12.0);
-      rightIo.setVoltage((tilt - twist) * 12.0);
+      leftIo.setDutyCycle(tilt + twist);
+      rightIo.setDutyCycle(tilt - twist);
     }, this).finallyDo(() -> {
       leftIo.stop();
       rightIo.stop();

@@ -49,6 +49,12 @@ public class Flywheel extends SubsystemBase {
     public ControlStyle controlStyle = ControlStyle.LQR;
     /** CAN ID of the TalonFX. */
     public int canId;
+    /** CAN ID of a follower TalonFX on the same shaft; −1 = single motor. */
+    public int followerCanId = -1;
+    /** True if the follower is mounted opposing the lead motor. */
+    public boolean followerOpposed = false;
+    /** Drop the goal when the robot is disabled (stay spun down on re-enable). */
+    public boolean clearGoalOnDisable = false;
     /** Motor physics model. */
     public DCMotor motorModel = DCMotor.getKrakenX60(1);
     /** Gear reduction stages, rotor → wheel (1.0 = direct drive). */
@@ -116,6 +122,9 @@ public class Flywheel extends SubsystemBase {
   private OutputMode mode = OutputMode.IDLE;
   private double goalRadPerSec;
   private boolean wasEnabled = false;
+  private final edu.wpi.first.wpilibj.Alert disconnectedAlert;
+  private final edu.wpi.first.wpilibj.smartdashboard.Mechanism2d mech2d;
+  private final edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d wheelLigament;
 
   /**
    * Builds the flywheel subsystem, its IO (per {@link RobotMode}), controller, and sim.
@@ -129,6 +138,8 @@ public class Flywheel extends SubsystemBase {
 
     var config = new MechanismIOTalonFX.Config();
     config.canId = settings.canId;
+    config.followerCanId = settings.followerCanId;
+    config.followerOpposed = settings.followerOpposed;
     config.gearing = gearing;
     config.brakeMode = false; // coast — don't fight a spinning wheel
     config.statorCurrentLimitAmps = settings.statorCurrentLimit.in(Amps);
@@ -152,7 +163,7 @@ public class Flywheel extends SubsystemBase {
     lqrTunables = useLqr
         ? new LqrTunables(settings.name,
             0, // position weight unused for flywheel LQR
-            settings.qelmsVelocity.in(RadiansPerSecond),
+            settings.qelmsVelocity.in(edu.wpi.first.units.Units.RotationsPerSecond),
             settings.relms.in(Volts))
         : null;
     pidGains = useLqr ? null
@@ -167,6 +178,15 @@ public class Flywheel extends SubsystemBase {
                 .angularPosition(edu.wpi.first.units.Units.Rotations.of(inputs.positionRot))
                 .angularVelocity(RadiansPerSecond.of(getVelocityRadPerSec())),
             this));
+
+    disconnectedAlert = new edu.wpi.first.wpilibj.Alert(
+        settings.name + " TalonFX disconnected", edu.wpi.first.wpilibj.Alert.AlertType.kError);
+    mech2d = new edu.wpi.first.wpilibj.smartdashboard.Mechanism2d(0.5, 0.5);
+    wheelLigament = mech2d.getRoot(settings.name + "Root", 0.25, 0.25)
+        .append(new edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d(
+            "wheel", settings.diameter.in(Meters) / 2, 0));
+    edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData(
+        settings.name + "/mechanism", mech2d);
   }
 
   private double moiKgM2() {
@@ -237,6 +257,7 @@ public class Flywheel extends SubsystemBase {
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs(settings.name, inputs);
+    disconnectedAlert.set(!inputs.connected);
 
     if (lqrTunables != null && lqrTunables.hasChanged()) {
       // Tunables are published in rotations/s; the loop runs in rad/s.
@@ -250,6 +271,9 @@ public class Flywheel extends SubsystemBase {
     boolean enabled = DriverStation.isEnabled();
     if (enabled && !wasEnabled && lqr != null) {
       lqr.reset(0, getVelocityRadPerSec());
+    }
+    if (!enabled && wasEnabled && settings.clearGoalOnDisable && mode == OutputMode.GOAL) {
+      mode = OutputMode.IDLE;
     }
     wasEnabled = enabled;
 
@@ -267,6 +291,7 @@ public class Flywheel extends SubsystemBase {
 
     Logger.recordOutput(settings.name + "/GoalRPM",
         RadiansPerSecond.of(mode == OutputMode.GOAL ? goalRadPerSec : getVelocityRadPerSec()).in(RPM));
+    wheelLigament.setAngle(inputs.positionRot * 360.0); // spins with the wheel
   }
 
   /** Command: spin the wheel to the given velocity. Never finishes. */
@@ -278,11 +303,11 @@ public class Flywheel extends SubsystemBase {
     }, this).withName(settings.name + " GoToSpeed");
   }
 
-  /** Command: open-loop duty cycle. Neutral (coast) when it ends. */
+  /** Command: open-loop duty cycle (battery-compensated onboard). Coast when it ends. */
   public Command setDutyCycle(double dutyCycle) {
     return Commands.run(() -> {
       mode = OutputMode.VOLTAGE;
-      io.setVoltage(dutyCycle * 12.0);
+      io.setDutyCycle(dutyCycle);
     }, this).finallyDo(() -> {
       mode = OutputMode.IDLE;
       io.stop();

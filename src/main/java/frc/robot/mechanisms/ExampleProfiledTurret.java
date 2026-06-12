@@ -20,6 +20,8 @@ public class ExampleProfiledTurret extends Pivot {
 
   /** CAN ID of the turret TalonFX. */
   public static final int CAN_ID = 33;
+  /** CAN ID of the turret's absolute CANcoder. */
+  public static final int CANCODER_ID = 43;
 
   public ExampleProfiledTurret() {
     super(settings());
@@ -30,6 +32,10 @@ public class ExampleProfiledTurret extends Pivot {
     s.name = "ExampleProfiledTurret";
     s.controlStyle = ControlStyle.PROFILED_PID;
     s.canId = CAN_ID;
+    // Absolute CANcoder mounted 1:1 on the turret, fused onboard — the turret knows
+    // its true angle at power-on without re-zeroing. (Best paired with onboard
+    // control: MotionMagic consumes the fused sensor at 1 kHz on the motor itself.)
+    s.cancoderId = CANCODER_ID;
     s.motorModel = DCMotor.getKrakenX60(1);
     s.gearReductionStages = new double[] {10, 4}; // 40:1
     s.moi = KilogramSquareMeters.of(0.5);
