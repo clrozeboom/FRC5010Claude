@@ -11,6 +11,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.units.measure.Angle;
@@ -23,7 +24,6 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -67,6 +67,17 @@ public class DifferentialMechanism extends SubsystemBase implements AutoCloseabl
     public Angle startingTilt = Degrees.of(90);
     /** Twist angle at robot power-on. */
     public Angle startingTwist = Degrees.of(0);
+    /**
+     * Canvas to draw this mechanism on. Null (default) = the shared robot-overlay
+     * canvas (SmartDashboard -> RobotMechanisms); pass your own Mechanism2d to split
+     * mechanisms onto separate widgets (you publish custom canvases yourself).
+     */
+    public Mechanism2d mechanism2d = null;
+    /**
+     * Where the wrist sits on the canvas, meters — x along the robot's length,
+     * y above the floor (side view).
+     */
+    public Translation2d visualPosition = new Translation2d(2.4, 0.8);
     /** Proportional gain, both motors, volts per rotation of error (onboard). */
     public double kP = 16;
     /** Integral gain. */
@@ -104,7 +115,6 @@ public class DifferentialMechanism extends SubsystemBase implements AutoCloseabl
   private double tiltGoalRot;
   private double twistGoalRot;
 
-  private final Mechanism2d mech2d;
   private final MechanismLigament2d tiltLigament;
   private final MechanismLigament2d twistLigament;
 
@@ -132,13 +142,13 @@ public class DifferentialMechanism extends SubsystemBase implements AutoCloseabl
         settings.name + " right TalonFX disconnected",
         edu.wpi.first.wpilibj.Alert.AlertType.kError);
 
-    mech2d = new Mechanism2d(1.0, 1.0);
-    tiltLigament = mech2d.getRoot(settings.name + "Root", 0.5, 0.5)
+    Mechanism2d canvas = MechanismVisuals.canvasFor(settings.mechanism2d);
+    tiltLigament = canvas.getRoot(settings.name + "Root",
+            settings.visualPosition.getX(), settings.visualPosition.getY())
         .append(new MechanismLigament2d("tilt", 0.3, settings.startingTilt.in(Degrees)));
     twistLigament = tiltLigament.append(
         new MechanismLigament2d("twist", 0.15, settings.startingTwist.in(Degrees), 4,
             new edu.wpi.first.wpilibj.util.Color8Bit(edu.wpi.first.wpilibj.util.Color.kOrange)));
-    SmartDashboard.putData(settings.name + "/mechanism", mech2d);
   }
 
   private MechanismIO motorIo(int canId, double startingRot) {

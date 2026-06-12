@@ -55,6 +55,7 @@ class RobotContainerSmokeTest extends SimTestBase {
     // doesn't, and stale handles would collide with MechanismsFunctionalTest later
     // in the same JVM.
     org.frc5010.common.profiles.SwerveRobotContainer.closeMechanisms();
+    org.frc5010.common.mechanisms.MechanismVisuals.resetForTesting();
 
     SimulatedArena.getInstance().shutDown();
     try {

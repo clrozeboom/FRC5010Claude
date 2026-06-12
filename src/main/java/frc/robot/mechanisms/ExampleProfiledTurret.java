@@ -42,6 +42,7 @@ public class ExampleProfiledTurret extends Pivot {
     s.minAngle = Degrees.of(-180);
     s.maxAngle = Degrees.of(180);
     s.startingAngle = Degrees.of(0);
+    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(2.4, 1.3); // spot on the RobotMechanisms overlay
     s.maxVelocity = DegreesPerSecond.of(360);
     s.maxAcceleration = DegreesPerSecondPerSecond.of(720);
     s.kP = 40;   // volts per turret rotation of error

@@ -33,6 +33,7 @@ public class ExampleProfiledShooter extends Flywheel {
     s.gearReductionStages = new double[] {1.0}; // direct drive
     s.diameter = Inches.of(4);
     s.mass = Kilograms.of(1.5);
+    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(2.9, 1.9); // spot on the RobotMechanisms overlay
     s.kP = 0.15;  // volts per rot/s of error
     s.kV = 0.115; // volts per rot/s (theoretical 0.12)
     return s;

@@ -68,9 +68,11 @@ Run: `./gradlew test --tests "frc.robot.mechanisms.MechanismsFunctionalTest"`
 
 ## Step 6 — Verify in the sim GUI (optional but recommended)
 
-`./gradlew simulateJava`, enable, then watch SmartDashboard → `<name>/mechanism`
-(Mechanism2d). In `ExampleRobot`, holding X drives every example mechanism to a
-midpoint; releasing returns them to start.
+`./gradlew simulateJava`, enable, then watch the combined side-view overlay under
+SmartDashboard → **RobotMechanisms** (set `settings.visualPosition` to where the
+mechanism sits on the robot; pass `settings.mechanism2d` for a separate widget).
+In `ExampleRobot`, holding X drives every example mechanism to a midpoint;
+releasing returns them to start.
 
 ## Step 7 — Hand off to tuning
 

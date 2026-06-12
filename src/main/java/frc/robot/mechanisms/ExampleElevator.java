@@ -43,6 +43,7 @@ public class ExampleElevator extends Elevator {
     s.maxVelocity = MetersPerSecond.of(0.9);
     s.maxAcceleration = MetersPerSecondPerSecond.of(2.0);
     s.kG = Volts.of(0.19); // m·g·r / (gearing · kT / R) for the plant above
+    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(0.25, 0.0); // spot on the RobotMechanisms overlay
     return s;
   }
 }

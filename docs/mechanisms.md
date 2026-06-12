@@ -122,6 +122,13 @@ Commands: `goToHeight(Distance)` / `goToAngle(Angle)` / `goToSpeed(AngularVeloci
   re-enable instead of driving back to a stale target (default false = resume).
 - Every motor gets a WPILib `Alert` ("<name> TalonFX disconnected") driven by the
   `connected` input.
+- **Visualization overlay** — by default every mechanism draws onto one shared
+  side-view canvas (SmartDashboard → **RobotMechanisms**), rooted at
+  `visualPosition` (x along the robot's length, y above the floor, meters), so the
+  whole superstructure appears as one robot overlay in Glass/AdvantageScope. Pass
+  your own `Mechanism2d` via `settings.mechanism2d` to split mechanisms onto
+  separate widgets (you publish custom canvases yourself). Mechanism names must be
+  unique (they already must be for tuning tables).
 
 ## LQR tuning
 
@@ -266,8 +273,9 @@ IDs don't exist on a real robot) and binds the **X button** to drive them all to
 mid-travel point in parallel (elevators → 0.75 m, arms/turrets → 90°, shooters →
 3000 RPM, DJA → 90°/0°, wrist → 45°/30°); releasing X returns everything to its
 configured start point (read from each mechanism's `getSettings()`, flywheels spin
-down to 0). Run `./gradlew simulateJava`, enable, press X, and watch the Mechanism2d
-widgets under SmartDashboard → `<name>/mechanism`. Tests that construct
+down to 0). Run `./gradlew simulateJava`, enable, press X, and watch the combined robot overlay
+under SmartDashboard → **RobotMechanisms** (the examples set distinct
+`visualPosition`s so the whole superstructure reads as one side view). Tests that construct
 `RobotContainer` must call `SwerveRobotContainer.closeMechanisms()` in teardown.
 
 ## Functional tests
@@ -281,8 +289,8 @@ AdvantageKit inputs path. They run in the normal `./gradlew test` suite.
 ## Real-robot bring-up
 
 1. Copy an example, set real CAN IDs / gearing / masses / limits.
-2. Verify in sim (`./gradlew test`, or `simulateJava` and watch the Mechanism2d widget
-   under SmartDashboard → `<name>/mechanism`).
+2. Verify in sim (`./gradlew test`, or `simulateJava` and watch the RobotMechanisms
+   overlay — set `visualPosition` to match where the mechanism sits on your robot).
 3. On the robot: run `sysId()` to characterize kG, kV, and kA; set `kG` and (for LQR
    style) `characterizedKv`/`characterizedKa` so the plant matches the real mechanism
    (see "Characterized plants" above).

@@ -15,6 +15,7 @@ import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.Angle;
@@ -27,7 +28,6 @@ import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -97,6 +97,18 @@ public class Arm extends SingleDofMechanism {
     /** Drop the goal when the robot is disabled (stay put on re-enable). */
     public boolean clearGoalOnDisable = false;
 
+    /**
+     * Canvas to draw this mechanism on. Null (default) = the shared robot-overlay
+     * canvas (SmartDashboard -> RobotMechanisms); pass your own Mechanism2d to split
+     * mechanisms onto separate widgets (you publish custom canvases yourself).
+     */
+    public Mechanism2d mechanism2d = null;
+    /**
+     * Where this mechanism's root sits on the canvas, meters — x along the robot's
+     * length, y above the floor (side view). Lets the overlay reflect the real robot
+     * layout.
+     */
+    public Translation2d visualPosition = new Translation2d(1.5, 1.0);
     // --- LQR weights (live-tunable in DEGREES; these are the initial values) ---
     /** Position error tolerance. Smaller = more aggressive. */
     public Angle qelmsPosition = Degrees.of(1.5);
@@ -142,7 +154,6 @@ public class Arm extends SingleDofMechanism {
 
   private final Settings settings;
   private final SysIdRoutine sysIdRoutine;
-  private final Mechanism2d mech2d;
   private final MechanismLigament2d armLigament;
   private final MechanismLigament2d goalLigament;
 
@@ -166,13 +177,14 @@ public class Arm extends SingleDofMechanism {
             this));
 
     double lengthM = settings.length.in(Meters);
-    mech2d = new Mechanism2d(lengthM * 2.5, lengthM * 2.5);
-    armLigament = mech2d.getRoot(settings.name + "Root", lengthM * 1.25, lengthM * 1.25)
+    Mechanism2d canvas = MechanismVisuals.canvasFor(settings.mechanism2d);
+    double rootX = settings.visualPosition.getX();
+    double rootY = settings.visualPosition.getY();
+    armLigament = canvas.getRoot(settings.name + "Root", rootX, rootY)
         .append(new MechanismLigament2d("arm", lengthM, settings.startingAngle.in(Degrees)));
-    goalLigament = mech2d.getRoot(settings.name + "GoalRoot", lengthM * 1.25, lengthM * 1.25)
+    goalLigament = canvas.getRoot(settings.name + "GoalRoot", rootX, rootY)
         .append(new MechanismLigament2d("goal", lengthM, settings.startingAngle.in(Degrees), 3,
             new Color8Bit(Color.kWhite)));
-    SmartDashboard.putData(settings.name + "/mechanism", mech2d);
   }
 
   private static BaseParams baseParams(Settings settings) {

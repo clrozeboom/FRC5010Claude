@@ -35,6 +35,7 @@ public class ExampleTurret extends Pivot {
     s.minAngle = Degrees.of(-180);
     s.maxAngle = Degrees.of(180);
     s.startingAngle = Degrees.of(0);
+    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(2.4, 0.5); // spot on the RobotMechanisms overlay
     s.maxVelocity = DegreesPerSecond.of(360);
     s.maxAcceleration = DegreesPerSecondPerSecond.of(720);
     return s;

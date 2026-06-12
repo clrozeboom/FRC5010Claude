@@ -43,6 +43,7 @@ public class ExampleProfiledArm extends Arm {
     s.maxVelocity = DegreesPerSecond.of(180);
     s.maxAcceleration = DegreesPerSecondPerSecond.of(360);
     s.kG = Volts.of(0.40); // onboard Arm_Cosine gravity compensation
+    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(1.7, 1.8); // spot on the RobotMechanisms overlay
     s.kP = 40;   // volts per arm rotation of error
     s.kV = 5.8;  // volts per arm rotation/s (theoretical 6.0)
     return s;

@@ -11,6 +11,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularAcceleration;
@@ -22,7 +23,6 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -88,6 +88,17 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
     public boolean enableFoc = true;
     /** Stator current limit (both joints). */
     public Current statorCurrentLimit = Amps.of(40);
+    /**
+     * Canvas to draw this mechanism on. Null (default) = the shared robot-overlay
+     * canvas (SmartDashboard -> RobotMechanisms); pass your own Mechanism2d to split
+     * mechanisms onto separate widgets (you publish custom canvases yourself).
+     */
+    public Mechanism2d mechanism2d = null;
+    /**
+     * Where the shoulder joint sits on the canvas, meters — x along the robot's
+     * length, y above the floor (side view).
+     */
+    public Translation2d visualPosition = new Translation2d(1.0, 1.2);
     /** Shoulder joint (attached to the robot). */
     public JointSettings lowerJoint = new JointSettings();
     /** Elbow joint (attached to the end of the lower segment). */
@@ -110,7 +121,6 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
   private double lowerGoalRot;
   private double upperGoalRot;
 
-  private final Mechanism2d mech2d;
   private final MechanismLigament2d lowerLigament;
   private final MechanismLigament2d upperLigament;
 
@@ -135,15 +145,14 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
         settings.name + " upper TalonFX disconnected",
         edu.wpi.first.wpilibj.Alert.AlertType.kError);
 
-    double reach = settings.lowerJoint.length.in(Meters) + settings.upperJoint.length.in(Meters);
-    mech2d = new Mechanism2d(reach * 2.5, reach * 2.5);
-    lowerLigament = mech2d.getRoot(settings.name + "Root", reach * 1.25, reach * 1.25)
+    Mechanism2d canvas = MechanismVisuals.canvasFor(settings.mechanism2d);
+    lowerLigament = canvas.getRoot(settings.name + "Root",
+            settings.visualPosition.getX(), settings.visualPosition.getY())
         .append(new MechanismLigament2d("lower", settings.lowerJoint.length.in(Meters),
             settings.lowerJoint.startingAngle.in(Degrees)));
     upperLigament = lowerLigament.append(
         new MechanismLigament2d("upper", settings.upperJoint.length.in(Meters),
             settings.upperJoint.startingAngle.in(Degrees)));
-    SmartDashboard.putData(settings.name + "/mechanism", mech2d);
   }
 
   private MechanismIO jointIo(JointSettings joint) {

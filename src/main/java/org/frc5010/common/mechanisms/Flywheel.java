@@ -64,6 +64,19 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
     /** Flywheel mass. */
     public Mass mass = Kilograms.of(1.5);
 
+    /**
+     * Canvas to draw this mechanism on. Null (default) = the shared robot-overlay
+     * canvas (SmartDashboard -> RobotMechanisms); pass your own Mechanism2d to split
+     * mechanisms onto separate widgets (you publish custom canvases yourself).
+     */
+    public edu.wpi.first.wpilibj.smartdashboard.Mechanism2d mechanism2d = null;
+    /**
+     * Where this mechanism's root sits on the canvas, meters — x along the robot's
+     * length, y above the floor (side view). Lets the overlay reflect the real robot
+     * layout.
+     */
+    public edu.wpi.first.math.geometry.Translation2d visualPosition =
+        new edu.wpi.first.math.geometry.Translation2d(2.6, 1.8);
     // --- LQR weights (live-tunable in RPM; these are the initial values) ---
     /** Velocity error tolerance. Smaller = more aggressive. */
     public AngularVelocity qelmsVelocity = RadiansPerSecond.of(8);
@@ -129,7 +142,6 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
   private double goalRadPerSec;
   private boolean wasEnabled = false;
   private final edu.wpi.first.wpilibj.Alert disconnectedAlert;
-  private final edu.wpi.first.wpilibj.smartdashboard.Mechanism2d mech2d;
   private final edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d wheelLigament;
 
   /**
@@ -188,12 +200,11 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
 
     disconnectedAlert = new edu.wpi.first.wpilibj.Alert(
         settings.name + " TalonFX disconnected", edu.wpi.first.wpilibj.Alert.AlertType.kError);
-    mech2d = new edu.wpi.first.wpilibj.smartdashboard.Mechanism2d(0.5, 0.5);
-    wheelLigament = mech2d.getRoot(settings.name + "Root", 0.25, 0.25)
+    var canvas = MechanismVisuals.canvasFor(settings.mechanism2d);
+    wheelLigament = canvas.getRoot(settings.name + "Root",
+            settings.visualPosition.getX(), settings.visualPosition.getY())
         .append(new edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d(
             "wheel", settings.diameter.in(Meters) / 2, 0));
-    edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData(
-        settings.name + "/mechanism", mech2d);
   }
 
   private double moiKgM2() {

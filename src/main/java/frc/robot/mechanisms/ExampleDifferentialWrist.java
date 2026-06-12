@@ -32,6 +32,7 @@ public class ExampleDifferentialWrist extends DifferentialMechanism {
     s.leftCanId = LEFT_CAN_ID;
     s.rightCanId = RIGHT_CAN_ID;
     s.motorModel = DCMotor.getKrakenX60(1);
+    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(2.4, 2.1); // spot on the RobotMechanisms overlay
     s.gearReductionStages = new double[] {3, 4, 5}; // 60:1
     s.length = Meters.of(0.3);
     s.mass = Kilograms.of(1.8);

@@ -49,6 +49,9 @@ public class MechanismsFunctionalTest extends SimTestBase {
   @AfterEach
   @Override
   public void simTeardown() {
+    // Fresh shared canvas per test — re-constructing a same-named mechanism would
+    // otherwise collide with ligaments left on the old canvas.
+    org.frc5010.common.mechanisms.MechanismVisuals.resetForTesting();
     RobotMode.resetForTesting();
     super.simTeardown();
   }
@@ -68,7 +71,7 @@ public class MechanismsFunctionalTest extends SimTestBase {
         Unmanaged.feedEnable(200);
       }
       try {
-        Thread.sleep(4); // the simulated TalonFX processes controls on a real-time thread
+        Thread.sleep(10); // the simulated TalonFX processes controls on a real-time thread
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new RuntimeException(e);

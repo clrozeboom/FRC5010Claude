@@ -31,6 +31,7 @@ public class ExampleShooter extends Flywheel {
     s.gearReductionStages = new double[] {1.0}; // direct drive
     s.diameter = Inches.of(4);
     s.mass = Kilograms.of(1.5);
+    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(2.9, 0.9); // spot on the RobotMechanisms overlay
     return s;
   }
 }

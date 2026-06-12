@@ -44,6 +44,7 @@ public class ExampleProfiledElevator extends Elevator {
     s.maxVelocity = MetersPerSecond.of(0.9);
     s.maxAcceleration = MetersPerSecondPerSecond.of(2.0);
     s.kG = Volts.of(0.19); // onboard Elevator_Static gravity compensation
+    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(0.55, 0.0); // spot on the RobotMechanisms overlay
     s.kP = 6;    // volts per drum rotation of error
     s.kV = 1.4;  // volts per drum rotation/s (theoretical 1.44)
     return s;
