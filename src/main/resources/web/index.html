@@ -89,6 +89,22 @@
   #scored-count { color: rgba(100,230,100,0.95); }
   #field-canvas { display: block; width: 100%; height: 100%; }
 
+  /* ---- LED strip display (under the field) ---- */
+  #led-bar {
+    display: flex; justify-content: center; align-items: center; gap: 3px;
+    padding: 6px 10px; background: #1a1a1a; border-top: 1px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+  #led-bar.hidden { display: none; }
+  #led-bar .led-label {
+    font-size: 9px; color: #555; text-transform: uppercase;
+    letter-spacing: 1px; margin-right: 8px;
+  }
+  .led-cell {
+    width: 13px; height: 13px; border-radius: 50%;
+    background: #000; border: 1px solid #333; flex-shrink: 1; min-width: 5px;
+  }
+
   /* ---- controls row ---- */
   #controls {
     display: flex; align-items: center; justify-content: center;
@@ -213,6 +229,8 @@
   </div>
 </div>
 
+<div id="led-bar" class="hidden"><span class="led-label">LEDs</span></div>
+
 <div id="controls">
   <div class="bumper-btn" data-idx="4">LB<span class="key-hint">Z</span></div>
 
@@ -248,7 +266,8 @@ const state = {
   fieldWidth: 16.540988, fieldHeight: 8.21,
   enabled: false, alliance: 'Blue', connected: false,
   mode: 'teleop', selectedAuto: '',
-  heldFuel: 0, intakeExtended: false, scoredFuel: 0
+  heldFuel: 0, intakeExtended: false, scoredFuel: 0,
+  leds: []
 };
 
 let leftX = 0, leftY = 0, rightX = 0;
@@ -447,6 +466,28 @@ function stopRobot() {
 function updateSidebar() {
   document.getElementById('held-count').textContent   = state.heldFuel;
   document.getElementById('scored-count').textContent = state.scoredFuel;
+}
+
+// ---- LED strip display ----
+// Mirrors the robot's addressable LED strip ("leds" hex array in /api/state).
+// Hidden until the robot reports a strip; cells are created once per strip length.
+function updateLeds() {
+  const bar  = document.getElementById('led-bar');
+  const leds = state.leds || [];
+  bar.classList.toggle('hidden', leds.length === 0);
+  const cells = bar.getElementsByClassName('led-cell');
+  while (cells.length < leds.length) {
+    const c = document.createElement('div');
+    c.className = 'led-cell';
+    bar.appendChild(c);
+  }
+  while (cells.length > leds.length) bar.removeChild(bar.lastElementChild);
+  for (let i = 0; i < leds.length; i++) {
+    const col = leds[i];
+    cells[i].style.background = col;
+    // Lit LEDs glow; off LEDs stay flat dark so animations read clearly.
+    cells[i].style.boxShadow = (col === '#000000') ? 'none' : `0 0 6px 1px ${col}`;
+  }
 }
 
 // ---- Field Canvas rendering ----
@@ -862,6 +903,7 @@ setInterval(async () => {
     Object.assign(state, s);
     initFromState(s);
     updateSidebar();
+    updateLeds();
     updateStatus(vx, vy, omega);
     drawField();
   } catch (e) {

@@ -86,6 +86,18 @@ public class WebControl {
     }
 
     /**
+     * Binds an LED strip so {@code /api/state} surfaces its colours and the web UI renders
+     * a live strip under the field. Called automatically by
+     * {@link org.frc5010.common.leds.LedStripSegments}'s constructor — team code normally
+     * never calls this directly.
+     *
+     * @param strip the strip the robot renders to
+     */
+    public void bindLeds(org.frc5010.common.leds.LedStripSegments strip) {
+        webController.bindLeds(strip);
+    }
+
+    /**
      * Registers the available autonomous routines so the web UI can list and select them.
      * The selector and Auto/Teleop mode buttons in the web Driver Station panel drive this.
      *

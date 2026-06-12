@@ -253,6 +253,38 @@ class WebUIFunctionalTest {
                 + "State: %s", x, y, state));
     }
 
+    /**
+     * Verifies the LED strip surfaces in {@code /api/state} as a {@code "leds"} hex-colour
+     * array and that the colours animate over time. After the previous test the robot has
+     * been enabled, so disabling here puts {@code DemoLeds} into its scrolling-rainbow
+     * state — two polls 400 ms apart must differ. Exercises the
+     * {@code LedStripSegments → bindLeds → applyPendingControl} snapshot chain.
+     */
+    @Test @Order(7)
+    void ledStripSurfacesAndAnimatesInStateJson() throws Exception {
+        post("/api/control", "{\"enabled\":false}");
+        waitMs(400);
+
+        String leds1 = extractLedsArray(get("/api/state"));
+        assertEquals(30, leds1.split(",").length,
+            "leds array must contain all 30 strip colours. Got: " + leds1);
+        assertTrue(leds1.contains("\"#"),
+            "leds entries must be hex colour strings. Got: " + leds1);
+
+        waitMs(400);
+        String leds2 = extractLedsArray(get("/api/state"));
+        assertNotEquals(leds1, leds2,
+            "disabled-after-enable rainbow must animate between polls. Both: " + leds1);
+    }
+
+    /** Extracts the raw {@code "leds":[...]} array substring from the state JSON. */
+    private static String extractLedsArray(String body) {
+        int idx = body.indexOf("\"leds\":[");
+        assertTrue(idx >= 0, "/api/state must contain a leds array. State: " + body);
+        int end = body.indexOf(']', idx);
+        return body.substring(idx + 8, end);
+    }
+
     // ── HTTP helpers ──────────────────────────────────────────────────────────
 
     private static String get(String path) throws Exception {

@@ -38,7 +38,11 @@ import org.frc5010.common.profiles.SwerveRobotContainer;
  */
 public class ExampleRobot extends SwerveRobotContainer {
 
+  /** PWM header the demo LED strip is plugged into. */
+  private static final int LED_PWM_PORT = 9;
+
   private DemoIntake demoIntake;
+  private DemoLeds demoLeds;
 
   /** Test hook: one representative demo mechanism, to verify the X binding end to end. */
   private static ExampleElevator demoElevator;
@@ -82,10 +86,17 @@ public class ExampleRobot extends SwerveRobotContainer {
 
     drive.getDriveTrainSimulation().ifPresent(driveSim -> {
       demoIntake = new DemoIntake(driveSim, drive::getPose, drive.getField2d());
+      // On a real robot the LED strip would be created unconditionally (outside the sim
+      // guard); here its states come from the sim-only DemoIntake, so it lives with it.
+      demoLeds = new DemoLeds(LED_PWM_PORT, drive::getPose, demoIntake::isIntakeExtended);
+      registerMechanism(demoLeds::close);
 
       controller.leftBumper().onTrue(demoIntake.extendCommand());
       controller.rightBumper().onTrue(demoIntake.retractCommand());
-      controller.a().onTrue(demoIntake.fireCommand());
+      controller.a().onTrue(
+          Commands.runOnce(() -> {
+            if (demoIntake.getHeldFuel() > 0) demoLeds.notifyShot();
+          }).alongWith(demoIntake.fireCommand()));
     });
 
     configureDemoMechanisms();

@@ -145,6 +145,18 @@ public class DemoIntake extends SimRobotState {
   /** Whether the intake is currently extended. */
   public boolean isIntakeExtended() { return isExtended(); }
 
+  /**
+   * Whether the given robot pose is inside the current alliance's zone
+   * (X &lt; 3.952 m for Blue, X &gt; 12.589 m for Red; Blue when alliance is unknown).
+   * Drives shot aiming here and the side-segment laser colour in {@link DemoLeds}.
+   */
+  public static boolean isInAllianceZone(Pose2d pose) {
+    boolean isBlue = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue;
+    return isBlue
+        ? pose.getX() < ZONE_DEPTH_M
+        : pose.getX() > FIELD_WIDTH_M - ZONE_DEPTH_M;
+  }
+
   // ---- game-specific command ----
 
   /** Fires one held Fuel piece using ballistic physics. No-op if nothing is held. */
@@ -161,10 +173,7 @@ public class DemoIntake extends SimRobotState {
     boolean isBlue = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue;
     Translation3d hubTarget = isBlue ? BLUE_HUB_3D : RED_HUB_3D;
 
-    double robotX = pose.getX();
-    boolean inZone = isBlue
-        ? robotX < ZONE_DEPTH_M
-        : robotX > FIELD_WIDTH_M - ZONE_DEPTH_M;
+    boolean inZone = isInAllianceZone(pose);
 
     double theta = pose.getRotation().getRadians();
     Translation2d launchPos = new Translation2d(
