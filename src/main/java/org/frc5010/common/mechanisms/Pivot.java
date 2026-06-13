@@ -14,7 +14,10 @@ import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
@@ -104,6 +107,15 @@ public class Pivot extends SingleDofMechanism {
      * layout.
      */
     public Translation2d visualPosition = new Translation2d(2.0, 1.2);
+    /**
+     * Where this mechanism sits on the robot for the 3D isometric view — robot frame,
+     * x forward, y left, z up, meters from robot center at floor level. The rotation
+     * re-aims the working plane: identity (default) swings the pivot in the robot's
+     * X-Z side-view plane (hood/wrist); use
+     * {@link MechanismVisuals3d#YAW_PLANE} to lay the plane flat so the pivot becomes
+     * a turret spinning about the vertical axis.
+     */
+    public Pose3d visualPose3d = new Pose3d(0, 0, 0.6, Rotation3d.kZero);
     // --- LQR weights (live-tunable in DEGREES; these are the initial values) ---
     /** Position error tolerance. Smaller = more aggressive. */
     public Angle qelmsPosition = Degrees.of(1.0);
@@ -290,8 +302,18 @@ public class Pivot extends SingleDofMechanism {
 
   @Override
   protected void updateVisualization() {
+    double goalRad = mode == OutputMode.GOAL ? goalNative : positionNative();
     pivotLigament.setAngle(Math.toDegrees(positionNative()));
-    goalLigament.setAngle(Math.toDegrees(mode == OutputMode.GOAL ? goalNative : positionNative()));
+    goalLigament.setAngle(Math.toDegrees(goalRad));
+
+    Pose3d mount = settings.visualPose3d;
+    Translation3d base = MechanismVisuals3d.planarPoint(mount, 0, 0);
+    MechanismVisuals3d.publish(settings.name, java.util.List.of(
+        new MechanismVisuals3d.Segment("goal", base,
+            MechanismVisuals3d.planarOffset(mount, base, goalRad, 0.4), "#ffffff", 1),
+        new MechanismVisuals3d.Segment("pivot", base,
+            MechanismVisuals3d.planarOffset(mount, base, positionNative(), 0.4),
+            "#d2a8ff", 3)));
   }
 
   /** Command: rotate the pivot to the given angle. Never finishes. */

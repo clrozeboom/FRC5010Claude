@@ -56,6 +56,7 @@ class RobotContainerSmokeTest extends SimTestBase {
     // in the same JVM.
     org.frc5010.common.profiles.SwerveRobotContainer.closeMechanisms();
     org.frc5010.common.mechanisms.MechanismVisuals.resetForTesting();
+    org.frc5010.common.mechanisms.MechanismVisuals3d.resetForTesting();
 
     SimulatedArena.getInstance().shutDown();
     try {

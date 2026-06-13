@@ -73,6 +73,8 @@ public class ExampleCharacterizedElevator extends Elevator {
     s.maxAcceleration = MetersPerSecondPerSecond.of(2.0);
     s.kG = Volts.of(0.19); // gravity is not part of the linear plant — still from SysId
     s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(0.85, 0.0); // spot on the RobotMechanisms overlay
+    s.visualPose3d = new edu.wpi.first.math.geometry.Pose3d(-0.25, 0.25, 0,
+        edu.wpi.first.math.geometry.Rotation3d.kZero); // back-left corner, 3D view
 
     // From the SysId tool (units: meters). These two numbers REPLACE the mass-based
     // plant — see the class javadoc for why.

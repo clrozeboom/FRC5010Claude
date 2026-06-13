@@ -43,6 +43,9 @@ public class ExampleProfiledTurret extends Pivot {
     s.maxAngle = Degrees.of(180);
     s.startingAngle = Degrees.of(0);
     s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(2.4, 1.3); // spot on the RobotMechanisms overlay
+    // 3D view: YAW_PLANE = turret spinning about the vertical axis (see ExampleTurret).
+    s.visualPose3d = new edu.wpi.first.math.geometry.Pose3d(-0.3, 0, 0.55,
+        org.frc5010.common.mechanisms.MechanismVisuals3d.YAW_PLANE);
     s.maxVelocity = DegreesPerSecond.of(360);
     s.maxAcceleration = DegreesPerSecondPerSecond.of(720);
     s.kP = 40;   // volts per turret rotation of error

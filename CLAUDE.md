@@ -47,6 +47,9 @@ Mechanisms (org.frc5010.common.mechanisms — TalonFX-native, LQR-first, no thir
  ├── MechanismIO (@AutoLog, mechanism rotations) ──► MechanismIOTalonFX (REAL)
  │                                                   MechanismIOTalonFXSim (SIM — WPILib physics → Phoenix sim state)
  │                                                   new MechanismIO(){} (REPLAY) — selected via RobotMode.get()
+ ├── MechanismVisuals (shared Mechanism2d side-view canvas) / MechanismVisuals3d (robot-frame
+ │    3D segments per settings.visualPose3d mount pose; YAW_PLANE = turret — feeds the web
+ │    isometric panel via /api/mechanisms3d AND AdvantageScope Pose3d[] under Mechanisms3d/<name>)
  └── frc.robot.mechanisms.Example* (Kraken/TalonFX: LQR CAN 21–28+35, ExampleProfiled* CAN 31–34)
       └── ExampleRobot creates all of them in SIM; X button held → midpoints; released → start points
           (tests constructing RobotContainer: SwerveRobotContainer.closeMechanisms())
@@ -181,6 +184,7 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Mechanism subsystems (LQR/MotionMagic + tuning) | `src/main/java/org/frc5010/common/mechanisms/` |
 | Mechanism IO layer (REAL/SIM/REPLAY) | `src/main/java/org/frc5010/common/mechanisms/MechanismIO*.java` |
 | LQR loop construction (sliced Kalman, characterized plants) | `src/main/java/org/frc5010/common/mechanisms/MechanismLqr.java` |
+| 3D mechanism visuals registry (web iso view + AdvantageScope) | `src/main/java/org/frc5010/common/mechanisms/MechanismVisuals3d.java` |
 | Mechanism examples (TalonFX, team-code pattern) | `src/main/java/frc/robot/mechanisms/` |
 | Mechanism functional tests | `src/test/java/frc/robot/mechanisms/MechanismsFunctionalTest.java` |
 

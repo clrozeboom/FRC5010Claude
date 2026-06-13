@@ -31,6 +31,8 @@ public class ExampleDoubleJointedArm extends DoubleJointedArm {
     s.name = "ExampleDJArm";
     s.motorModel = DCMotor.getKrakenX60(1);
     s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(0.9, 1.5); // spot on the RobotMechanisms overlay
+    s.visualPose3d = new edu.wpi.first.math.geometry.Pose3d(-0.25, -0.25, 0.3,
+        edu.wpi.first.math.geometry.Rotation3d.kZero); // back-right corner, 3D view
 
     s.lowerJoint.canId = LOWER_CAN_ID;
     s.lowerJoint.gearReductionStages = new double[] {3, 4, 5}; // 60:1

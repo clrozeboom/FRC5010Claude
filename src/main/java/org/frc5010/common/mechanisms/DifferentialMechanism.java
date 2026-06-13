@@ -11,7 +11,10 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.units.measure.Angle;
@@ -78,6 +81,13 @@ public class DifferentialMechanism extends SubsystemBase implements AutoCloseabl
      * y above the floor (side view).
      */
     public Translation2d visualPosition = new Translation2d(2.4, 0.8);
+    /**
+     * Where the wrist sits on the robot for the 3D isometric view — robot frame,
+     * x forward, y left, z up, meters from robot center at floor level. The rotation
+     * re-aims the tilt plane: identity (default) tilts in the robot's X-Z side-view
+     * plane; the twist flag swings out of that plane.
+     */
+    public Pose3d visualPose3d = new Pose3d(0.25, 0, 0.5, Rotation3d.kZero);
     /** Proportional gain, both motors, volts per rotation of error (onboard). */
     public double kP = 16;
     /** Integral gain. */
@@ -245,6 +255,22 @@ public class DifferentialMechanism extends SubsystemBase implements AutoCloseabl
     Logger.recordOutput(settings.name + "/TwistDegrees", getTwist().in(Degrees));
     tiltLigament.setAngle(getTilt().in(Degrees));
     twistLigament.setAngle(getTwist().in(Degrees));
+
+    // 3D view: the tilt segment lies in the working plane; the twist "flag" starts
+    // perpendicular to it within the plane and rotates about the segment's own axis
+    // by the twist angle — so twist visibly swings the flag out of plane.
+    double tiltRad = getTilt().in(Radians);
+    double twistRad = getTwist().in(Radians);
+    Pose3d mount = settings.visualPose3d;
+    Translation3d base = MechanismVisuals3d.planarPoint(mount, 0, 0);
+    Translation3d tip = MechanismVisuals3d.planarOffset(mount, base, tiltRad, 0.3);
+    Translation3d flagTip = MechanismVisuals3d.localOffset(mount, tip, new Translation3d(
+        -Math.sin(tiltRad) * Math.cos(twistRad) * 0.15,
+        -Math.sin(twistRad) * 0.15,
+        Math.cos(tiltRad) * Math.cos(twistRad) * 0.15));
+    MechanismVisuals3d.publish(settings.name, java.util.List.of(
+        new MechanismVisuals3d.Segment("tilt", base, tip, "#f2cc60", 3),
+        new MechanismVisuals3d.Segment("twist", tip, flagTip, "#ffa657", 2)));
   }
 
   /** Command: drive the wrist to the given tilt and twist angles. Never finishes. */
@@ -288,6 +314,7 @@ public class DifferentialMechanism extends SubsystemBase implements AutoCloseabl
   /** Stops control and frees both CAN devices. For unit tests. */
   @Override
   public void close() {
+    MechanismVisuals3d.remove(settings.name);
     leftIo.close();
     rightIo.close();
   }

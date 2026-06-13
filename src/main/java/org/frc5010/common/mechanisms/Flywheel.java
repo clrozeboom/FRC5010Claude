@@ -77,6 +77,15 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
      */
     public edu.wpi.first.math.geometry.Translation2d visualPosition =
         new edu.wpi.first.math.geometry.Translation2d(2.6, 1.8);
+    /**
+     * Where this mechanism sits on the robot for the 3D isometric view — robot frame,
+     * x forward, y left, z up, meters from robot center at floor level. The rotation
+     * re-aims the wheel plane: identity (default) spins it in the robot's X-Z
+     * side-view plane (a normal shooter wheel).
+     */
+    public edu.wpi.first.math.geometry.Pose3d visualPose3d =
+        new edu.wpi.first.math.geometry.Pose3d(
+            -0.2, 0, 0.6, edu.wpi.first.math.geometry.Rotation3d.kZero);
     // --- LQR weights (live-tunable in RPM; these are the initial values) ---
     /** Velocity error tolerance. Smaller = more aggressive. */
     public AngularVelocity qelmsVelocity = RadiansPerSecond.of(8);
@@ -312,6 +321,16 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
     Logger.recordOutput(settings.name + "/GoalRPM",
         RadiansPerSecond.of(mode == OutputMode.GOAL ? goalRadPerSec : getVelocityRadPerSec()).in(RPM));
     wheelLigament.setAngle(inputs.positionRot * 360.0); // spins with the wheel
+
+    var mount = settings.visualPose3d;
+    double radius = settings.diameter.in(Meters) / 2;
+    var segments = new java.util.ArrayList<>(MechanismVisuals3d.planarCircle(
+        mount, 0, 0, radius, 12, "rim", "#2e6e40", 1));
+    var center = MechanismVisuals3d.planarPoint(mount, 0, 0);
+    segments.add(new MechanismVisuals3d.Segment("spoke", center,
+        MechanismVisuals3d.planarOffset(mount, center, inputs.positionRot * 2 * Math.PI, radius),
+        "#7ee787", 3)); // spins with the wheel — visible speed cue
+    MechanismVisuals3d.publish(settings.name, segments);
   }
 
   /** Command: spin the wheel to the given velocity. Never finishes. */
@@ -371,6 +390,7 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
   /** Stops control and frees the CAN device. For unit tests. */
   @Override
   public void close() {
+    MechanismVisuals3d.remove(settings.name);
     io.close();
   }
 }

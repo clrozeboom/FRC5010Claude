@@ -11,7 +11,10 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Second;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularAcceleration;
@@ -99,6 +102,13 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
      * length, y above the floor (side view).
      */
     public Translation2d visualPosition = new Translation2d(1.0, 1.2);
+    /**
+     * Where the shoulder joint sits on the robot for the 3D isometric view — robot
+     * frame, x forward, y left, z up, meters from robot center at floor level. The
+     * rotation re-aims the working plane: identity (default) swings both joints in
+     * the robot's X-Z side-view plane.
+     */
+    public Pose3d visualPose3d = new Pose3d(-0.1, 0, 0.3, Rotation3d.kZero);
     /** Shoulder joint (attached to the robot). */
     public JointSettings lowerJoint = new JointSettings();
     /** Elbow joint (attached to the end of the lower segment). */
@@ -255,6 +265,18 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
     // The upper ligament is drawn relative to the lower segment, but the elbow encoder
     // reads an absolute (robot-frame) angle in this model — subtract the shoulder.
     upperLigament.setAngle((upperInputs.positionRot - lowerInputs.positionRot) * 360.0);
+
+    // 3D view: both joint angles are absolute in this model, so each segment is laid
+    // out directly in the working plane and chained tip-to-tail.
+    Pose3d mount = settings.visualPose3d;
+    Translation3d shoulder = MechanismVisuals3d.planarPoint(mount, 0, 0);
+    Translation3d elbow = MechanismVisuals3d.planarOffset(mount, shoulder,
+        lowerInputs.positionRot * 2 * Math.PI, settings.lowerJoint.length.in(Meters));
+    Translation3d tip = MechanismVisuals3d.planarOffset(mount, elbow,
+        upperInputs.positionRot * 2 * Math.PI, settings.upperJoint.length.in(Meters));
+    MechanismVisuals3d.publish(settings.name, java.util.List.of(
+        new MechanismVisuals3d.Segment("lower", shoulder, elbow, "#ff7b72", 3),
+        new MechanismVisuals3d.Segment("upper", elbow, tip, "#ffa198", 3)));
   }
 
   /** Command: drive both joints to the given angles. Never finishes. */
@@ -298,6 +320,7 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
   /** Stops control and frees both CAN devices. For unit tests. */
   @Override
   public void close() {
+    MechanismVisuals3d.remove(settings.name);
     lowerIo.close();
     upperIo.close();
   }

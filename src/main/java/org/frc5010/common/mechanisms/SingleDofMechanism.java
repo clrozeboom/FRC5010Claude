@@ -234,6 +234,7 @@ public abstract class SingleDofMechanism extends SubsystemBase implements AutoCl
   /** Stops control and frees the CAN devices. For unit tests. */
   @Override
   public void close() {
+    MechanismVisuals3d.remove(params.name);
     io.close();
   }
 }

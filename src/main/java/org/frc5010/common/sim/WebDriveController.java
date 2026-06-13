@@ -111,6 +111,7 @@ public class WebDriveController {
             server.createContext("/api/control",    this::handleControl);
             server.createContext("/api/autos",      this::handleAutos);
             server.createContext("/api/gamepieces", this::handleGamePieces);
+            server.createContext("/api/mechanisms3d", this::handleMechanisms3d);
             server.createContext("/api/stop",       this::handleStop);
             server.createContext("/tags/",          this::handleTagImage);
             server.createContext("/fuel.png",       this::handleFuelImage);
@@ -326,6 +327,19 @@ public class WebDriveController {
         } catch (Exception ignored) {}
         sb.append("]}");
         respond(ex, 200, "application/json", sb.toString());
+    }
+
+    /**
+     * Returns the robot's mechanisms as 3D line segments for the isometric robot view.
+     * {@code MechanismVisuals3d} keeps immutable per-cycle snapshots in a concurrent
+     * map, so serializing here on the HTTP thread is safe without a robot-thread buffer.
+     */
+    private void handleMechanisms3d(HttpExchange ex) throws IOException {
+        addCors(ex);
+        if ("OPTIONS".equalsIgnoreCase(ex.getRequestMethod())) { ex.sendResponseHeaders(204, -1); return; }
+        if (!"GET".equalsIgnoreCase(ex.getRequestMethod()))    { ex.sendResponseHeaders(405, -1); return; }
+        respond(ex, 200, "application/json",
+            org.frc5010.common.mechanisms.MechanismVisuals3d.toJson());
     }
 
     /** Serves the Fuel game-piece PNG ({@code /fuel.png}) from the classpath. */

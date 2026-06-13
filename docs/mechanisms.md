@@ -130,6 +130,36 @@ Commands: `goToHeight(Distance)` / `goToAngle(Angle)` / `goToSpeed(AngularVeloci
   separate widgets (you publish custom canvases yourself). Mechanism names must be
   unique (they already must be for tuning tables).
 
+## 3D visualization (isometric web view + AdvantageScope)
+
+Robots are 3D — an elevator at the back-left and a turret spinning in the horizontal
+plane can't honestly share one side-view plane. Each mechanism therefore also carries
+`settings.visualPose3d`, a full **mount pose** in the robot frame (x forward, y left,
+z up, meters from robot center at floor level):
+
+- The **translation** is where the mechanism sits on the robot.
+- The **rotation** re-aims its working plane. Identity (default) keeps the
+  Mechanism2d convention — the mechanism moves in the robot's X-Z side-view plane.
+  `MechanismVisuals3d.YAW_PLANE` lays the plane flat, so a `Pivot`'s angle becomes a
+  yaw about the vertical axis: that's how a turret is modeled (see `ExampleTurret`).
+
+Every cycle each mechanism publishes its current 3D line segments (current state in
+its type color, goal ghost in white) into the `MechanismVisuals3d` registry. Two
+renderers consume them:
+
+1. **Web UI isometric panel** (`-PwebUI`) — the bottom-right overlay on the field
+   page draws the chassis box plus all mechanism segments, live; drag horizontally to
+   orbit the view. Backed by `GET /api/mechanisms3d`. The chassis box defaults to
+   0.8 × 0.8 × 0.13 m; call `MechanismVisuals3d.setChassis(length, width, height)` to
+   match your robot.
+2. **AdvantageScope 3D** — each publish also logs `Pose3d[]` under
+   **Mechanisms3d/\<name\>** (one pose per segment: position at the segment start,
+   X-axis along the segment), ready to attach as articulated components on the 3D
+   field view.
+
+`close()` removes the mechanism from the registry; tests that publish must call
+`MechanismVisuals3d.resetForTesting()` in teardown (see `MechanismVisuals3dTest`).
+
 ## LQR tuning
 
 LQR is tuned with *physical tolerances*, not abstract gains:
@@ -277,6 +307,10 @@ down to 0). Run `./gradlew simulateJava`, enable, press X, and watch the combine
 under SmartDashboard → **RobotMechanisms** (the examples set distinct
 `visualPosition`s so the whole superstructure reads as one side view). Tests that construct
 `RobotContainer` must call `SwerveRobotContainer.closeMechanisms()` in teardown.
+
+With `-PwebUI` the same run also shows the **Mechanisms 3D** isometric panel on the
+field page (the examples set distinct `visualPose3d`s — the turrets use `YAW_PLANE`,
+so X visibly swings them in the horizontal plane while the elevators climb).
 
 ## Functional tests
 

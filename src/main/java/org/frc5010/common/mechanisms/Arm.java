@@ -15,7 +15,10 @@ import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.Angle;
@@ -109,6 +112,13 @@ public class Arm extends SingleDofMechanism {
      * layout.
      */
     public Translation2d visualPosition = new Translation2d(1.5, 1.0);
+    /**
+     * Where this mechanism sits on the robot for the 3D isometric view — robot frame,
+     * x forward, y left, z up, meters from robot center at floor level. The rotation
+     * re-aims the working plane: identity (default) swings the arm in the robot's X-Z
+     * side-view plane, exactly like the 2D canvas.
+     */
+    public Pose3d visualPose3d = new Pose3d(0, 0, 0.5, Rotation3d.kZero);
     // --- LQR weights (live-tunable in DEGREES; these are the initial values) ---
     /** Position error tolerance. Smaller = more aggressive. */
     public Angle qelmsPosition = Degrees.of(1.5);
@@ -302,8 +312,19 @@ public class Arm extends SingleDofMechanism {
 
   @Override
   protected void updateVisualization() {
+    double goalRad = mode == OutputMode.GOAL ? goalNative : positionNative();
     armLigament.setAngle(Math.toDegrees(positionNative()));
-    goalLigament.setAngle(Math.toDegrees(mode == OutputMode.GOAL ? goalNative : positionNative()));
+    goalLigament.setAngle(Math.toDegrees(goalRad));
+
+    Pose3d mount = settings.visualPose3d;
+    double lengthM = settings.length.in(Meters);
+    Translation3d base = MechanismVisuals3d.planarPoint(mount, 0, 0);
+    MechanismVisuals3d.publish(settings.name, java.util.List.of(
+        new MechanismVisuals3d.Segment("goal", base,
+            MechanismVisuals3d.planarOffset(mount, base, goalRad, lengthM), "#ffffff", 1),
+        new MechanismVisuals3d.Segment("arm", base,
+            MechanismVisuals3d.planarOffset(mount, base, positionNative(), lengthM),
+            "#ffa657", 3)));
   }
 
   /** Command: drive the arm to the given angle. Never finishes. */

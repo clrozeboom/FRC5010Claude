@@ -12,6 +12,8 @@ import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
@@ -102,6 +104,13 @@ public class Elevator extends SingleDofMechanism {
      * layout.
      */
     public Translation2d visualPosition = new Translation2d(0.5, 0.0);
+    /**
+     * Where this mechanism sits on the robot for the 3D isometric view — robot frame,
+     * x forward, y left, z up, meters from robot center at floor level. The rotation
+     * re-aims the working plane: identity (default) keeps it in the robot's X-Z
+     * side-view plane, exactly like the 2D canvas.
+     */
+    public Pose3d visualPose3d = new Pose3d(0.2, 0, 0, Rotation3d.kZero);
     // --- Homing (current-spike zeroing; see homeCommand()) ---
     /** Voltage applied while homing toward the bottom hard stop (negative = down). */
     public Voltage homingVoltage = Volts.of(-1.5);
@@ -305,8 +314,25 @@ public class Elevator extends SingleDofMechanism {
 
   @Override
   protected void updateVisualization() {
-    carriageLigament.setLength(Math.max(0.02, positionNative()));
-    goalLigament.setLength(Math.max(0.02, mode == OutputMode.GOAL ? goalNative : positionNative()));
+    double height = Math.max(0.02, positionNative());
+    double goal = Math.max(0.02, mode == OutputMode.GOAL ? goalNative : positionNative());
+    carriageLigament.setLength(height);
+    goalLigament.setLength(goal);
+
+    Pose3d mount = settings.visualPose3d;
+    MechanismVisuals3d.publish(settings.name, java.util.List.of(
+        new MechanismVisuals3d.Segment("frame",
+            MechanismVisuals3d.planarPoint(mount, 0, settings.minHeight.in(Meters)),
+            MechanismVisuals3d.planarPoint(mount, 0, settings.maxHeight.in(Meters)),
+            "#666666", 1),
+        new MechanismVisuals3d.Segment("goal",
+            MechanismVisuals3d.planarPoint(mount, -0.07, goal),
+            MechanismVisuals3d.planarPoint(mount, 0.07, goal),
+            "#ffffff", 1),
+        new MechanismVisuals3d.Segment("carriage",
+            MechanismVisuals3d.planarPoint(mount, -0.1, height),
+            MechanismVisuals3d.planarPoint(mount, 0.1, height),
+            "#58a6ff", 3)));
   }
 
   /** Command: drive the carriage to the given height. Never finishes. */
