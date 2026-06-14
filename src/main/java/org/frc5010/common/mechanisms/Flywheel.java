@@ -86,6 +86,12 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
     public edu.wpi.first.math.geometry.Pose3d visualPose3d =
         new edu.wpi.first.math.geometry.Pose3d(
             -0.2, 0, 0.6, edu.wpi.first.math.geometry.Rotation3d.kZero);
+    /**
+     * Optional parent for 3D coupling: when set, {@link #visualPose3d} becomes an offset
+     * from this supplier's live attachment pose instead of an absolute robot-frame mount,
+     * so the flywheel rides another mechanism's moving endpoint (e.g. an arm tip).
+     */
+    public java.util.function.Supplier<edu.wpi.first.math.geometry.Pose3d> visualParent = null;
     // --- LQR weights (live-tunable in RPM; these are the initial values) ---
     /** Velocity error tolerance. Smaller = more aggressive. */
     public AngularVelocity qelmsVelocity = RadiansPerSecond.of(8);
@@ -322,7 +328,7 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
         RadiansPerSecond.of(mode == OutputMode.GOAL ? goalRadPerSec : getVelocityRadPerSec()).in(RPM));
     wheelLigament.setAngle(inputs.positionRot * 360.0); // spins with the wheel
 
-    var mount = settings.visualPose3d;
+    var mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
     double radius = settings.diameter.in(Meters) / 2;
     // Speedometer dial: 0 speed points straight down, full speed points up. Positive
     // speed sweeps the needle CCW (up the right side), negative sweeps CW (up the left),
@@ -396,6 +402,14 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
   /** The settings this mechanism was built with. */
   public Settings getSettings() {
     return settings;
+  }
+
+  /**
+   * The live robot-frame pose where a child mechanism mounts: the wheel centre. Pass
+   * {@code flywheel::attachmentPose} as another mechanism's {@code visualParent}.
+   */
+  public edu.wpi.first.math.geometry.Pose3d attachmentPose() {
+    return MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
   }
 
   /** Stops control and frees the CAN device. For unit tests. */

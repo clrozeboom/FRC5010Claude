@@ -3,12 +3,14 @@ package org.frc5010.common.mechanisms;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -137,6 +139,26 @@ public final class MechanismVisuals3d {
 
   private static Translation3d localPoint(Pose3d mount, Translation3d local) {
     return mount.getTranslation().plus(local.rotateBy(mount.getRotation()));
+  }
+
+  /**
+   * Resolves a mechanism's mount pose, supporting parent-child coupling. With no parent
+   * the mount is absolute (robot frame). With a parent, {@code localPose} is interpreted
+   * as an offset <em>relative to the parent's live attachment pose</em> — so a mechanism
+   * mounted on another's moving endpoint (an arm on an elevator carriage, a flywheel on
+   * an arm tip) tracks it every cycle.
+   *
+   * @param localPose the mechanism's mount: absolute when {@code parent} is null,
+   *                  otherwise an offset from the parent's attachment frame
+   * @param parent    supplier of the parent's live attachment pose, or null
+   * @return the resolved mount pose in the robot frame
+   */
+  public static Pose3d resolveMount(Pose3d localPose, Supplier<Pose3d> parent) {
+    Pose3d base = parent != null ? parent.get() : null;
+    if (base == null) {
+      return localPose;
+    }
+    return base.transformBy(new Transform3d(localPose.getTranslation(), localPose.getRotation()));
   }
 
   /**

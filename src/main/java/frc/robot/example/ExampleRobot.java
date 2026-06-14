@@ -121,6 +121,16 @@ public class ExampleRobot extends SwerveRobotContainer {
     var profiledShooter = new ExampleProfiledShooter();
     var characterizedElevator = new ExampleCharacterizedElevator();
 
+    // Coupled-mechanism demo: the arm rides the elevator carriage and the shooter rides
+    // the arm tip — a three-link chain. Each child's visualParent points at its parent's
+    // live attachmentPose(), so in the 3D view raising the elevator lifts the whole
+    // arm+shooter assembly and swinging the arm carries the shooter with it. (With a
+    // parent set, visualPose3d is the offset from the parent's endpoint; zero = on it.)
+    arm.getSettings().visualParent = elevator::attachmentPose;
+    arm.getSettings().visualPose3d = new edu.wpi.first.math.geometry.Pose3d();
+    shooter.getSettings().visualParent = arm::attachmentPose;
+    shooter.getSettings().visualPose3d = new edu.wpi.first.math.geometry.Pose3d();
+
     demoElevator = elevator;
     registerMechanism(() -> demoElevator = null);
     List.of((Runnable) elevator::close, arm::close, turret::close, shooter::close,

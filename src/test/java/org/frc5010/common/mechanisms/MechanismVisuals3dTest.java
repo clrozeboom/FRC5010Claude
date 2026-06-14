@@ -100,6 +100,50 @@ class MechanismVisuals3dTest extends SimTestBase {
   }
 
   @Test
+  void resolveMountComposesParentEndpointWithLocalOffset() {
+    // Parent yawed 90° about Z at (1,2,3); a child offset 0.5 along the parent's local X
+    // lands 0.5 along the parent's +Y in the world.
+    Pose3d parent = new Pose3d(1, 2, 3, new Rotation3d(0, 0, Math.PI / 2));
+    Pose3d coupled =
+        MechanismVisuals3d.resolveMount(new Pose3d(0.5, 0, 0, Rotation3d.kZero), () -> parent);
+    assertEquals(1.0, coupled.getX(), 1e-9);
+    assertEquals(2.5, coupled.getY(), 1e-9);
+    assertEquals(3.0, coupled.getZ(), 1e-9);
+
+    // No parent → the local pose is the absolute mount, unchanged.
+    Pose3d absolute =
+        MechanismVisuals3d.resolveMount(new Pose3d(1, 1, 1, Rotation3d.kZero), null);
+    assertEquals(1.0, absolute.getY(), 1e-9);
+  }
+
+  @Test
+  void childMechanismRidesItsParentsEndpoint() {
+    // The coupled demo: an arm mounted on an elevator carriage. The arm's base must sit
+    // exactly at the elevator's live attachment pose (the carriage), not its own
+    // absolute visualPose3d.
+    var elevator = new ExampleElevator();
+    var arm = new frc.robot.mechanisms.ExampleArm();
+    try {
+      arm.getSettings().visualParent = elevator::attachmentPose;
+      arm.getSettings().visualPose3d = new Pose3d(); // right on the carriage
+      elevator.periodic();
+      arm.periodic();
+
+      Pose3d carriage = elevator.attachmentPose();
+      assertTrue(carriage.getTranslation().getZ() > 0.05,
+          "carriage should ride up to the elevator's starting height");
+
+      Segment armSeg = MechanismVisuals3d.getSegments("ExampleArm").stream()
+          .filter(s -> "arm".equals(s.label())).findFirst().orElseThrow();
+      assertEquals(0.0, armSeg.start().getDistance(carriage.getTranslation()), 1e-6,
+          "the arm's base must track the elevator carriage, not its own absolute mount");
+    } finally {
+      arm.close();
+      elevator.close();
+    }
+  }
+
+  @Test
   void mechanismsArrayJsonIsABareArrayWithoutChassis() {
     MechanismVisuals3d.publish("M", List.of(new Segment(
         "bar", new Translation3d(0, 0, 0), new Translation3d(0, 0, 1), "#58a6ff", 3)));

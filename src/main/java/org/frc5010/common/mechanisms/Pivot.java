@@ -116,6 +116,12 @@ public class Pivot extends SingleDofMechanism {
      * a turret spinning about the vertical axis.
      */
     public Pose3d visualPose3d = new Pose3d(0, 0, 0.6, Rotation3d.kZero);
+    /**
+     * Optional parent for 3D coupling: when set, {@link #visualPose3d} becomes an offset
+     * from this supplier's live attachment pose instead of an absolute robot-frame mount,
+     * so the pivot rides another mechanism's moving endpoint.
+     */
+    public java.util.function.Supplier<Pose3d> visualParent = null;
     // --- LQR weights (live-tunable in DEGREES; these are the initial values) ---
     /** Position error tolerance. Smaller = more aggressive. */
     public Angle qelmsPosition = Degrees.of(1.0);
@@ -306,7 +312,7 @@ public class Pivot extends SingleDofMechanism {
     pivotLigament.setAngle(Math.toDegrees(positionNative()));
     goalLigament.setAngle(Math.toDegrees(goalRad));
 
-    Pose3d mount = settings.visualPose3d;
+    Pose3d mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
     Translation3d base = MechanismVisuals3d.planarPoint(mount, 0, 0);
     MechanismVisuals3d.publish(settings.name, java.util.List.of(
         new MechanismVisuals3d.Segment("goal", base,
@@ -350,5 +356,17 @@ public class Pivot extends SingleDofMechanism {
   /** The settings this mechanism was built with (start positions, limits, ...). */
   public Settings getSettings() {
     return settings;
+  }
+
+  /**
+   * The live robot-frame pose where a child mechanism mounts: the pivot tip, rotated by
+   * the current angle. Pass {@code pivot::attachmentPose} as another mechanism's
+   * {@code visualParent}.
+   */
+  public Pose3d attachmentPose() {
+    Pose3d mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
+    Translation3d base = MechanismVisuals3d.planarPoint(mount, 0, 0);
+    Translation3d tip = MechanismVisuals3d.planarOffset(mount, base, positionNative(), 0.4);
+    return new Pose3d(tip, mount.getRotation().rotateBy(new Rotation3d(0, -positionNative(), 0)));
   }
 }

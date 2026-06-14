@@ -111,6 +111,13 @@ public class Elevator extends SingleDofMechanism {
      * side-view plane, exactly like the 2D canvas.
      */
     public Pose3d visualPose3d = new Pose3d(0.2, 0, 0, Rotation3d.kZero);
+    /**
+     * Optional parent for 3D coupling: when set, {@link #visualPose3d} becomes an offset
+     * from this supplier's live attachment pose instead of an absolute robot-frame mount,
+     * so this mechanism rides another's moving endpoint (e.g. an elevator carriage). Use
+     * the parent's {@code attachmentPose} method reference.
+     */
+    public java.util.function.Supplier<Pose3d> visualParent = null;
     // --- Homing (current-spike zeroing; see homeCommand()) ---
     /** Voltage applied while homing toward the bottom hard stop (negative = down). */
     public Voltage homingVoltage = Volts.of(-1.5);
@@ -319,7 +326,7 @@ public class Elevator extends SingleDofMechanism {
     carriageLigament.setLength(height);
     goalLigament.setLength(goal);
 
-    Pose3d mount = settings.visualPose3d;
+    Pose3d mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
     MechanismVisuals3d.publish(settings.name, java.util.List.of(
         new MechanismVisuals3d.Segment("frame",
             MechanismVisuals3d.planarPoint(mount, 0, settings.minHeight.in(Meters)),
@@ -403,5 +410,16 @@ public class Elevator extends SingleDofMechanism {
   /** The settings this mechanism was built with (start positions, limits, ...). */
   public Settings getSettings() {
     return settings;
+  }
+
+  /**
+   * The live robot-frame pose where a child mechanism mounts: the carriage at its
+   * current height, oriented like the elevator. Pass {@code elevator::attachmentPose}
+   * as another mechanism's {@code visualParent} to ride the carriage in the 3D view.
+   */
+  public Pose3d attachmentPose() {
+    Pose3d mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
+    return new Pose3d(
+        MechanismVisuals3d.planarPoint(mount, 0, positionNative()), mount.getRotation());
   }
 }

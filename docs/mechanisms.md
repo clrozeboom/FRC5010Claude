@@ -148,6 +148,16 @@ z up, meters from robot center at floor level):
     (a side-mounted deploy). Any other `Rotation3d` works too — these three are just
     the common cases.
 
+**Coupled mechanisms.** When one mechanism rides another — a small arm on an elevator
+carriage, a flywheel on the arm tip — set the child's `settings.visualParent` to the
+parent's `attachmentPose` method reference (`Elevator`/`Arm`/`Pivot`/`Flywheel` each
+expose one: the carriage, the swinging tip, the wheel centre). With a parent set, the
+child's `visualPose3d` becomes an **offset from the parent's live endpoint** instead of
+an absolute mount, so the child tracks the parent every cycle (raising the elevator
+lifts the whole arm + flywheel assembly). Chains work to any depth. The example robot
+wires `ExampleElevator → ExampleArm → ExampleShooter` as a three-link demo (see
+`ExampleRobot.configureDemoMechanisms`).
+
 Every cycle each mechanism publishes its current 3D line segments (current state in
 its type color, goal ghost in white) into the `MechanismVisuals3d` registry. A
 flywheel instead renders as a **speedometer dial**: the needle points straight down at
@@ -322,7 +332,10 @@ under SmartDashboard → **RobotMechanisms** (the examples set distinct
 
 With `-PwebUI` the same run also shows the **Mechanisms 3D** isometric panel on the
 field page (the examples set distinct `visualPose3d`s — the turrets use `YAW_PLANE`,
-so X visibly swings them in the horizontal plane while the elevators climb).
+so X visibly swings them in the horizontal plane while the elevators climb). The
+`ExampleArm` and `ExampleShooter` are coupled onto the `ExampleElevator` carriage there
+(see "Coupled mechanisms" above), so pressing X lifts the elevator and the arm +
+flywheel ride up with it — a live demo of parent-child mounting.
 
 ## Functional tests
 
