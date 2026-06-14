@@ -310,13 +310,24 @@ public abstract class SwerveRobotContainer {
 
     // Defer auto construction to the first scheduler tick so that all subclass constructors
     // have completed (and fields like demoIntake are set) before buildAutos() is called.
+    //
+    // This MUST run its body from execute(), not initialize(): Commands.runOnce() is an
+    // InstantCommand that runs its body in initialize(), and CommandScheduler.schedule()
+    // initializes synchronously when called outside the run loop — i.e. right here, still
+    // inside the subclass constructor chain, before fields like demoIntake are assigned.
+    // A bare runOnce would therefore build the autos too early and silently drop any
+    // routine gated on a not-yet-constructed field. Leading with waitSeconds(0) pushes the
+    // build onto the first run() tick, which is genuinely after construction completes.
     // ignoringDisable(true) ensures this runs while the robot is still disabled at startup.
     CommandScheduler.getInstance().schedule(
-        Commands.runOnce(() -> {
-          buildAutos();
-          finalizeAutos();
-        }).ignoringDisable(true).withName("BuildAutos")
-    );
+        Commands.sequence(
+                Commands.waitSeconds(0),
+                Commands.runOnce(() -> {
+                  buildAutos();
+                  finalizeAutos();
+                }))
+            .ignoringDisable(true)
+            .withName("BuildAutos"));
   }
 
   /**
