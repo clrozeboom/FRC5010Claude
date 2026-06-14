@@ -179,7 +179,7 @@ Every cycle each mechanism publishes its current 3D line segments (current state
 its type color, goal ghost in white) into the `MechanismVisuals3d` registry. A
 flywheel instead renders as a **speedometer dial**: the needle points straight down at
 zero and sweeps up as it spins — CCW for positive speed, CW for negative — normalized
-to the wheel's free speed, so sign and magnitude read at a glance. Two renderers
+to the wheel's free speed, so sign and magnitude read at a glance. Three renderers
 consume the registry:
 
 1. **Web UI isometric panel** (`-PwebUI`) — the bottom-right overlay on the field
@@ -195,6 +195,14 @@ consume the registry:
    **Mechanisms3d/\<name\>** (one pose per segment: position at the segment start,
    X-axis along the segment), ready to attach as articulated components on the 3D
    field view.
+3. **Glass / SmartDashboard iso canvas** — the same segments are also drawn as a fixed
+   30° isometric projection on a `Mechanism2d` published as **SmartDashboard →
+   RobotMechanisms3D**, so the 3D layout is visible in the plain simulator without the
+   web UI or AdvantageScope (no orbiting — just a static iso angle, z straight up). It's
+   on by default; `MechanismVisuals3d.setGlassIsoViewEnabled(false)` (before any
+   mechanism publishes) skips the extra widget. This is distinct from the per-mechanism
+   side-view overlay (**RobotMechanisms**), which roots each mechanism at its own
+   `visualPosition`; the iso canvas is the unified robot-frame view.
 
 `close()` removes the mechanism from the registry; tests that publish must call
 `MechanismVisuals3d.resetForTesting()` in teardown (see `MechanismVisuals3dTest`).

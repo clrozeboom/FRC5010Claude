@@ -217,11 +217,13 @@ public final class MechanismVisuals3d {
       poses[i] = segmentPose(snapshot.get(i));
     }
     Logger.recordOutput("Mechanisms3d/" + name, poses);
+    MechanismIsoCanvas.render(name, snapshot);
   }
 
   /** Removes a mechanism's segments (call from {@code close()}). */
   public static void remove(String name) {
     registry.remove(name);
+    MechanismIsoCanvas.remove(name);
   }
 
   /** A {@link Pose3d} at the segment start with its X-axis pointing along the segment. */
@@ -304,6 +306,18 @@ public final class MechanismVisuals3d {
     chassisLength = 0.8;
     chassisWidth = 0.8;
     chassisHeight = 0.13;
+    MechanismIsoCanvas.resetForTesting();
+  }
+
+  /**
+   * Enables or disables the Glass isometric canvas (SmartDashboard → RobotMechanisms3D),
+   * the 2D projection of these 3D segments for the plain simulator. Default enabled; turn
+   * it off before any mechanism publishes to skip the extra widget.
+   *
+   * @param on true to publish the iso canvas
+   */
+  public static void setGlassIsoViewEnabled(boolean on) {
+    MechanismIsoCanvas.setEnabled(on);
   }
 
   private static String fmt(double v) {

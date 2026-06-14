@@ -220,6 +220,37 @@ class MechanismVisuals3dTest extends SimTestBase {
   }
 
   @Test
+  void isoProjectionKeepsZStraightUp() {
+    // The Glass iso projection: a purely vertical 3D segment (same x,y) stays vertical on
+    // the canvas — px unchanged, py rising by the height times the scale.
+    double[] floor = MechanismIsoCanvas.project(new Translation3d(0, 0, 0));
+    double[] high = MechanismIsoCanvas.project(new Translation3d(0, 0, 1));
+    assertEquals(floor[0], high[0], 1e-9, "vertical segments must not drift sideways");
+    assertTrue(high[1] > floor[1], "+z must project upward on the canvas");
+  }
+
+  @Test
+  void isoCanvasPoolsSlotsAndCollapsesUnusedOnes() {
+    // Two segments this cycle, then one next cycle: the pool keeps its high-water size and
+    // the now-unused slot collapses to zero length rather than lingering.
+    MechanismVisuals3d.publish("IsoMech", List.of(
+        new Segment("a", new Translation3d(0, 0, 0), new Translation3d(0, 0, 1), "#58a6ff", 3),
+        new Segment("b", new Translation3d(0, 0, 1), new Translation3d(0.5, 0, 1), "#ffffff", 1)));
+    assertEquals(2, MechanismIsoCanvas.slotCount("IsoMech"));
+    assertTrue(MechanismIsoCanvas.ligamentLength("IsoMech", 1) > 0);
+
+    MechanismVisuals3d.publish("IsoMech", List.of(
+        new Segment("a", new Translation3d(0, 0, 0), new Translation3d(0, 0, 1), "#58a6ff", 3)));
+    assertEquals(2, MechanismIsoCanvas.slotCount("IsoMech"), "pool keeps its high-water size");
+    assertEquals(0.0, MechanismIsoCanvas.ligamentLength("IsoMech", 1), 1e-9,
+        "an unused slot must collapse to zero length");
+
+    // remove() hides the surviving slot too.
+    MechanismVisuals3d.remove("IsoMech");
+    assertEquals(0, MechanismIsoCanvas.slotCount("IsoMech"));
+  }
+
+  @Test
   void mechanismsArrayJsonIsABareArrayWithoutChassis() {
     MechanismVisuals3d.publish("M", List.of(new Segment(
         "bar", new Translation3d(0, 0, 0), new Translation3d(0, 0, 1), "#58a6ff", 3)));
