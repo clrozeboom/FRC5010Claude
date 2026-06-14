@@ -65,19 +65,6 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
     public Mass mass = Kilograms.of(1.5);
 
     /**
-     * Canvas to draw this mechanism on. Null (default) = the shared robot-overlay
-     * canvas (SmartDashboard -> RobotMechanisms); pass your own Mechanism2d to split
-     * mechanisms onto separate widgets (you publish custom canvases yourself).
-     */
-    public edu.wpi.first.wpilibj.smartdashboard.Mechanism2d mechanism2d = null;
-    /**
-     * Where this mechanism's root sits on the canvas, meters — x along the robot's
-     * length, y above the floor (side view). Lets the overlay reflect the real robot
-     * layout.
-     */
-    public edu.wpi.first.math.geometry.Translation2d visualPosition =
-        new edu.wpi.first.math.geometry.Translation2d(2.6, 1.8);
-    /**
      * Where this mechanism sits on the robot for the 3D isometric view — robot frame,
      * x forward, y left, z up, meters from robot center at floor level. The rotation
      * re-aims the wheel plane: identity (default) spins it in the robot's X-Z
@@ -92,6 +79,14 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
      * so the flywheel rides another mechanism's moving endpoint (e.g. an arm tip).
      */
     public java.util.function.Supplier<edu.wpi.first.math.geometry.Pose3d> visualParent = null;
+    /**
+     * Structural offset from the parent's endpoint to where this mechanism attaches,
+     * expressed in the parent's attachment frame (the bracket/standoff carrying it off
+     * the parent). Applied before {@link #visualPose3d} when {@link #visualParent} is
+     * set; identity (default) mounts straight on the parent's endpoint.
+     */
+    public edu.wpi.first.math.geometry.Transform3d visualParentOffset =
+        new edu.wpi.first.math.geometry.Transform3d();
     // --- LQR weights (live-tunable in RPM; these are the initial values) ---
     /** Velocity error tolerance. Smaller = more aggressive. */
     public AngularVelocity qelmsVelocity = RadiansPerSecond.of(8);
@@ -157,7 +152,6 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
   private double goalRadPerSec;
   private boolean wasEnabled = false;
   private final edu.wpi.first.wpilibj.Alert disconnectedAlert;
-  private final edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d wheelLigament;
 
   /**
    * Builds the flywheel subsystem, its IO (per {@link RobotMode}), controller, and sim.
@@ -215,11 +209,6 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
 
     disconnectedAlert = new edu.wpi.first.wpilibj.Alert(
         settings.name + " TalonFX disconnected", edu.wpi.first.wpilibj.Alert.AlertType.kError);
-    var canvas = MechanismVisuals.canvasFor(settings.mechanism2d);
-    wheelLigament = canvas.getRoot(settings.name + "Root",
-            settings.visualPosition.getX(), settings.visualPosition.getY())
-        .append(new edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d(
-            "wheel", settings.diameter.in(Meters) / 2, 0));
   }
 
   private double moiKgM2() {
@@ -326,9 +315,9 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
 
     Logger.recordOutput(settings.name + "/GoalRPM",
         RadiansPerSecond.of(mode == OutputMode.GOAL ? goalRadPerSec : getVelocityRadPerSec()).in(RPM));
-    wheelLigament.setAngle(inputs.positionRot * 360.0); // spins with the wheel
 
-    var mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
+    var mount = MechanismVisuals3d.resolveMount(
+        settings.visualPose3d, settings.visualParent, settings.visualParentOffset);
     double radius = settings.diameter.in(Meters) / 2;
     // Speedometer dial: 0 speed points straight down, full speed points up. Positive
     // speed sweeps the needle CCW (up the right side), negative sweeps CW (up the left),
@@ -409,7 +398,8 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
    * {@code flywheel::attachmentPose} as another mechanism's {@code visualParent}.
    */
   public edu.wpi.first.math.geometry.Pose3d attachmentPose() {
-    return MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
+    return MechanismVisuals3d.resolveMount(
+        settings.visualPose3d, settings.visualParent, settings.visualParentOffset);
   }
 
   /** Stops control and frees the CAN device. For unit tests. */

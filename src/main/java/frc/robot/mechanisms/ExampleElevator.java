@@ -23,6 +23,8 @@ public class ExampleElevator extends Elevator {
 
   /** CAN ID of the elevator TalonFX. */
   public static final int CAN_ID = 21;
+  /** CAN ID of the second motor on the gearbox, following the lead. */
+  public static final int FOLLOWER_CAN_ID = 36;
 
   public ExampleElevator() {
     super(settings());
@@ -32,6 +34,13 @@ public class ExampleElevator extends Elevator {
     var s = new Settings();
     s.name = "ExampleElevator";
     s.canId = CAN_ID;
+    // Two-motor gearbox: a follower on CAN 36, drawn in the 3D view as an offset mirror
+    // of the elevator 0.5 m to the +Y side (the far rail of the carriage). On a real
+    // two-motor gearbox also set motorModel = DCMotor.getKrakenX60(2) and re-characterize
+    // kG; this demo keeps the single-motor plant so its tuning matches the other examples.
+    s.followerCanId = FOLLOWER_CAN_ID;
+    s.followerOpposed = true;
+    s.followerVisualOffset = new edu.wpi.first.math.geometry.Translation3d(0, 0.5, 0);
     s.motorModel = DCMotor.getKrakenX60(1);
     s.gearReductionStages = new double[] {4, 3}; // 12:1
     s.drumCircumference = Inches.of(0.25 * 22); // 22T #25-chain sprocket
@@ -43,7 +52,6 @@ public class ExampleElevator extends Elevator {
     s.maxVelocity = MetersPerSecond.of(0.9);
     s.maxAcceleration = MetersPerSecondPerSecond.of(2.0);
     s.kG = Volts.of(0.19); // m·g·r / (gearing · kT / R) for the plant above
-    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(0.25, 0.0); // spot on the RobotMechanisms overlay
     s.visualPose3d = new edu.wpi.first.math.geometry.Pose3d(0.25, 0.25, 0,
         edu.wpi.first.math.geometry.Rotation3d.kZero); // front-left corner, 3D view
     return s;

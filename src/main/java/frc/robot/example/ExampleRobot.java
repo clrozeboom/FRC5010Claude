@@ -130,6 +130,12 @@ public class ExampleRobot extends SwerveRobotContainer {
     arm.getSettings().visualPose3d = new edu.wpi.first.math.geometry.Pose3d();
     shooter.getSettings().visualParent = arm::attachmentPose;
     shooter.getSettings().visualPose3d = new edu.wpi.first.math.geometry.Pose3d();
+    // The shooter rides a short standoff past the arm tip rather than dead on it:
+    // visualParentOffset is the bracket carrying it off the parent's endpoint (here 8 cm
+    // further along the arm), kept separate from the shooter's own visualPose3d.
+    shooter.getSettings().visualParentOffset = new edu.wpi.first.math.geometry.Transform3d(
+        new edu.wpi.first.math.geometry.Translation3d(0.08, 0, 0),
+        edu.wpi.first.math.geometry.Rotation3d.kZero);
 
     demoElevator = elevator;
     registerMechanism(() -> demoElevator = null);

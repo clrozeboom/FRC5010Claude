@@ -35,7 +35,6 @@ public class ExampleTurret extends Pivot {
     s.minAngle = Degrees.of(-180);
     s.maxAngle = Degrees.of(180);
     s.startingAngle = Degrees.of(0);
-    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(2.4, 0.5); // spot on the RobotMechanisms overlay
     // 3D view: YAW_PLANE lays the pivot plane flat — the turret spins about the
     // vertical axis on top of the robot instead of swinging like an arm.
     s.visualPose3d = new edu.wpi.first.math.geometry.Pose3d(0, 0, 0.55,

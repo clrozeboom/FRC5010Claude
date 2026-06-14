@@ -102,6 +102,8 @@ Commands: `goToHeight(Distance)` / `goToAngle(Angle)` / `goToSpeed(AngularVeloci
 **Real-robot hardware options** (all in Settings):
 - `followerCanId`/`followerOpposed` — second TalonFX on the same gearbox (set
   `motorModel = DCMotor.getKrakenX60(2)` so the plant/sim include both motors).
+  `followerVisualOffset` draws it as an offset mirror in the 3D view (single-DOF only;
+  see the 3D-visualization section below).
 - Arm/Pivot `cancoderId`/`cancoderOffset` — absolute CANcoder mounted 1:1 on the
   joint, fused onboard (position correct at power-on, no seeding). Best paired with
   PROFILED_PID: onboard MotionMagic consumes the fused sensor at 1 kHz
@@ -122,13 +124,10 @@ Commands: `goToHeight(Distance)` / `goToAngle(Angle)` / `goToSpeed(AngularVeloci
   re-enable instead of driving back to a stale target (default false = resume).
 - Every motor gets a WPILib `Alert` ("<name> TalonFX disconnected") driven by the
   `connected` input.
-- **Visualization overlay** — by default every mechanism draws onto one shared
-  side-view canvas (SmartDashboard → **RobotMechanisms**), rooted at
-  `visualPosition` (x along the robot's length, y above the floor, meters), so the
-  whole superstructure appears as one robot overlay in Glass/AdvantageScope. Pass
-  your own `Mechanism2d` via `settings.mechanism2d` to split mechanisms onto
-  separate widgets (you publish custom canvases yourself). Mechanism names must be
-  unique (they already must be for tuning tables).
+- **Visualization** — every mechanism publishes its geometry to the single isometric
+  robot view (SmartDashboard → **RobotMechanisms3D**, and the `-PwebUI` panel /
+  AdvantageScope), positioned by `settings.visualPose3d` (see the next section).
+  Mechanism names must be unique (they already must be for tuning tables).
 
 ## 3D visualization (isometric web view + AdvantageScope)
 
@@ -158,11 +157,26 @@ lifts the whole arm + flywheel assembly). Chains work to any depth. The example 
 wires `ExampleElevator → ExampleArm → ExampleShooter` as a three-link demo (see
 `ExampleRobot.configureDemoMechanisms`).
 
+`settings.visualParentOffset` (a `Transform3d`, default identity) is a **structural
+linkage offset** applied to the parent's endpoint *before* the child's `visualPose3d` —
+the bracket/standoff that carries the child off the parent (e.g. the shooter sitting 8 cm
+past the arm tip in the demo). Keeping it separate from `visualPose3d` lets the same
+child pose read identically whether the mechanism is standalone or coupled.
+
+**Follower motors** (single-DOF only: `Elevator`/`Arm`/`Pivot`). A follower
+(`followerCanId`) is locked to the lead shaft, so it has no motion of its own — but you
+can draw it as an **offset mirror of the mechanism**: the same geometry redrawn at
+`settings.followerVisualOffset` (a `Translation3d` in the mount's local frame: x = plane
+horizontal, y = plane normal, z = plane vertical). Use it to show the far side of an
+elevator or a duplicated arm on the same shaft. The mirror tracks the live state every
+cycle and is drawn only when a follower is configured. `ExampleElevator` carries a
+follower on CAN 36 mirrored 0.5 m to the +Y side as a live example.
+
 Every cycle each mechanism publishes its current 3D line segments (current state in
 its type color, goal ghost in white) into the `MechanismVisuals3d` registry. A
 flywheel instead renders as a **speedometer dial**: the needle points straight down at
 zero and sweeps up as it spins — CCW for positive speed, CW for negative — normalized
-to the wheel's free speed, so sign and magnitude read at a glance. Two renderers
+to the wheel's free speed, so sign and magnitude read at a glance. Three renderers
 consume the registry:
 
 1. **Web UI isometric panel** (`-PwebUI`) — the bottom-right overlay on the field
@@ -178,6 +192,18 @@ consume the registry:
    **Mechanisms3d/\<name\>** (one pose per segment: position at the segment start,
    X-axis along the segment), ready to attach as articulated components on the 3D
    field view.
+3. **Glass / SmartDashboard iso canvas** — the same scene is drawn as a fixed 30°
+   isometric projection on a `Mechanism2d` published as **SmartDashboard →
+   RobotMechanisms3D**, so the 3D layout is visible in the plain simulator without the
+   web UI or AdvantageScope (no orbiting — just a static iso angle, z straight up). This
+   is the **default unified robot view**: equivalent to the web panel, it draws the
+   chassis box, the swerve wheels (live steer, length growing with speed), the gyro
+   compass, *and* every mechanism's segments. The drivetrain feeds its part each cycle
+   (`AkitSwerveDrive.periodic()` → `MechanismVisuals3d.setRobotScene(...)`); each
+   mechanism feeds its own via `publish`. On by default;
+   `MechanismVisuals3d.setGlassIsoViewEnabled(false)` (before anything publishes) skips
+   it. This is the only robot `Mechanism2d` the library publishes — it supersedes the
+   former per-mechanism side-view overlay and the separate swerve drivetrain widget.
 
 `close()` removes the mechanism from the registry; tests that publish must call
 `MechanismVisuals3d.resetForTesting()` in teardown (see `MechanismVisuals3dTest`).
@@ -325,9 +351,9 @@ IDs don't exist on a real robot) and binds the **X button** to drive them all to
 mid-travel point in parallel (elevators → 0.75 m, arms/turrets → 90°, shooters →
 3000 RPM, DJA → 90°/0°, wrist → 45°/30°); releasing X returns everything to its
 configured start point (read from each mechanism's `getSettings()`, flywheels spin
-down to 0). Run `./gradlew simulateJava`, enable, press X, and watch the combined robot overlay
-under SmartDashboard → **RobotMechanisms** (the examples set distinct
-`visualPosition`s so the whole superstructure reads as one side view). Tests that construct
+down to 0). Run `./gradlew simulateJava`, enable, press X, and watch the combined robot
+view under SmartDashboard → **RobotMechanisms3D** (the isometric robot view — chassis,
+wheels, gyro, and every mechanism at its `visualPose3d`). Tests that construct
 `RobotContainer` must call `SwerveRobotContainer.closeMechanisms()` in teardown.
 
 With `-PwebUI` the same run also shows the **Mechanisms 3D** isometric panel on the
@@ -348,8 +374,8 @@ AdvantageKit inputs path. They run in the normal `./gradlew test` suite.
 ## Real-robot bring-up
 
 1. Copy an example, set real CAN IDs / gearing / masses / limits.
-2. Verify in sim (`./gradlew test`, or `simulateJava` and watch the RobotMechanisms
-   overlay — set `visualPosition` to match where the mechanism sits on your robot).
+2. Verify in sim (`./gradlew test`, or `simulateJava` and watch the RobotMechanisms3D
+   iso view — set `visualPose3d` to match where the mechanism sits on your robot).
 3. On the robot: run `sysId()` to characterize kG, kV, and kA; set `kG` and (for LQR
    style) `characterizedKv`/`characterizedKa` so the plant matches the real mechanism
    (see "Characterized plants" above).

@@ -49,9 +49,6 @@ public class MechanismsFunctionalTest extends SimTestBase {
   @AfterEach
   @Override
   public void simTeardown() {
-    // Fresh shared canvas per test — re-constructing a same-named mechanism would
-    // otherwise collide with ligaments left on the old canvas.
-    org.frc5010.common.mechanisms.MechanismVisuals.resetForTesting();
     org.frc5010.common.mechanisms.MechanismVisuals3d.resetForTesting();
     RobotMode.resetForTesting();
     super.simTeardown();

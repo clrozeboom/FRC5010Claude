@@ -13,7 +13,6 @@ import static edu.wpi.first.units.Units.Second;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
@@ -24,8 +23,6 @@ import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.Mass;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
-import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
-import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -92,17 +89,6 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
     /** Stator current limit (both joints). */
     public Current statorCurrentLimit = Amps.of(40);
     /**
-     * Canvas to draw this mechanism on. Null (default) = the shared robot-overlay
-     * canvas (SmartDashboard -> RobotMechanisms); pass your own Mechanism2d to split
-     * mechanisms onto separate widgets (you publish custom canvases yourself).
-     */
-    public Mechanism2d mechanism2d = null;
-    /**
-     * Where the shoulder joint sits on the canvas, meters — x along the robot's
-     * length, y above the floor (side view).
-     */
-    public Translation2d visualPosition = new Translation2d(1.0, 1.2);
-    /**
      * Where the shoulder joint sits on the robot for the 3D isometric view — robot
      * frame, x forward, y left, z up, meters from robot center at floor level. The
      * rotation re-aims the working plane: identity (default) swings both joints in
@@ -131,9 +117,6 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
   private double lowerGoalRot;
   private double upperGoalRot;
 
-  private final MechanismLigament2d lowerLigament;
-  private final MechanismLigament2d upperLigament;
-
   /**
    * Builds the double-jointed arm subsystem, both IOs (per {@link RobotMode}), and sims.
    *
@@ -154,15 +137,6 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
     upperDisconnectedAlert = new edu.wpi.first.wpilibj.Alert(
         settings.name + " upper TalonFX disconnected",
         edu.wpi.first.wpilibj.Alert.AlertType.kError);
-
-    Mechanism2d canvas = MechanismVisuals.canvasFor(settings.mechanism2d);
-    lowerLigament = canvas.getRoot(settings.name + "Root",
-            settings.visualPosition.getX(), settings.visualPosition.getY())
-        .append(new MechanismLigament2d("lower", settings.lowerJoint.length.in(Meters),
-            settings.lowerJoint.startingAngle.in(Degrees)));
-    upperLigament = lowerLigament.append(
-        new MechanismLigament2d("upper", settings.upperJoint.length.in(Meters),
-            settings.upperJoint.startingAngle.in(Degrees)));
   }
 
   private MechanismIO jointIo(JointSettings joint) {
@@ -260,11 +234,6 @@ public class DoubleJointedArm extends SubsystemBase implements AutoCloseable {
       lowerIo.runPosition(lowerGoalRot);
       upperIo.runPosition(upperGoalRot);
     }
-
-    lowerLigament.setAngle(lowerInputs.positionRot * 360.0);
-    // The upper ligament is drawn relative to the lower segment, but the elbow encoder
-    // reads an absolute (robot-frame) angle in this model — subtract the shoulder.
-    upperLigament.setAngle((upperInputs.positionRot - lowerInputs.positionRot) * 360.0);
 
     // 3D view: both joint angles are absolute in this model, so each segment is laid
     // out directly in the working plane and chained tip-to-tail.

@@ -1,5 +1,7 @@
 package org.frc5010.common.mechanisms;
 
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
@@ -132,6 +134,38 @@ public abstract class SingleDofMechanism extends SubsystemBase implements AutoCl
   /** Current velocity in native units/s (from the replay-safe inputs). */
   protected double velocityNative() {
     return inputs.velocityRotPerSec * params.nativePerRot;
+  }
+
+  /** Rebuilds a mechanism's 3D segments at a given mount pose (real mount, then mirror). */
+  @FunctionalInterface
+  protected interface SegmentBuilder {
+    /**
+     * @param mount the mount pose to draw against
+     * @return the mechanism's segments for that mount
+     */
+    java.util.List<MechanismVisuals3d.Segment> build(Pose3d mount);
+  }
+
+  /**
+   * Appends an offset mirror of the mechanism when a follower is configured
+   * ({@code followerCanId >= 0}): the same geometry redrawn at {@code offset} from the
+   * resolved mount (mount-local frame), e.g. the far side of an elevator or a duplicated
+   * arm on the same shaft. The follower is mechanically locked to the lead, so the mirror
+   * tracks the live state every cycle. No-op when no follower is configured.
+   *
+   * @param segments      the mutable segment list being built for this cycle
+   * @param mount         the mechanism's resolved mount pose
+   * @param followerCanId the follower CAN ID (&lt; 0 = none)
+   * @param offset        mirror position relative to the mount, mount-local meters
+   * @param builder       rebuilds the mechanism's segments at the mirrored mount
+   */
+  protected void appendFollowerMirror(
+      java.util.List<MechanismVisuals3d.Segment> segments, Pose3d mount, int followerCanId,
+      Translation3d offset, SegmentBuilder builder) {
+    if (followerCanId < 0) {
+      return;
+    }
+    segments.addAll(builder.build(MechanismVisuals3d.offsetMount(mount, offset)));
   }
 
   /** Logs the goal each cycle in subclass-friendly units. */

@@ -17,7 +17,7 @@ import static edu.wpi.first.units.Units.Volts;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
@@ -29,10 +29,6 @@ import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.Mass;
 import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
-import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
-import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.util.Color;
-import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -65,6 +61,14 @@ public class Arm extends SingleDofMechanism {
     public int followerCanId = -1;
     /** True if the follower is mounted opposing the lead motor. */
     public boolean followerOpposed = false;
+    /**
+     * Where to draw the follower as an offset mirror of this mechanism — the arm bar
+     * redrawn at this offset from the mount, in the mount's local frame (x = plane
+     * horizontal, y = plane normal, z = plane vertical), meters. Use it to show a
+     * duplicated arm on the same shaft. Only drawn when {@link #followerCanId} is set;
+     * the mirror swings with the live arm every cycle.
+     */
+    public Translation3d followerVisualOffset = new Translation3d(0, 0.2, 0);
     /** CAN ID of a fused CANcoder mounted 1:1 on the joint; −1 = rotor sensor. */
     public int cancoderId = -1;
     /** CANcoder reading at the arm's zero (horizontal), for the magnet offset. */
@@ -101,18 +105,6 @@ public class Arm extends SingleDofMechanism {
     public boolean clearGoalOnDisable = false;
 
     /**
-     * Canvas to draw this mechanism on. Null (default) = the shared robot-overlay
-     * canvas (SmartDashboard -> RobotMechanisms); pass your own Mechanism2d to split
-     * mechanisms onto separate widgets (you publish custom canvases yourself).
-     */
-    public Mechanism2d mechanism2d = null;
-    /**
-     * Where this mechanism's root sits on the canvas, meters — x along the robot's
-     * length, y above the floor (side view). Lets the overlay reflect the real robot
-     * layout.
-     */
-    public Translation2d visualPosition = new Translation2d(1.5, 1.0);
-    /**
      * Where this mechanism sits on the robot for the 3D isometric view — robot frame,
      * x forward, y left, z up, meters from robot center at floor level. The rotation
      * re-aims the working plane: identity (default) swings the arm in the robot's X-Z
@@ -125,6 +117,13 @@ public class Arm extends SingleDofMechanism {
      * so the arm rides another mechanism's moving endpoint (e.g. an elevator carriage).
      */
     public java.util.function.Supplier<Pose3d> visualParent = null;
+    /**
+     * Structural offset from the parent's endpoint to where this mechanism attaches,
+     * expressed in the parent's attachment frame (the bracket/standoff carrying it off
+     * the parent). Applied before {@link #visualPose3d} when {@link #visualParent} is
+     * set; identity (default) mounts straight on the parent's endpoint.
+     */
+    public Transform3d visualParentOffset = new Transform3d();
     // --- LQR weights (live-tunable in DEGREES; these are the initial values) ---
     /** Position error tolerance. Smaller = more aggressive. */
     public Angle qelmsPosition = Degrees.of(1.5);
@@ -170,8 +169,6 @@ public class Arm extends SingleDofMechanism {
 
   private final Settings settings;
   private final SysIdRoutine sysIdRoutine;
-  private final MechanismLigament2d armLigament;
-  private final MechanismLigament2d goalLigament;
 
   /**
    * Builds the arm subsystem, its IO (per {@link RobotMode}), controller, and sim.
@@ -191,16 +188,6 @@ public class Arm extends SingleDofMechanism {
                 .angularPosition(Radians.of(positionNative()))
                 .angularVelocity(RadiansPerSecond.of(velocityNative())),
             this));
-
-    double lengthM = settings.length.in(Meters);
-    Mechanism2d canvas = MechanismVisuals.canvasFor(settings.mechanism2d);
-    double rootX = settings.visualPosition.getX();
-    double rootY = settings.visualPosition.getY();
-    armLigament = canvas.getRoot(settings.name + "Root", rootX, rootY)
-        .append(new MechanismLigament2d("arm", lengthM, settings.startingAngle.in(Degrees)));
-    goalLigament = canvas.getRoot(settings.name + "GoalRoot", rootX, rootY)
-        .append(new MechanismLigament2d("goal", lengthM, settings.startingAngle.in(Degrees), 3,
-            new Color8Bit(Color.kWhite)));
   }
 
   private static BaseParams baseParams(Settings settings) {
@@ -319,18 +306,25 @@ public class Arm extends SingleDofMechanism {
   @Override
   protected void updateVisualization() {
     double goalRad = mode == OutputMode.GOAL ? goalNative : positionNative();
-    armLigament.setAngle(Math.toDegrees(positionNative()));
-    goalLigament.setAngle(Math.toDegrees(goalRad));
 
-    Pose3d mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
+    Pose3d mount = MechanismVisuals3d.resolveMount(
+        settings.visualPose3d, settings.visualParent, settings.visualParentOffset);
+    var segments = new java.util.ArrayList<>(armSegments(mount, goalRad));
+    appendFollowerMirror(segments, mount, settings.followerCanId,
+        settings.followerVisualOffset, m -> armSegments(m, goalRad));
+    MechanismVisuals3d.publish(settings.name, segments);
+  }
+
+  /** The goal-ghost and arm segments for one mount — drawn again at the follower offset. */
+  private java.util.List<MechanismVisuals3d.Segment> armSegments(Pose3d mount, double goalRad) {
     double lengthM = settings.length.in(Meters);
     Translation3d base = MechanismVisuals3d.planarPoint(mount, 0, 0);
-    MechanismVisuals3d.publish(settings.name, java.util.List.of(
+    return java.util.List.of(
         new MechanismVisuals3d.Segment("goal", base,
             MechanismVisuals3d.planarOffset(mount, base, goalRad, lengthM), "#ffffff", 1),
         new MechanismVisuals3d.Segment("arm", base,
             MechanismVisuals3d.planarOffset(mount, base, positionNative(), lengthM),
-            "#ffa657", 3)));
+            "#ffa657", 3));
   }
 
   /** Command: drive the arm to the given angle. Never finishes. */
@@ -375,7 +369,8 @@ public class Arm extends SingleDofMechanism {
    * as another mechanism's {@code visualParent}.
    */
   public Pose3d attachmentPose() {
-    Pose3d mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
+    Pose3d mount = MechanismVisuals3d.resolveMount(
+        settings.visualPose3d, settings.visualParent, settings.visualParentOffset);
     Translation3d base = MechanismVisuals3d.planarPoint(mount, 0, 0);
     Translation3d tip =
         MechanismVisuals3d.planarOffset(mount, base, positionNative(), settings.length.in(Meters));

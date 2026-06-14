@@ -24,10 +24,11 @@ Uses `ExampleRobotProfile` with your robot's actual `SwerveConstants`. IronMaple
 ./gradlew simulateJava        # macOS / Linux / Codespaces
 ```
 
-The drivetrain also publishes a **`SwerveDrive` Mechanism2d** to SmartDashboard
-(`AkitSwerveDrive` → `SwerveVisuals2d`): a wheel arrow per module (live steer azimuth,
-length growing with drive speed) plus a centre gyro-heading needle, so Glass /
-Shuffleboard / AdvantageScope show the drivetrain state without the web UI.
+The drivetrain publishes a **`RobotMechanisms3D` Mechanism2d** to SmartDashboard
+via the isometric canvas (`AkitSwerveDrive` → `MechanismVisuals3d` → `MechanismIsoCanvas`):
+a 30° isometric projection of the chassis box, swerve wheels (live azimuth + speed),
+gyro-heading compass, and all active mechanism segments, so Glass / Shuffleboard /
+AdvantageScope show the full robot state without the web UI.
 
 ### 3. Visual auto-test (`-PvisualTest`)
 

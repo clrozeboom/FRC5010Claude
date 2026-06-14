@@ -36,7 +36,6 @@ class MechanismVisuals3dTest extends SimTestBase {
   @Override
   public void simTeardown() {
     MechanismVisuals3d.resetForTesting();
-    MechanismVisuals.resetForTesting();
     RobotMode.resetForTesting();
     super.simTeardown();
   }
@@ -117,6 +116,82 @@ class MechanismVisuals3dTest extends SimTestBase {
   }
 
   @Test
+  void resolveMountAppliesLinkageOffsetBeforeLocalPose() {
+    // Parent endpoint at the origin facing forward. A 0.5 m linkage standoff along the
+    // parent's +X carries the child off the endpoint; the child's own local pose then
+    // adds 0.2 m more along the (now shifted) frame. They compose: 0.7 m total.
+    Pose3d parent = new Pose3d(0, 0, 0, Rotation3d.kZero);
+    Pose3d coupled = MechanismVisuals3d.resolveMount(
+        new Pose3d(0.2, 0, 0, Rotation3d.kZero), () -> parent,
+        new edu.wpi.first.math.geometry.Transform3d(
+            new Translation3d(0.5, 0, 0), Rotation3d.kZero));
+    assertEquals(0.7, coupled.getX(), 1e-9);
+    assertEquals(0.0, coupled.getY(), 1e-9);
+
+    // A null linkage offset behaves exactly like the 2-arg resolveMount (offset = none).
+    Pose3d noOffset = MechanismVisuals3d.resolveMount(
+        new Pose3d(0.2, 0, 0, Rotation3d.kZero), () -> parent, null);
+    assertEquals(0.2, noOffset.getX(), 1e-9);
+  }
+
+  @Test
+  void offsetMountShiftsTheMountInItsOwnFrame() {
+    // Identity mount: the local offset is a plain robot-frame shift; rotation unchanged.
+    Pose3d mount = new Pose3d(1, 2, 0.5, Rotation3d.kZero);
+    Pose3d shifted = MechanismVisuals3d.offsetMount(mount, new Translation3d(0.1, 0.2, 0.3));
+    assertEquals(1.1, shifted.getX(), 1e-9);
+    assertEquals(2.2, shifted.getY(), 1e-9);
+    assertEquals(0.8, shifted.getZ(), 1e-9);
+    assertEquals(mount.getRotation(), shifted.getRotation(), "mirror keeps the mount's orientation");
+
+    // Yawed mount (90° about Z): the local +X offset comes out along robot +Y.
+    Pose3d yawed = new Pose3d(0, 0, 0, new Rotation3d(0, 0, Math.PI / 2));
+    Pose3d yawShift = MechanismVisuals3d.offsetMount(yawed, new Translation3d(0.5, 0, 0));
+    assertEquals(0.0, yawShift.getX(), 1e-9);
+    assertEquals(0.5, yawShift.getY(), 1e-9);
+  }
+
+  @Test
+  void followerDrawsAnOffsetMirrorOfTheMechanism() {
+    // ExampleElevator carries a follower offset 0.5 m along +Y: every drawn segment must
+    // appear twice (lead + mirror), the mirror shifted by the offset, tracking live state.
+    var elevator = new ExampleElevator();
+    try {
+      elevator.periodic();
+      List<Segment> segments = MechanismVisuals3d.getSegments("ExampleElevator");
+
+      List<Segment> carriages = segments.stream()
+          .filter(s -> "carriage".equals(s.label())).toList();
+      assertEquals(2, carriages.size(), "a follower mirrors the whole mechanism");
+
+      Translation3d offset = elevator.getSettings().followerVisualOffset;
+      Segment lead = carriages.get(0);
+      Segment mirror = carriages.get(1);
+      // Identity mount, so the local +Y offset is a robot +Y shift between the two copies.
+      assertEquals(offset.getY(), mirror.start().getY() - lead.start().getY(), 1e-6);
+      assertEquals(0.0, mirror.start().getX() - lead.start().getX(), 1e-6);
+      assertEquals(0.0, mirror.start().getZ() - lead.start().getZ(), 1e-6,
+          "the mirror is at the same height as the lead — it tracks the live carriage");
+    } finally {
+      elevator.close();
+    }
+  }
+
+  @Test
+  void noFollowerDrawsNoMirror() {
+    // ExampleArm has no follower configured, so each segment appears exactly once.
+    var arm = new frc.robot.mechanisms.ExampleArm();
+    try {
+      arm.periodic();
+      long armBars = MechanismVisuals3d.getSegments("ExampleArm").stream()
+          .filter(s -> "arm".equals(s.label())).count();
+      assertEquals(1, armBars, "no follower → no mirror");
+    } finally {
+      arm.close();
+    }
+  }
+
+  @Test
   void childMechanismRidesItsParentsEndpoint() {
     // The coupled demo: an arm mounted on an elevator carriage. The arm's base must sit
     // exactly at the elevator's live attachment pose (the carriage), not its own
@@ -141,6 +216,63 @@ class MechanismVisuals3dTest extends SimTestBase {
       arm.close();
       elevator.close();
     }
+  }
+
+  @Test
+  void isoProjectionKeepsZStraightUp() {
+    // The Glass iso projection: a purely vertical 3D segment (same x,y) stays vertical on
+    // the canvas — px unchanged, py rising by the height times the scale.
+    double[] floor = MechanismIsoCanvas.project(new Translation3d(0, 0, 0));
+    double[] high = MechanismIsoCanvas.project(new Translation3d(0, 0, 1));
+    assertEquals(floor[0], high[0], 1e-9, "vertical segments must not drift sideways");
+    assertTrue(high[1] > floor[1], "+z must project upward on the canvas");
+  }
+
+  @Test
+  void isoCanvasPoolsSlotsAndCollapsesUnusedOnes() {
+    // Two segments this cycle, then one next cycle: the pool keeps its high-water size and
+    // the now-unused slot collapses to zero length rather than lingering.
+    MechanismVisuals3d.publish("IsoMech", List.of(
+        new Segment("a", new Translation3d(0, 0, 0), new Translation3d(0, 0, 1), "#58a6ff", 3),
+        new Segment("b", new Translation3d(0, 0, 1), new Translation3d(0.5, 0, 1), "#ffffff", 1)));
+    assertEquals(2, MechanismIsoCanvas.slotCount("IsoMech"));
+    assertTrue(MechanismIsoCanvas.ligamentLength("IsoMech", 1) > 0);
+
+    MechanismVisuals3d.publish("IsoMech", List.of(
+        new Segment("a", new Translation3d(0, 0, 0), new Translation3d(0, 0, 1), "#58a6ff", 3)));
+    assertEquals(2, MechanismIsoCanvas.slotCount("IsoMech"), "pool keeps its high-water size");
+    assertEquals(0.0, MechanismIsoCanvas.ligamentLength("IsoMech", 1), 1e-9,
+        "an unused slot must collapse to zero length");
+
+    // remove() hides the surviving slot too.
+    MechanismVisuals3d.remove("IsoMech");
+    assertEquals(0, MechanismIsoCanvas.slotCount("IsoMech"));
+  }
+
+  @Test
+  void robotSceneBuildsChassisWheelsAndCompass() {
+    // 0.8 x 0.7 chassis, 4 modules: 12 box edges + 4 wheels + 16 compass ring + 1 heading.
+    double[][] modules = {
+        {0.3, 0.3, 0, 0}, {0.3, -0.3, 0, 0}, {-0.3, 0.3, 0, 0}, {-0.3, -0.3, 0, 0}};
+    List<Segment> scene =
+        MechanismVisuals3d.robotSceneSegments(0.8, 0.7, 0.15, 0.05, modules, 0.0);
+    assertEquals(12, scene.stream().filter(s -> "chassis".equals(s.label())).count());
+    assertEquals(4, scene.stream().filter(s -> "wheel".equals(s.label())).count());
+    assertEquals(16, scene.stream().filter(s -> "compass".equals(s.label())).count());
+    assertEquals(1, scene.stream().filter(s -> "heading".equals(s.label())).count());
+
+    // The heading needle points along +X (robot forward) at gyro 0.
+    Segment heading = scene.stream().filter(s -> "heading".equals(s.label())).findFirst().orElseThrow();
+    assertTrue(heading.end().getX() > heading.start().getX(), "gyro 0 points robot-forward");
+    assertEquals(0.0, heading.end().getY(), 1e-9);
+  }
+
+  @Test
+  void setRobotSceneRendersOntoTheIsoCanvas() {
+    double[][] modules = {{0.3, 0.3, 0, 0}, {0.3, -0.3, 0, 0}};
+    MechanismVisuals3d.setRobotScene(0.8, 0.7, 0.15, 0.05, modules, 0.0);
+    // 12 chassis + 2 wheels + 16 compass + 1 heading = 31 slots on the shared canvas.
+    assertEquals(31, MechanismIsoCanvas.slotCount(MechanismVisuals3d.SCENE_NAME));
   }
 
   @Test

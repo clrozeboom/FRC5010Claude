@@ -14,7 +14,8 @@ import com.ctre.phoenix6.signals.GravityTypeValue;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.Current;
@@ -24,14 +25,11 @@ import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.units.measure.Mass;
 import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
-import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
-import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.util.Color;
-import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import java.util.List;
 import java.util.Set;
 import org.frc5010.common.robot.RobotMode;
 import org.littletonrobotics.junction.Logger;
@@ -57,6 +55,14 @@ public class Elevator extends SingleDofMechanism {
     public int followerCanId = -1;
     /** True if the follower is mounted opposing the lead motor. */
     public boolean followerOpposed = false;
+    /**
+     * Where to draw the follower as an offset mirror of this mechanism — the same
+     * geometry (frame + carriage) redrawn at this offset from the mount, in the mount's
+     * local frame (x = plane horizontal, y = plane normal, z = plane vertical), meters.
+     * Use it to show the far side of the elevator. Only drawn when {@link #followerCanId}
+     * is set; the mirror tracks the live carriage every cycle.
+     */
+    public Translation3d followerVisualOffset = new Translation3d(0, 0.5, 0);
     /** Motor physics model (count = motors on the gearbox, including the follower). */
     public DCMotor motorModel = DCMotor.getKrakenX60(1);
     /** Gear reduction stages, rotor → mechanism (e.g. {4, 3} = 12:1). */
@@ -93,18 +99,6 @@ public class Elevator extends SingleDofMechanism {
     public boolean clearGoalOnDisable = false;
 
     /**
-     * Canvas to draw this mechanism on. Null (default) = the shared robot-overlay
-     * canvas (SmartDashboard -> RobotMechanisms); pass your own Mechanism2d to split
-     * mechanisms onto separate widgets (you publish custom canvases yourself).
-     */
-    public Mechanism2d mechanism2d = null;
-    /**
-     * Where this mechanism's root sits on the canvas, meters — x along the robot's
-     * length, y above the floor (side view). Lets the overlay reflect the real robot
-     * layout.
-     */
-    public Translation2d visualPosition = new Translation2d(0.5, 0.0);
-    /**
      * Where this mechanism sits on the robot for the 3D isometric view — robot frame,
      * x forward, y left, z up, meters from robot center at floor level. The rotation
      * re-aims the working plane: identity (default) keeps it in the robot's X-Z
@@ -118,6 +112,13 @@ public class Elevator extends SingleDofMechanism {
      * the parent's {@code attachmentPose} method reference.
      */
     public java.util.function.Supplier<Pose3d> visualParent = null;
+    /**
+     * Structural offset from the parent's endpoint to where this mechanism attaches,
+     * expressed in the parent's attachment frame (the bracket/standoff carrying it off
+     * the parent). Applied before {@link #visualPose3d} when {@link #visualParent} is
+     * set; identity (default) mounts straight on the parent's endpoint.
+     */
+    public Transform3d visualParentOffset = new Transform3d();
     // --- Homing (current-spike zeroing; see homeCommand()) ---
     /** Voltage applied while homing toward the bottom hard stop (negative = down). */
     public Voltage homingVoltage = Volts.of(-1.5);
@@ -176,8 +177,6 @@ public class Elevator extends SingleDofMechanism {
   private final Settings settings;
   private final double metersPerRot;
   private final SysIdRoutine sysIdRoutine;
-  private final MechanismLigament2d carriageLigament;
-  private final MechanismLigament2d goalLigament;
 
   /**
    * Builds the elevator subsystem, its IO (per {@link RobotMode}), controller, and sim.
@@ -198,15 +197,6 @@ public class Elevator extends SingleDofMechanism {
                 .linearPosition(Meters.of(positionNative()))
                 .linearVelocity(MetersPerSecond.of(velocityNative())),
             this));
-
-    Mechanism2d canvas = MechanismVisuals.canvasFor(settings.mechanism2d);
-    double rootX = settings.visualPosition.getX();
-    double rootY = settings.visualPosition.getY();
-    carriageLigament = canvas.getRoot(settings.name + "Root", rootX, rootY)
-        .append(new MechanismLigament2d("carriage", settings.startingHeight.in(Meters), 90));
-    goalLigament = canvas.getRoot(settings.name + "GoalRoot", rootX + 0.06, rootY)
-        .append(new MechanismLigament2d("goal", settings.startingHeight.in(Meters), 90, 3,
-            new Color8Bit(Color.kWhite)));
   }
 
   private static BaseParams baseParams(Settings settings) {
@@ -323,11 +313,18 @@ public class Elevator extends SingleDofMechanism {
   protected void updateVisualization() {
     double height = Math.max(0.02, positionNative());
     double goal = Math.max(0.02, mode == OutputMode.GOAL ? goalNative : positionNative());
-    carriageLigament.setLength(height);
-    goalLigament.setLength(goal);
 
-    Pose3d mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
-    MechanismVisuals3d.publish(settings.name, java.util.List.of(
+    Pose3d mount = MechanismVisuals3d.resolveMount(
+        settings.visualPose3d, settings.visualParent, settings.visualParentOffset);
+    var segments = new java.util.ArrayList<>(elevatorSegments(mount, height, goal));
+    appendFollowerMirror(segments, mount, settings.followerCanId,
+        settings.followerVisualOffset, m -> elevatorSegments(m, height, goal));
+    MechanismVisuals3d.publish(settings.name, segments);
+  }
+
+  /** The frame/goal/carriage segments for one mount — drawn again at the follower offset. */
+  private List<MechanismVisuals3d.Segment> elevatorSegments(Pose3d mount, double height, double goal) {
+    return List.of(
         new MechanismVisuals3d.Segment("frame",
             MechanismVisuals3d.planarPoint(mount, 0, settings.minHeight.in(Meters)),
             MechanismVisuals3d.planarPoint(mount, 0, settings.maxHeight.in(Meters)),
@@ -339,7 +336,7 @@ public class Elevator extends SingleDofMechanism {
         new MechanismVisuals3d.Segment("carriage",
             MechanismVisuals3d.planarPoint(mount, -0.1, height),
             MechanismVisuals3d.planarPoint(mount, 0.1, height),
-            "#58a6ff", 3)));
+            "#58a6ff", 3));
   }
 
   /** Command: drive the carriage to the given height. Never finishes. */
@@ -418,7 +415,8 @@ public class Elevator extends SingleDofMechanism {
    * as another mechanism's {@code visualParent} to ride the carriage in the 3D view.
    */
   public Pose3d attachmentPose() {
-    Pose3d mount = MechanismVisuals3d.resolveMount(settings.visualPose3d, settings.visualParent);
+    Pose3d mount = MechanismVisuals3d.resolveMount(
+        settings.visualPose3d, settings.visualParent, settings.visualParentOffset);
     return new Pose3d(
         MechanismVisuals3d.planarPoint(mount, 0, positionNative()), mount.getRotation());
   }

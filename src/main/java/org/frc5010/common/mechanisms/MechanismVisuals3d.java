@@ -154,11 +154,50 @@ public final class MechanismVisuals3d {
    * @return the resolved mount pose in the robot frame
    */
   public static Pose3d resolveMount(Pose3d localPose, Supplier<Pose3d> parent) {
+    return resolveMount(localPose, parent, null);
+  }
+
+  /**
+   * Resolves a mechanism's mount pose with an explicit linkage offset on the parent.
+   * Like {@link #resolveMount(Pose3d, Supplier)}, but the parent's live attachment pose
+   * is first shifted by {@code linkageOffset} — the physical bracket/standoff that
+   * carries this mechanism off the parent's endpoint, expressed in the parent's
+   * attachment frame. The mechanism's own {@code localPose} is then applied on top, so
+   * the same {@code localPose} reads identically whether the mechanism is standalone or
+   * coupled. With no parent the offset is irrelevant and {@code localPose} is the
+   * absolute mount.
+   *
+   * @param localPose     the mechanism's mount: absolute when {@code parent} is null,
+   *                      otherwise an offset from the (offset) parent attachment frame
+   * @param parent        supplier of the parent's live attachment pose, or null
+   * @param linkageOffset structural offset from the parent's endpoint to where this
+   *                      mechanism attaches, parent-frame; null/identity = on the endpoint
+   * @return the resolved mount pose in the robot frame
+   */
+  public static Pose3d resolveMount(
+      Pose3d localPose, Supplier<Pose3d> parent, Transform3d linkageOffset) {
     Pose3d base = parent != null ? parent.get() : null;
     if (base == null) {
       return localPose;
     }
-    return base.transformBy(new Transform3d(localPose.getTranslation(), localPose.getRotation()));
+    Pose3d attach = linkageOffset != null ? base.transformBy(linkageOffset) : base;
+    return attach.transformBy(new Transform3d(localPose.getTranslation(), localPose.getRotation()));
+  }
+
+  /**
+   * Returns a copy of {@code mount} shifted by {@code localOffset} in the mount's own
+   * frame (x = plane horizontal, y = plane normal, z = plane vertical), keeping the
+   * mount's orientation. Used to draw a follower as an offset mirror of its mechanism —
+   * the same geometry rebuilt at this shifted mount (e.g. the far side of an elevator or
+   * a duplicated arm on the same shaft).
+   *
+   * @param mount       the mechanism's resolved mount pose
+   * @param localOffset offset from the mount in its local frame, meters
+   * @return the shifted mount, same rotation
+   */
+  public static Pose3d offsetMount(Pose3d mount, Translation3d localOffset) {
+    return new Pose3d(
+        localOffset(mount, mount.getTranslation(), localOffset), mount.getRotation());
   }
 
   /**
@@ -178,11 +217,89 @@ public final class MechanismVisuals3d {
       poses[i] = segmentPose(snapshot.get(i));
     }
     Logger.recordOutput("Mechanisms3d/" + name, poses);
+    MechanismIsoCanvas.render(name, snapshot);
   }
 
   /** Removes a mechanism's segments (call from {@code close()}). */
   public static void remove(String name) {
     registry.remove(name);
+    MechanismIsoCanvas.remove(name);
+  }
+
+  /** Reserved iso-canvas name for the drivetrain "stage" (chassis, wheels, gyro). */
+  static final String SCENE_NAME = "RobotChassis";
+
+  /**
+   * Publishes the drivetrain stage — chassis box, swerve wheels (live steer; length grows
+   * with speed), and a gyro-heading compass — onto the Glass iso canvas, so it matches the
+   * web isometric panel's chassis/wheels/gyro. Call each cycle from the drivetrain. This
+   * draws only on the iso canvas; it is <em>not</em> added to the mechanism registry, so
+   * the web {@code /api/mechanisms3d} (which composes its own chassis) is unaffected.
+   * Robot frame: x forward, y left, z up, meters.
+   *
+   * @param lengthM      bumper-to-bumper length (robot X)
+   * @param widthM       bumper-to-bumper width (robot Y)
+   * @param heightM      chassis box height (robot Z)
+   * @param wheelRadiusM module wheel radius
+   * @param modules      per module {@code {x, y, steerRad, speedFrac}} (speedFrac in [-1,1])
+   * @param gyroRad      gyro heading, 0 = robot forward, positive CCW
+   */
+  public static void setRobotScene(double lengthM, double widthM, double heightM,
+      double wheelRadiusM, double[][] modules, double gyroRad) {
+    MechanismIsoCanvas.render(SCENE_NAME,
+        robotSceneSegments(lengthM, widthM, heightM, wheelRadiusM, modules, gyroRad));
+  }
+
+  /** Builds the chassis-box + wheel + gyro-compass segments for {@link #setRobotScene}. */
+  static List<Segment> robotSceneSegments(double lengthM, double widthM, double heightM,
+      double wheelRadiusM, double[][] modules, double gyroRad) {
+    List<Segment> segs = new ArrayList<>();
+    double hl = lengthM / 2;
+    double hw = widthM / 2;
+    String chassisColor = "#8b949e";
+    // The four corners at the floor (z=0) and at the chassis top (z=height).
+    Translation3d[][] corners = new Translation3d[2][4];
+    double[] levels = {0, heightM};
+    for (int z = 0; z < 2; z++) {
+      corners[z][0] = new Translation3d(hl, hw, levels[z]);
+      corners[z][1] = new Translation3d(hl, -hw, levels[z]);
+      corners[z][2] = new Translation3d(-hl, -hw, levels[z]);
+      corners[z][3] = new Translation3d(-hl, hw, levels[z]);
+    }
+    for (int z = 0; z < 2; z++) {
+      for (int k = 0; k < 4; k++) {
+        segs.add(new Segment("chassis", corners[z][k], corners[z][(k + 1) % 4], chassisColor, 2));
+      }
+    }
+    for (int k = 0; k < 4; k++) {
+      segs.add(new Segment("chassis", corners[0][k], corners[1][k], chassisColor, 2));
+    }
+    // One wheel line per module: centered at the module, aimed at its live steer angle,
+    // length growing with the normalized drive speed (a stopped wheel is a short stub).
+    for (double[] m : modules) {
+      double half = wheelRadiusM + Math.abs(m[3]) * 0.25;
+      double dx = Math.cos(m[2]) * half;
+      double dy = Math.sin(m[2]) * half;
+      segs.add(new Segment("wheel",
+          new Translation3d(m[0] - dx, m[1] - dy, wheelRadiusM),
+          new Translation3d(m[0] + dx, m[1] + dy, wheelRadiusM),
+          "#58a6ff", 4));
+    }
+    // Gyro compass on the chassis top: a ring with a needle at the heading.
+    double ringR = Math.min(hl, hw) * 0.8;
+    double cz = heightM + 0.02;
+    int sides = 16;
+    Translation3d prev = new Translation3d(ringR, 0, cz);
+    for (int k = 1; k <= sides; k++) {
+      double a = 2 * Math.PI * k / sides;
+      Translation3d next = new Translation3d(ringR * Math.cos(a), ringR * Math.sin(a), cz);
+      segs.add(new Segment("compass", prev, next, "#39d0d8", 1));
+      prev = next;
+    }
+    segs.add(new Segment("heading", new Translation3d(0, 0, cz),
+        new Translation3d(ringR * Math.cos(gyroRad), ringR * Math.sin(gyroRad), cz),
+        "#39d0d8", 3));
+    return segs;
   }
 
   /** A {@link Pose3d} at the segment start with its X-axis pointing along the segment. */
@@ -265,6 +382,18 @@ public final class MechanismVisuals3d {
     chassisLength = 0.8;
     chassisWidth = 0.8;
     chassisHeight = 0.13;
+    MechanismIsoCanvas.resetForTesting();
+  }
+
+  /**
+   * Enables or disables the Glass isometric canvas (SmartDashboard → RobotMechanisms3D),
+   * the 2D projection of these 3D segments for the plain simulator. Default enabled; turn
+   * it off before any mechanism publishes to skip the extra widget.
+   *
+   * @param on true to publish the iso canvas
+   */
+  public static void setGlassIsoViewEnabled(boolean on) {
+    MechanismIsoCanvas.setEnabled(on);
   }
 
   private static String fmt(double v) {

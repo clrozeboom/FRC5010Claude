@@ -43,7 +43,6 @@ public class ExampleArm extends Arm {
     s.maxVelocity = DegreesPerSecond.of(180);
     s.maxAcceleration = DegreesPerSecondPerSecond.of(360);
     s.kG = Volts.of(0.40); // m·g·(L/2) / (gearing · kT / R) for the plant above
-    s.visualPosition = new edu.wpi.first.math.geometry.Translation2d(1.7, 0.6); // spot on the RobotMechanisms overlay
     s.visualPose3d = new edu.wpi.first.math.geometry.Pose3d(0.1, 0.15, 0.4,
         edu.wpi.first.math.geometry.Rotation3d.kZero); // swings fore-aft, 3D view
     return s;
