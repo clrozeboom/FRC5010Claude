@@ -32,8 +32,9 @@ RobotProfile (abstract) ──► SimRobotProfile (library CI/dev)
         ▼
 SwerveRobotContainer (abstract) ← keyboard drive, alliance pose, visual-test auto
  ├── WebControl (optional singleton — HTTP server port 5800; -PwebUI only)
- └── frc.robot.ExampleRobot (concrete — extends SwerveRobotContainer, owns DemoIntake)
-      └── frc.robot.RobotContainer (thin shell — delegates getAutonomousCommand / resetToAllianceStart)
+ ├── org.frc5010.examples.ExampleRobot (library demo — extends SwerveRobotContainer, owns DemoIntake; still tested via ExampleRobotSmokeTest)
+ └── frc.robot.LessonRobot (active app — extends SwerveRobotContainer, owns FuelHandler[arm+roller+shooter] + StatusLeds; see docs/lessons/)
+      └── frc.robot.RobotContainer (thin shell — delegates getAutonomousCommand / resetToAllianceStart; builds LessonRobot)
 
 SimRobotState (abstract SubsystemBase) ──► frc.robot.DemoIntake (2026 Fuel intake + ballistic firing)
 
@@ -154,6 +155,7 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Top-level robot container | `src/main/java/frc/robot/RobotContainer.java` |
 | Browser-based web UI controller (sim only, `-PwebUI`) | `src/main/java/org/frc5010/common/sim/WebDriveController.java` |
 | Demo intake (team-code example) | `src/main/java/org/frc5010/examples/DemoIntake.java` |
+| Lesson robot (active app: arm+roller+shooter+LEDs in `frc.robot`) | `src/main/java/frc/robot/LessonRobot.java`, `src/main/java/frc/robot/subsystems/` (`FuelHandler`, `IntakeArm`, `IntakeRoller`, `Shooter`, `StatusLeds`) |
 | Segmented LED strip (library) | `src/main/java/org/frc5010/common/leds/LedStripSegments.java` |
 | Custom LED animations (Larson, laser) | `src/main/java/org/frc5010/common/leds/LedAnimations.java` |
 | Demo LED state mapping (team-code example) | `src/main/java/org/frc5010/examples/DemoLeds.java` |
@@ -207,6 +209,7 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | High-level architecture overview | [docs/architecture.md](docs/architecture.md) |
 | Local / Codespaces / claude.ai/code / CI environments + trusted-domain list | [docs/environment.md](docs/environment.md) |
 | Student-facing setup walkthrough (fork → deploy) | [docs/student-setup.md](docs/student-setup.md) |
+| Beginner lesson: build an intake-arm + dual-flywheel robot in `frc.robot` (Java + GitHub, LQR + PID, status LEDs) | [docs/lessons/intake-flywheel-lesson.md](docs/lessons/intake-flywheel-lesson.md) |
 | GitHub Codespaces setup and usage (build, sim, web UI, AdvantageScope, log replay) | [docs/codespaces.md](docs/codespaces.md) |
 | Contribution rules (test first, docs in sync, replay validation) | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
