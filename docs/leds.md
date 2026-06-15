@@ -8,7 +8,7 @@ The LED stack is split the same way as the rest of the library:
 |---|---|---|
 | Common (game-agnostic) | `org.frc5010.common.leds.LedStripSegments` | One `AddressableLED` strip divided into independently animated segments, plus a whole-strip override |
 | Common (game-agnostic) | `org.frc5010.common.leds.LedAnimations` | Custom time-based `LEDPattern`s WPILib doesn't ship (Larson scanner, laser bolt) |
-| Team code (example) | `frc.robot.example.DemoLeds` | Maps 2026 demo-robot states (alliance, enabled/disabled, intake, shooting) onto a 30-LED strip |
+| Team code (example) | `org.frc5010.examples.DemoLeds` | Maps 2026 demo-robot states (alliance, enabled/disabled, intake, shooting) onto a 30-LED strip |
 
 WPILib supports **one `AddressableLED` driver per robot**, so create a single
 `LedStripSegments` and divide it into as many segments as you need.
@@ -89,5 +89,5 @@ the browser renders a live copy of it as a row of glowing dots **under the field
 
 - `org.frc5010.common.subsystem.LedStripSegmentsTest` — Layer 2: segment
   independence, override precedence/restore, reversed mapping, default-off.
-- `frc.robot.example.DemoLedsTest` — Layer 2: every state → pattern mapping
+- `org.frc5010.examples.DemoLedsTest` — Layer 2: every state → pattern mapping
   above, asserted by reading rendered colours per segment from the buffer.

@@ -94,7 +94,7 @@ Every simulation run writes a `.wpilog` to the `logs/` folder. To review it with
 Codespaces are tied to your GitHub account. Changes you make are committed back to your fork the same way as on a local machine:
 
 ```bash
-git add src/main/java/frc/robot/example/ExampleRobotProfile.java
+git add src/main/java/org/frc5010/examples/ExampleRobotProfile.java
 git commit -m "Fill in robot measurements for 2026 season"
 git push
 ```

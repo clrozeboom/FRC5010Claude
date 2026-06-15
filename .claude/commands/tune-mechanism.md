@@ -79,6 +79,6 @@ final gains into `Settings`.
 
 ## Validate
 
-`./gradlew test --tests "frc.robot.mechanisms.MechanismsFunctionalTest"` must stay
+`./gradlew test --tests "org.frc5010.examples.mechanisms.MechanismsFunctionalTest"` must stay
 green with the baked-in values. If tuning sessions changed defaults, update the
 matching tolerance/time budget in the test rather than deleting assertions.

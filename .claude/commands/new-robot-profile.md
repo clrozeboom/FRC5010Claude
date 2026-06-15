@@ -6,7 +6,7 @@ Use this playbook when a team wants to run their actual robot's hardware (Falcon
 
 ## Step 0 — Understand what already exists
 
-`src/main/java/frc/robot/example/ExampleRobotProfile.java` is the team's entry point. It already:
+`src/main/java/org/frc5010/examples/ExampleRobotProfile.java` is the team's entry point. It already:
 - Defines a `SwerveConstants.Builder` with placeholder CAN IDs and measurements
 - Branches on `RobotBase.isReal()` in `createDrive()`
 - Returns `SwerveFactory.build(CONSTANTS, BLUE_START)` in sim (IronMaple physics)

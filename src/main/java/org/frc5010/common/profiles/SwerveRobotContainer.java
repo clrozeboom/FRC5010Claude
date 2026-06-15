@@ -47,7 +47,7 @@ import org.frc5010.common.vision.Vision;
  *   private static final Pose2d BLUE_START = new Pose2d(1.5, 2.0, new Rotation2d());
  *
  *   public ExampleRobot() {
- *     super(SwerveRobotContainer.selectProfile("frc.robot.ExampleRobotProfile"));
+ *     super(SwerveRobotContainer.selectProfile("org.frc5010.examples.ExampleRobotProfile"));
  *   }
  * }
  * }</pre>

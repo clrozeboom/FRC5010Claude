@@ -1,16 +1,16 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.example.ExampleRobot;
+import org.frc5010.examples.ExampleRobot;
 
 /**
  * Top-level entry point wired by {@link Robot}.
  *
- * <p>Delegates all robot behaviour to {@link ExampleRobot}, which extends
- * {@link org.frc5010.common.profiles.SwerveRobotContainer} and owns drive wiring,
- * vision, and the {@link frc.robot.example.DemoIntake} demo. Team-specific code lives in
- * {@link ExampleRobot}; common library code lives in
- * {@link org.frc5010.common.profiles.SwerveRobotContainer}.
+ * <p>Delegates all robot behaviour to a {@link org.frc5010.common.profiles.SwerveRobotContainer}
+ * subclass — by default the demo {@link ExampleRobot} so simulation works out of the box.
+ * Teams swap this for their own subclass when wiring their real robot. Reusable example
+ * subsystems and mechanisms live under {@code org.frc5010.examples}; common library code
+ * lives in {@link org.frc5010.common.profiles.SwerveRobotContainer}.
  */
 public class RobotContainer {
 

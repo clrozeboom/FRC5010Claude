@@ -1,4 +1,4 @@
-package frc.robot.example;
+package org.frc5010.examples;
 
 import static edu.wpi.first.units.Units.Hertz;
 import static edu.wpi.first.units.Units.Seconds;

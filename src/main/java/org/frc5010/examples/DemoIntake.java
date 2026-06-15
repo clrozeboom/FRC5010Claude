@@ -1,4 +1,4 @@
-package frc.robot.example;
+package org.frc5010.examples;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Inches;

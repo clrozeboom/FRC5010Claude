@@ -17,7 +17,7 @@ Both backends share the same `VisionIO` / `VisionFactory` pattern.
 ## Step 1 — Register Vision in RobotProfile (first camera only)
 
 Vision is robot-specific config, so it belongs in `RobotProfile`, not `RobotContainer`.
-Override `createVision(AkitSwerveDrive drive)` in `src/main/java/frc/robot/example/ExampleRobotProfile.java`:
+Override `createVision(AkitSwerveDrive drive)` in `src/main/java/org/frc5010/examples/ExampleRobotProfile.java`:
 
 ```java
 import edu.wpi.first.apriltag.AprilTagFieldLayout;

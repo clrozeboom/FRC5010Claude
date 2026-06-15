@@ -1,4 +1,4 @@
-package frc.robot.example;
+package org.frc5010.examples;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

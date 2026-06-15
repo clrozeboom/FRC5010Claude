@@ -1,4 +1,4 @@
-package frc.robot.example;
+package org.frc5010.examples;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Meters;
@@ -7,17 +7,17 @@ import static edu.wpi.first.units.Units.RPM;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.mechanisms.ExampleArm;
-import frc.robot.mechanisms.ExampleCharacterizedElevator;
-import frc.robot.mechanisms.ExampleDifferentialWrist;
-import frc.robot.mechanisms.ExampleDoubleJointedArm;
-import frc.robot.mechanisms.ExampleElevator;
-import frc.robot.mechanisms.ExampleProfiledArm;
-import frc.robot.mechanisms.ExampleProfiledElevator;
-import frc.robot.mechanisms.ExampleProfiledShooter;
-import frc.robot.mechanisms.ExampleProfiledTurret;
-import frc.robot.mechanisms.ExampleShooter;
-import frc.robot.mechanisms.ExampleTurret;
+import org.frc5010.examples.mechanisms.ExampleArm;
+import org.frc5010.examples.mechanisms.ExampleCharacterizedElevator;
+import org.frc5010.examples.mechanisms.ExampleDifferentialWrist;
+import org.frc5010.examples.mechanisms.ExampleDoubleJointedArm;
+import org.frc5010.examples.mechanisms.ExampleElevator;
+import org.frc5010.examples.mechanisms.ExampleProfiledArm;
+import org.frc5010.examples.mechanisms.ExampleProfiledElevator;
+import org.frc5010.examples.mechanisms.ExampleProfiledShooter;
+import org.frc5010.examples.mechanisms.ExampleProfiledTurret;
+import org.frc5010.examples.mechanisms.ExampleShooter;
+import org.frc5010.examples.mechanisms.ExampleTurret;
 import java.util.List;
 import org.frc5010.common.profiles.SwerveRobotContainer;
 
@@ -53,7 +53,7 @@ public class ExampleRobot extends SwerveRobotContainer {
   }
 
   public ExampleRobot() {
-    super(SwerveRobotContainer.selectProfile("frc.robot.example.ExampleRobotProfile"));
+    super(SwerveRobotContainer.selectProfile("org.frc5010.examples.ExampleRobotProfile"));
   }
 
   @Override

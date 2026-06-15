@@ -34,9 +34,9 @@ Required before writing code (ask the user if unknown):
 - **Profile cruise velocity must be below free speed ÷ gearing × circumference** —
   compute it and check, don't trust the user's wish speed.
 
-## Step 3 — Create the subsystem in TEAM code (`frc.robot.mechanisms`)
+## Step 3 — Create the subsystem in TEAM code (`org.frc5010.examples.mechanisms`)
 
-Copy the matching `Example*` class from `src/main/java/frc/robot/mechanisms/` and
+Copy the matching `Example*` class from `src/main/java/org/frc5010/examples/mechanisms/` and
 replace the constants. Keep the pattern: a thin class extending the common class
 whose only content is a `settings()` method. **Never put control logic in team code**
 — if something is missing, extend the common class in
@@ -55,7 +55,7 @@ If the mechanism is created in a robot container, register it with
 
 ## Step 5 — Add a functional test
 
-Add a test to `src/test/java/frc/robot/mechanisms/MechanismsFunctionalTest.java`,
+Add a test to `src/test/java/org/frc5010/examples/mechanisms/MechanismsFunctionalTest.java`,
 copying its pump (`runScheduledFor`): synchronous `stepOneCycle()` is fine — there are
 no Notifier threads — but every cycle must feed `DriverStationSim.notifyNewData()` +
 `Unmanaged.feedEnable(...)` and sleep a few ms so the simulated TalonFX's real-time
@@ -63,7 +63,7 @@ device thread can process controls. Schedule the command, run ~4 sim-seconds, th
 use `assertConverges`. Always `close()` the subsystem in a `finally` block to free
 CAN IDs, and set/reset `RobotMode` in setup/teardown.
 
-Run: `./gradlew test --tests "frc.robot.mechanisms.MechanismsFunctionalTest"`
+Run: `./gradlew test --tests "org.frc5010.examples.mechanisms.MechanismsFunctionalTest"`
 (Windows local: `.\gradlew.bat`).
 
 ## Step 6 — Verify in the sim GUI (optional but recommended)

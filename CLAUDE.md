@@ -39,7 +39,7 @@ SimRobotState (abstract SubsystemBase) ──► frc.robot.DemoIntake (2026 Fuel
 
 LedStripSegments (org.frc5010.common.leds — one AddressableLED split into per-segment LEDPatterns + whole-strip override)
  ├── LedAnimations (custom patterns: Larson scanner, laser bolt)
- └── frc.robot.example.DemoLeds (30-LED demo: startup alliance colour, disabled rainbow, intake Larson, shooting laser)
+ └── org.frc5010.examples.DemoLeds (30-LED demo: startup alliance colour, disabled rainbow, intake Larson, shooting laser)
 
 Mechanisms (org.frc5010.common.mechanisms — TalonFX-native, LQR-first, no third-party lib)
  ├── Elevator / Arm / Pivot / Flywheel       ← ControlStyle.LQR (RIO, in periodic) or PROFILED_PID (onboard MotionMagic)
@@ -50,7 +50,7 @@ Mechanisms (org.frc5010.common.mechanisms — TalonFX-native, LQR-first, no thir
  ├── MechanismVisuals (shared Mechanism2d side-view canvas) / MechanismVisuals3d (robot-frame
  │    3D segments per settings.visualPose3d mount pose; YAW_PLANE = turret — feeds the web
  │    isometric panel via /api/mechanisms3d AND AdvantageScope Pose3d[] under Mechanisms3d/<name>)
- └── frc.robot.mechanisms.Example* (Kraken/TalonFX: LQR CAN 21–28+35, ExampleProfiled* CAN 31–34)
+ └── org.frc5010.examples.mechanisms.Example* (Kraken/TalonFX: LQR CAN 21–28+35, ExampleProfiled* CAN 31–34)
       └── ExampleRobot creates all of them in SIM; X button held → midpoints; released → start points
           (tests constructing RobotContainer: SwerveRobotContainer.closeMechanisms())
 ```
@@ -150,13 +150,13 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Xbox-specific named accessors | `src/main/java/org/frc5010/common/input/XboxConfigurableController.java` |
 | Robot profile interface | `src/main/java/org/frc5010/common/profiles/RobotProfile.java` |
 | Sim robot profile (CI / library dev) | `src/main/java/org/frc5010/common/profiles/SimRobotProfile.java` |
-| Example robot profile (team-code placeholder) | `src/main/java/frc/robot/example/ExampleRobotProfile.java` |
+| Example robot profile (team-code placeholder) | `src/main/java/org/frc5010/examples/ExampleRobotProfile.java` |
 | Top-level robot container | `src/main/java/frc/robot/RobotContainer.java` |
 | Browser-based web UI controller (sim only, `-PwebUI`) | `src/main/java/org/frc5010/common/sim/WebDriveController.java` |
-| Demo intake (team-code example) | `src/main/java/frc/robot/example/DemoIntake.java` |
+| Demo intake (team-code example) | `src/main/java/org/frc5010/examples/DemoIntake.java` |
 | Segmented LED strip (library) | `src/main/java/org/frc5010/common/leds/LedStripSegments.java` |
 | Custom LED animations (Larson, laser) | `src/main/java/org/frc5010/common/leds/LedAnimations.java` |
-| Demo LED state mapping (team-code example) | `src/main/java/frc/robot/example/DemoLeds.java` |
+| Demo LED state mapping (team-code example) | `src/main/java/org/frc5010/examples/DemoLeds.java` |
 | Physics module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSimPhysics.java` |
 | Physics gyro IO | `src/main/java/org/frc5010/common/drive/swerve/akit/GyroIOSimPhysics.java` |
 | DCMotorSim module IO | `src/main/java/org/frc5010/common/drive/swerve/akit/ModuleIOSim.java` |
@@ -178,16 +178,16 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Calibration result record | `src/main/java/org/frc5010/common/drive/swerve/calibration/CalibrationResult.java` |
 | Calibration data-collection routine | `src/main/java/org/frc5010/common/drive/swerve/calibration/MotorCalibrationRoutine.java` |
 | BLine path-follower wrapper (game-agnostic) | `src/main/java/org/frc5010/common/drive/swerve/auto/BLineSwerveAuto.java` |
-| Auto routines (game-specific BLine examples) | `src/main/java/frc/robot/example/AutoRoutines.java` |
-| Teleop drive-to-pose commands (game-specific) | `src/main/java/frc/robot/example/TeleopRoutines.java` |
+| Auto routines (game-specific BLine examples) | `src/main/java/org/frc5010/examples/AutoRoutines.java` |
+| Teleop drive-to-pose commands (game-specific) | `src/main/java/org/frc5010/examples/TeleopRoutines.java` |
 | Deployed BLine paths + config | `src/main/deploy/autos/` |
 | BLine sim test | `src/test/java/org/frc5010/common/subsystem/BLineFollowPathSimPhysicsTest.java` |
 | Mechanism subsystems (LQR/MotionMagic + tuning) | `src/main/java/org/frc5010/common/mechanisms/` |
 | Mechanism IO layer (REAL/SIM/REPLAY) | `src/main/java/org/frc5010/common/mechanisms/MechanismIO*.java` |
 | LQR loop construction (sliced Kalman, characterized plants) | `src/main/java/org/frc5010/common/mechanisms/MechanismLqr.java` |
 | 3D mechanism visuals registry (web iso view + AdvantageScope) | `src/main/java/org/frc5010/common/mechanisms/MechanismVisuals3d.java` |
-| Mechanism examples (TalonFX, team-code pattern) | `src/main/java/frc/robot/mechanisms/` |
-| Mechanism functional tests | `src/test/java/frc/robot/mechanisms/MechanismsFunctionalTest.java` |
+| Mechanism examples (TalonFX, team-code pattern) | `src/main/java/org/frc5010/examples/mechanisms/` |
+| Mechanism functional tests | `src/test/java/org/frc5010/examples/mechanisms/MechanismsFunctionalTest.java` |
 
 ---
 
