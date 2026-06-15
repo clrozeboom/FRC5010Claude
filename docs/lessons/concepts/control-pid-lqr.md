@@ -111,6 +111,21 @@ speed. These return **Triggers**, which plug straight into command composition (
 
 ---
 
+### Further reading (external)
+
+WPILib's controls articles explain the math and the code behind what you used:
+
+- [Introduction to PID](https://docs.wpilib.org/en/stable/docs/software/advanced-controls/introduction/introduction-to-pid.html)
+  — the P, I, and D terms in depth.
+- [Introduction to DC Motor Feedforward](https://docs.wpilib.org/en/stable/docs/software/advanced-controls/introduction/introduction-to-feedforward.html)
+  — where `kV`, `kG`, and `kS` come from.
+- [Feedforward Control in WPILib](https://docs.wpilib.org/en/stable/docs/software/advanced-controls/controllers/feedforward.html)
+  — using them in code.
+- [Introduction to State-Space Control](https://docs.wpilib.org/en/stable/docs/software/advanced-controls/state-space/state-space-intro.html)
+  — "From PID to Model-Based Control", the background behind LQR.
+
+---
+
 ### Back to the lesson
 
 - [Module 2b — Add the arm (and meet LQR)](../intake-flywheel-lesson.md#step-2b--add-the-arm-and-meet-lqr)

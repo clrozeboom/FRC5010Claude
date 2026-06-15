@@ -199,6 +199,27 @@ Read the **first** error first — later ones are often just fallout from it.
 
 ---
 
+### Further reading (external)
+
+Free, beginner-friendly W3Schools Java tutorials for each idea above:
+
+- [Java Intro](https://www.w3schools.com/java/java_intro.asp) ·
+  [Syntax](https://www.w3schools.com/java/java_syntax.asp) ·
+  [Variables](https://www.w3schools.com/java/java_variables.asp) ·
+  [Data Types](https://www.w3schools.com/java/java_data_types.asp)
+- [Classes & Objects](https://www.w3schools.com/java/java_classes.asp) ·
+  [Class Attributes](https://www.w3schools.com/java/java_class_attributes.asp) ·
+  [Class Methods](https://www.w3schools.com/java/java_class_methods.asp) ·
+  [Constructors](https://www.w3schools.com/java/java_constructors.asp)
+- [Modifiers (`public`/`private`/`static`/`final`)](https://www.w3schools.com/java/java_modifiers.asp) ·
+  [Packages](https://www.w3schools.com/java/java_packages.asp)
+- [Inheritance (`extends`)](https://www.w3schools.com/java/java_inheritance.asp) ·
+  [Methods](https://www.w3schools.com/java/java_methods.asp)
+- [Lambda expressions](https://www.w3schools.com/java/java_lambda.asp) ·
+  [Enums](https://www.w3schools.com/java/java_enums.asp)
+
+---
+
 ### Back to the lesson
 
 - [Module 1 — Java & command-based ideas](../intake-flywheel-lesson.md#module-1--java-and-command-based-ideas-youll-use)

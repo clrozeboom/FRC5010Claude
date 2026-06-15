@@ -143,6 +143,21 @@ up the arm and roller, leaving the fuel handler free for `fireCommand()` to use 
 
 ---
 
+### Further reading (external)
+
+The official WPILib command-based guide goes deeper on every idea here:
+
+- [What Is Command-Based Programming?](https://docs.wpilib.org/en/stable/docs/software/commandbased/what-is-command-based.html)
+  ([section index](https://docs.wpilib.org/en/stable/docs/software/commandbased/index.html))
+- [Subsystems](https://docs.wpilib.org/en/stable/docs/software/commandbased/subsystems.html) ·
+  [Commands](https://docs.wpilib.org/en/stable/docs/software/commandbased/commands.html)
+- [Command Compositions](https://docs.wpilib.org/en/stable/docs/software/commandbased/command-compositions.html)
+  (`parallel`, `sequence`, `race`, `andThen`, …)
+- [Binding Commands to Triggers](https://docs.wpilib.org/en/stable/docs/software/commandbased/binding-commands-to-triggers.html)
+  (`onTrue`, `whileTrue`, `onFalse`)
+
+---
+
 ### Back to the lesson
 
 - [Module 4 — FuelHandler: make the devices work together](../intake-flywheel-lesson.md#module-4--fuelhandler-make-the-devices-work-together)

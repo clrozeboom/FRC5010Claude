@@ -94,6 +94,15 @@ why. Extract the raw value with `.in(...)` before storing it there.
 
 ---
 
+### Further reading (external)
+
+- WPILib docs: [The Java Units Library](https://docs.wpilib.org/en/stable/docs/software/basic-programming/java-units.html)
+  — the official reference, including arithmetic and creating your own units.
+- W3Schools: [Java Data Types](https://www.w3schools.com/java/java_data_types.asp) — a refresher
+  on the raw `double`/`int` you get back from `.in(...)`.
+
+---
+
 ### Back to the lesson
 
 - [Module 1 — Java & command-based ideas](../intake-flywheel-lesson.md#module-1--java-and-command-based-ideas-youll-use)

@@ -40,8 +40,11 @@ Two commands you'll use constantly:
 ### 📚 Concept deep dives
 
 This lesson stays hands-on and keeps explanations short. Whenever a basic idea first comes up,
-you'll see a **📚 Deep dive** link to a companion page that explains it slowly and from scratch.
-Read them when you want more, skip them when you're cruising. The full set:
+you'll see a **📚 Deep dive** link to a companion page that explains it slowly and from scratch —
+and each of those pages ends with **external refreshers** (free
+[W3Schools Java](https://www.w3schools.com/java/) tutorials and official
+[WPILib docs](https://docs.wpilib.org/)). Read them when you want more, skip them when you're
+cruising. The full set:
 
 | Deep dive | When it helps |
 |---|---|
@@ -65,7 +68,8 @@ install). Come back here once `./gradlew simulateJava -PwebUI` opens a field you
 ### Git and GitHub in 90 seconds
 
 > 📚 **Deep dive:** [Git & GitHub](concepts/git-github.md) — staging vs. committing, branches,
-> remotes, pull requests, and how to undo safely.
+> remotes, pull requests, and how to undo safely. Hands-on refresher:
+> [W3Schools Git tutorial](https://www.w3schools.com/git/).
 
 **Git** is a tool that takes snapshots of your code so you can save progress, undo mistakes, and
 share work. **GitHub** is a website that stores those snapshots online.
@@ -111,14 +115,17 @@ deep dive if you want the slow version.
   `org.frc5010.examples` — we will *not* depend on those; you're building your own.
 - **`extends`** — "is a kind of." `class Shooter extends Flywheel` means your Shooter gets all of
   the library `Flywheel`'s abilities for free, and you only fill in your robot's numbers.
-  &nbsp;📚 *Deep dive:* [Java basics](concepts/java-basics.md) (classes, packages, `extends`, `super`, `@Override`).
+  &nbsp;📚 *Deep dive:* [Java basics](concepts/java-basics.md) (classes, packages, `extends`, `super`, `@Override`);
+  refresher: W3Schools [Classes](https://www.w3schools.com/java/java_classes.asp) &
+  [Inheritance](https://www.w3schools.com/java/java_inheritance.asp).
 - **Lambdas / method references** — tiny inline functions. `drive::getPose` means "a function
   that calls `drive.getPose()`." We pass these around so one part of the robot can *ask* another
   for live information (like the robot's position) whenever it needs it.
   &nbsp;📚 *Deep dive:* [Java basics §6](concepts/java-basics.md#6-lambdas-and-method-references).
 - **Units** — instead of bare numbers, WPILib uses typed units so you can't mix up degrees and
   rotations: `Degrees.of(110)`, `RPM.of(3000)`, `Meters.of(0.5)`.
-  &nbsp;📚 *Deep dive:* [WPILib units](concepts/units.md).
+  &nbsp;📚 *Deep dive:* [WPILib units](concepts/units.md); reference:
+  [WPILib Java Units Library](https://docs.wpilib.org/en/stable/docs/software/basic-programming/java-units.html).
 - **Subsystem, Command, Trigger** — the heart of robot code:
   - A **Subsystem** is a part of the robot (the arm, a flywheel, the LEDs). Each runs a
     `periodic()` method every 20 ms.
@@ -128,7 +135,8 @@ deep dive if you want the slow version.
   - A **Trigger** is a condition (a button press, "is the wheel at speed?") that *schedules* a
     command when it happens.
   - &nbsp;📚 *Deep dive:* [Command-based programming](concepts/command-based.md) (the scheduler,
-    requirements, and how to compose commands).
+    requirements, and how to compose commands); reference:
+    [WPILib Command-Based](https://docs.wpilib.org/en/stable/docs/software/commandbased/index.html).
 - **Simulation vs. real ("IO")** — the same code runs in the simulator and on a real robot; a
   thin layer underneath swaps simulated motors for real ones. You write the behavior once.
   &nbsp;📚 *Deep dive:* [Simulation & the IO layer](concepts/simulation-and-io.md).
@@ -229,7 +237,9 @@ flywheels — so you'll have used both.)
 > 📚 **Deep dives:** [Control: feedforward, PID & LQR](concepts/control-pid-lqr.md) explains what
 > LQR is doing and why `kG` is still needed; [Java basics](concepts/java-basics.md#5-inheritance-extends-and-super)
 > covers the `extends`/`super` pattern this class uses; [WPILib units](concepts/units.md) covers
-> `Degrees.of(...)` and `Volts.of(...)`.
+> `Degrees.of(...)` and `Volts.of(...)`. Reference:
+> [WPILib State-Space Control](https://docs.wpilib.org/en/stable/docs/software/advanced-controls/state-space/state-space-intro.html)
+> ("From PID to Model-Based Control").
 
 To see the arm move, bind a button to it — **temporarily**. In `LessonRobot`, override
 `configureBindings()`:
@@ -309,6 +319,8 @@ rest. Unlike LQR, *you* pick these numbers — but they're easy to reason about.
 
 > 📚 **Deep dive:** [Control: feedforward, PID & LQR](concepts/control-pid-lqr.md#3-pid) walks
 > through P, I, D and feedforward one term at a time, and compares PID with the arm's LQR.
+> Reference: WPILib [Introduction to PID](https://docs.wpilib.org/en/stable/docs/software/advanced-controls/introduction/introduction-to-pid.html)
+> and [DC Motor Feedforward](https://docs.wpilib.org/en/stable/docs/software/advanced-controls/introduction/introduction-to-feedforward.html).
 
 Now create `Shooter.java` the same way (CAN 43, 4-inch wheel, also `PROFILED_PID`, with a
 `SHOOT_RPM = RPM.of(3000)` constant and a `RPM_TOLERANCE = RPM.of(150)`).
@@ -371,7 +383,8 @@ public class FuelHandler extends SimRobotState implements AutoCloseable {
 **Concept — composing commands.** Build *deploy* by running the arm and roller at the same time,
 and starting collection just before. (📚 Deep dive:
 [Command-based programming](concepts/command-based.md) — the scheduler, requirements, and every
-builder used here.)
+builder used here; reference:
+[WPILib Command Compositions](https://docs.wpilib.org/en/stable/docs/software/commandbased/command-compositions.html).)
 
 ```java
 public Command deployCommand() {
@@ -450,6 +463,10 @@ Lastly, show each device's status on a 30-LED strip split into three 10-LED segm
 `extends` the library `LedStripSegments`, which manages the strip; you choose a *pattern* for each
 segment every cycle based on the device state.
 
+> 📚 The strip is built on WPILib's LED API — reference:
+> [WPILib Addressable LEDs](https://docs.wpilib.org/en/stable/docs/software/hardware-apis/misc/addressable-leds.html).
+> The per-cycle `periodic()` idea is in [Command-based programming](concepts/command-based.md#2-subsystems).
+
 Create `src/main/java/frc/robot/subsystems/StatusLeds.java`. Build it up one segment at a time —
 wire the **arm** segment first and run it, then add the **roller** segment, then the **shooter**
 segment and the disabled override. The core idea:
@@ -505,7 +522,9 @@ rainbow.
    verify, in code, that deploy raises the arm and scoring launches a Fuel. Green means your
    robot constructs, deploys, and scores correctly.
 4. **Full run-through:** `./gradlew simulateJava -PwebUI` and play the whole flow — drive, deploy,
-   collect, aim, score — watching the LEDs and the `heldFuel` / `scoredFuel` numbers.
+   collect, aim, score — watching the LEDs and the `heldFuel` / `scoredFuel` numbers. (📚 How the
+   simulator works: [Simulation & the IO layer](concepts/simulation-and-io.md); reference:
+   [WPILib Robot Simulation](https://docs.wpilib.org/en/stable/docs/software/wpilib-tools/robot-simulation/introduction.html).)
 5. **Ship it.** Commit everything, push, and open a pull request (📚 deep dive:
    [Git & GitHub §7](concepts/git-github.md#7-pull-requests)):
    ```bash
@@ -544,13 +563,17 @@ The complete, working reference solution is committed in this repo:
 
 ### Go deeper on the basics
 
-If any idea here felt fast, the companion deep dives explain it from scratch:
+If any idea here felt fast, the companion deep dives explain it from scratch (each ends with
+external W3Schools / WPILib refreshers):
 [Java basics](concepts/java-basics.md) ·
 [Git & GitHub](concepts/git-github.md) ·
 [WPILib units](concepts/units.md) ·
 [Command-based programming](concepts/command-based.md) ·
 [Control: feedforward, PID & LQR](concepts/control-pid-lqr.md) ·
 [Simulation & the IO layer](concepts/simulation-and-io.md)
+
+External references to bookmark: the free [W3Schools Java tutorial](https://www.w3schools.com/java/)
+and the official [WPILib documentation](https://docs.wpilib.org/).
 
 ### Where to go next
 

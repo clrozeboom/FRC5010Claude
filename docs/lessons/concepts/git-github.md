@@ -159,6 +159,13 @@ patterns Git should skip. This project already has one — you usually don't tou
 
 ---
 
+### Further reading (external)
+
+- [W3Schools Git tutorial](https://www.w3schools.com/git/) — a hands-on walk through `init`,
+  `add`, `commit`, branches, and working with GitHub, with a "try it yourself" for each step.
+
+---
+
 ### Back to the lesson
 
 - [Module 0 — Get set up (and meet Git/GitHub)](../intake-flywheel-lesson.md#module-0--get-set-up-and-meet-gitgithub)

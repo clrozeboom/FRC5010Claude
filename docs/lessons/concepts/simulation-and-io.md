@@ -92,6 +92,15 @@ with your real motor CAN IDs and physical measurements, set `RobotMode` to REAL,
 
 ---
 
+### Further reading (external)
+
+- WPILib docs: [Introduction to Robot Simulation](https://docs.wpilib.org/en/stable/docs/software/wpilib-tools/robot-simulation/introduction.html)
+  · [Simulation GUI](https://docs.wpilib.org/en/stable/docs/software/wpilib-tools/robot-simulation/simulation-gui.html)
+- WPILib docs: [Addressable LEDs](https://docs.wpilib.org/en/stable/docs/software/hardware-apis/misc/addressable-leds.html)
+  — the `AddressableLED`/`LEDPattern` API your `StatusLeds` builds on.
+
+---
+
 ### Back to the lesson
 
 - [Module 1 — Java & command-based ideas](../intake-flywheel-lesson.md#module-1--java-and-command-based-ideas-youll-use)
