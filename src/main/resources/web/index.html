@@ -295,6 +295,7 @@ const state = {
   enabled: false, alliance: 'Blue', connected: false,
   mode: 'teleop', selectedAuto: '',
   heldFuel: 0, intakeExtended: false, scoredFuel: 0,
+  visibleTags: [],
   leds: []
 };
 
@@ -861,32 +862,44 @@ fuelImg.src = '/fuel.png';
 // and use the tick to convey which way it faces.
 function drawAprilTags(ctx, W, H) {
   const sz = Math.max(13, mToPx(0.32, W, H));
+  // Tags the camera currently sees are highlighted red; the rest use the default teal.
+  const visible = new Set(state.visibleTags || []);
+  const TEAL = 'rgba(0,230,170,0.95)';
+  const RED  = 'rgba(255,60,60,0.98)';
   for (const t of aprilTags) {
     const { cx, cy } = fieldPt(t.fx, t.fy, W, H);
     const a = fieldAngle(t.yaw);
+    const seen = visible.has(t.id);
+    const accent = seen ? RED : TEAL;
 
     // Facing tick (rotated to the tag's heading)
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(a);
-    ctx.strokeStyle = 'rgba(0,230,170,0.95)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = seen ? 3 : 2;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -sz * 0.85); ctx.stroke();
     ctx.restore();
 
     // Fiducial billboard (screen-aligned) + ID label
     ctx.save();
     ctx.translate(cx, cy);
+    // Red glow behind the fiducial when the camera can see it.
+    if (seen) {
+      ctx.shadowColor = RED;
+      ctx.shadowBlur = sz * 0.6;
+    }
     const img = tagImages[t.id];
     if (img && img.complete && img.naturalWidth) {
       ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
     } else {
       ctx.fillStyle = '#000'; ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
     }
-    ctx.strokeStyle = 'rgba(0,230,170,0.95)';
-    ctx.lineWidth = 1;
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = seen ? 2.5 : 1;
     ctx.strokeRect(-sz / 2, -sz / 2, sz, sz);
-    ctx.fillStyle = '#0fc';
+    ctx.fillStyle = seen ? '#ff5050' : '#0fc';
     ctx.font = `bold ${Math.max(8, Math.round(sz * 0.5))}px monospace`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText(t.id, 0, sz / 2 + 1);

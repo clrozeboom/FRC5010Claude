@@ -90,6 +90,34 @@ class VisionSubsystemTest extends SimTestBase {
   }
 
   // ---------------------------------------------------------------------------
+  // Visible-tag reporting (web UI highlight feed)
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void visibleTagIdsReflectSeenTagsEachCycle() {
+    int[][] seen = { { 1, 7 } };
+    Vision vision = buildWith(new VisionIO() {
+      @Override public void updateInputs(VisionIOInputs inputs) {
+        inputs.connected = true;
+        inputs.tagIds    = seen[0];
+      }
+    });
+
+    // Before any cycle: nothing seen.
+    assertEquals(0, vision.getVisibleTagIds().length, "No tags reported before first periodic");
+
+    vision.periodic();
+    int[] ids = vision.getVisibleTagIds();
+    java.util.Arrays.sort(ids);
+    assertArrayEquals(new int[] {1, 7}, ids, "Visible IDs should be the tags seen this cycle");
+
+    // A later cycle with no tags clears the set.
+    seen[0] = new int[0];
+    vision.periodic();
+    assertEquals(0, vision.getVisibleTagIds().length, "Visible IDs should clear when no tags seen");
+  }
+
+  // ---------------------------------------------------------------------------
   // Rejection filters
   // ---------------------------------------------------------------------------
 

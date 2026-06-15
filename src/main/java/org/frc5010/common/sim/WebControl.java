@@ -98,6 +98,18 @@ public class WebControl {
     }
 
     /**
+     * Binds the {@link org.frc5010.common.vision.Vision} subsystem so {@code /api/state} surfaces
+     * the AprilTag IDs currently in view (as a {@code "visibleTags"} array) and the web field
+     * highlights them. Called from {@link org.frc5010.common.profiles.SwerveRobotContainer} when
+     * the robot has a vision subsystem and the web UI is active.
+     *
+     * @param vision the vision subsystem to read visible tag IDs from
+     */
+    public void bindVision(org.frc5010.common.vision.Vision vision) {
+        webController.bindVisibleTags(vision::getVisibleTagIds);
+    }
+
+    /**
      * Registers the available autonomous routines so the web UI can list and select them.
      * The selector and Auto/Teleop mode buttons in the web Driver Station panel drive this.
      *
