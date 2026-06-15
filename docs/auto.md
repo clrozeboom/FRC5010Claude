@@ -19,7 +19,7 @@ BLine-GUI, or built at runtime.
 | Common-library wrapper (game-agnostic) | [BLineSwerveAuto.java](../src/main/java/org/frc5010/common/drive/swerve/auto/BLineSwerveAuto.java) |
 | Example auto routines (game-specific) | [AutoRoutines.java](../src/main/java/frc/robot/AutoRoutines.java) |
 | Teleop drive-to-pose commands (game-specific) | [TeleopRoutines.java](../src/main/java/frc/robot/TeleopRoutines.java) |
-| Auto chooser + Y-button binding | [ExampleRobot.java](../src/main/java/frc/robot/example/ExampleRobot.java) |
+| Auto chooser + Y-button binding | [ExampleRobot.java](../src/main/java/org/frc5010/examples/ExampleRobot.java) |
 | Global default constraints (deployed) | [src/main/deploy/autos/config.json](../src/main/deploy/autos/config.json) |
 | JSON path example (deployed) | [src/main/deploy/autos/paths/ExampleScore.json](../src/main/deploy/autos/paths/ExampleScore.json) |
 | Layer 3 integration test | [BLineFollowPathSimPhysicsTest.java](../src/test/java/org/frc5010/common/subsystem/BLineFollowPathSimPhysicsTest.java) |

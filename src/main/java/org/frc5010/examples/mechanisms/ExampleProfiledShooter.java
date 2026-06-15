@@ -1,4 +1,4 @@
-package frc.robot.mechanisms;
+package org.frc5010.examples.mechanisms;
 
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Kilograms;

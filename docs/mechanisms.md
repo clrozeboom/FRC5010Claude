@@ -44,7 +44,7 @@ must be set before constructing a mechanism** (Robot.java does this; tests call
 
 **Common vs robot-specific:** all control logic, plant construction, and tuning
 plumbing live in `org.frc5010.common.mechanisms`. Team code only fills in a
-`Settings` object — see the examples in `src/main/java/frc/robot/mechanisms/`,
+`Settings` object — see the examples in `src/main/java/org/frc5010/examples/mechanisms/`,
 all Kraken X60 on TalonFX:
 
 | LQR style (CAN 21–28, 35) | Profiled-PID style (CAN 31–34) |
@@ -365,7 +365,7 @@ flywheel ride up with it — a live demo of parent-child mounting.
 
 ## Functional tests
 
-`src/test/java/frc/robot/mechanisms/MechanismsFunctionalTest.java` builds each
+`src/test/java/org/frc5010/examples/mechanisms/MechanismsFunctionalTest.java` builds each
 example subsystem for real (TalonFX IO + Phoenix sim + physics sim + closed loop),
 schedules its public command, and asserts the mechanism reaches the commanded state —
 covering both control styles, the characterized plant, a live retune over NT, and the

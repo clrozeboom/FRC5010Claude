@@ -60,3 +60,18 @@ Vision vision = VisionFactory.build(
 ```
 
 See `/new-vision-camera` for the step-by-step wiring guide.
+
+---
+
+## Web UI tag highlight
+
+When the web UI is active (`-PwebUI`), the field view highlights every AprilTag currently
+in view **red** (default tags are teal). The feed is:
+
+`Vision.periodic()` collects the union of `VisionIOInputs.tagIds` across all cameras into a
+`volatile int[]` → `Vision.getVisibleTagIds()` → bound by `SwerveRobotContainer` via
+`WebControl.bindVision(vision)` → surfaced in `/api/state` as the `visibleTags` array →
+`drawAprilTags()` in `index.html` draws the matching tags red (tick, border, glow, label).
+
+The binding only happens when the container has a non-null `vision`; with no vision subsystem
+`visibleTags` is always `[]` and all tags render teal.

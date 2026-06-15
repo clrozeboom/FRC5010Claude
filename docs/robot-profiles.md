@@ -26,7 +26,7 @@ return (RobotProfile) Class.forName(realProfileClassName)
 
 ```java
 public ExampleRobot() {
-    super(SwerveRobotContainer.selectProfile("frc.robot.example.ExampleRobotProfile"));
+    super(SwerveRobotContainer.selectProfile("org.frc5010.examples.ExampleRobotProfile"));
 }
 ```
 
@@ -40,7 +40,7 @@ public ExampleRobot() {
 
 ## `ExampleRobotProfile` — your robot
 
-`src/main/java/frc/robot/example/ExampleRobotProfile.java` is the team's entry point. It already has the right structure; you only need to fill in real values.
+`src/main/java/org/frc5010/examples/ExampleRobotProfile.java` is the team's entry point. It already has the right structure; you only need to fill in real values.
 
 ### Step 1 — Fill in SwerveConstants
 

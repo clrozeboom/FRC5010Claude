@@ -18,7 +18,7 @@ A clean, AdvantageKit-compatible swerve drive library for FRC teams using WPILib
 
 ## Quick start
 
-1. **Extend `ExampleRobotProfile`** in `src/main/java/frc/robot/example/ExampleRobotProfile.java` and fill in your robot's measurements and CAN IDs (the file has TODO comments guiding you):
+1. **Extend `ExampleRobotProfile`** in `src/main/java/org/frc5010/examples/ExampleRobotProfile.java` and fill in your robot's measurements and CAN IDs (the file has TODO comments guiding you):
 
 ```java
 private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()

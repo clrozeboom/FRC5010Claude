@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation3d;
-import frc.robot.mechanisms.ExampleElevator;
+import org.frc5010.examples.mechanisms.ExampleElevator;
 import java.util.List;
 import org.frc5010.common.mechanisms.MechanismVisuals3d.Segment;
 import org.frc5010.common.robot.Mode;
@@ -180,7 +180,7 @@ class MechanismVisuals3dTest extends SimTestBase {
   @Test
   void noFollowerDrawsNoMirror() {
     // ExampleArm has no follower configured, so each segment appears exactly once.
-    var arm = new frc.robot.mechanisms.ExampleArm();
+    var arm = new org.frc5010.examples.mechanisms.ExampleArm();
     try {
       arm.periodic();
       long armBars = MechanismVisuals3d.getSegments("ExampleArm").stream()
@@ -197,7 +197,7 @@ class MechanismVisuals3dTest extends SimTestBase {
     // exactly at the elevator's live attachment pose (the carriage), not its own
     // absolute visualPose3d.
     var elevator = new ExampleElevator();
-    var arm = new frc.robot.mechanisms.ExampleArm();
+    var arm = new org.frc5010.examples.mechanisms.ExampleArm();
     try {
       arm.getSettings().visualParent = elevator::attachmentPose;
       arm.getSettings().visualPose3d = new Pose3d(); // right on the carriage

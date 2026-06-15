@@ -1,4 +1,4 @@
-package frc.robot.mechanisms;
+package org.frc5010.examples.mechanisms;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Kilograms;

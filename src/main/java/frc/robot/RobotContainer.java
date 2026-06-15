@@ -10,7 +10,8 @@ import frc.robot.tigershark.TigerSharkRobot;
  * {@link org.frc5010.common.profiles.SwerveRobotContainer} and owns drive wiring,
  * vision, and the {@link frc.robot.tigershark.TigerSharkElevator}. Team-specific code lives in
  * {@link TigerSharkRobot}; common library code lives in
- * {@link org.frc5010.common.profiles.SwerveRobotContainer}.
+ * {@link org.frc5010.common.profiles.SwerveRobotContainer}. Reusable example
+ * subsystems and mechanisms live under {@code org.frc5010.examples}.
  */
 public class RobotContainer {
 

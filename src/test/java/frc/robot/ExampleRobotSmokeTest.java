@@ -7,7 +7,7 @@ import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import edu.wpi.first.wpilibj.simulation.SimHooks;
 import edu.wpi.first.wpilibj.simulation.XboxControllerSim;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
-import frc.robot.example.ExampleRobot;
+import org.frc5010.examples.ExampleRobot;
 import org.frc5010.common.robot.Mode;
 import org.frc5010.common.robot.RobotMode;
 import org.frc5010.common.util.SimTestBase;
@@ -18,26 +18,33 @@ import org.junit.jupiter.api.Test;
 import swervelib.simulation.ironmaple.simulation.SimulatedArena;
 
 /**
- * Layer 3 — smoke tests for the refactored {@link RobotContainer} composition architecture.
+ * Layer 3 — smoke tests for {@link ExampleRobot} (the demo composition over
+ * {@link org.frc5010.common.profiles.SwerveRobotContainer}).
  *
  * <p>Verifies that:
  * <ul>
- *   <li>{@link RobotContainer} constructs without error in both testSim and default-sim modes</li>
- *   <li>{@link RobotContainer#getAutonomousCommand()} delegates correctly to the inner
- *       {@link ExampleRobot}, returning the chooser's default ({@code Commands.none()}) without
- *       {@code -PvisualTest} and the {@code SwerveVisualTest} sequence with it</li>
- *   <li>{@link RobotContainer#resetToAllianceStart()} delegates without throwing</li>
- *   <li>The {@link DemoIntake} subsystem runs its default command for several enabled cycles
- *       without exception</li>
+ *   <li>{@link ExampleRobot} constructs without error in both testSim and default-sim modes</li>
+ *   <li>{@code getAutonomousCommand()} returns the chooser's default ({@code Commands.none()})
+ *       without {@code -PvisualTest} and the {@code SwerveVisualTest} sequence with it</li>
+ *   <li>{@code resetToAllianceStart()} runs without throwing</li>
+ *   <li>The {@code DemoIntake} subsystem runs its default command for several enabled and
+ *       disabled cycles without exception</li>
+ *   <li>Pressing X on the simulated controller drives the demo elevator from its 0.1 m start
+ *       toward the 0.75 m midpoint, and releasing X returns it</li>
  * </ul>
  *
- * <p>Each test creates a {@link RobotContainer} (which calls {@code SwerveFactory.build()}
- * internally via {@link org.frc5010.common.profiles.SimRobotProfile} or
- * {@link ExampleRobotProfile}) and therefore owns an IronMaple {@link SimulatedArena}.
+ * <p>Each test creates an {@link ExampleRobot} directly (which calls
+ * {@code SwerveFactory.build()} internally via {@link org.frc5010.common.profiles.SimRobotProfile}
+ * or {@link ExampleRobotProfile}) and therefore owns an IronMaple {@link SimulatedArena}.
  * The teardown shuts down the arena and resets its singleton via reflection, following
  * the same pattern as {@code AkitSwerveDriveSimPhysicsTest}.
+ *
+ * <p>Construction is intentionally direct (not through {@code RobotContainer}) so this coverage
+ * survives changes to which subclass {@code RobotContainer} delegates to. The thin
+ * construct-and-delegate contract of {@code RobotContainer} itself is pinned in
+ * {@code RobotContainerDelegationTest}.
  */
-class RobotContainerSmokeTest extends SimTestBase {
+class ExampleRobotSmokeTest extends SimTestBase {
 
   @BeforeEach
   @Override
@@ -77,23 +84,23 @@ class RobotContainerSmokeTest extends SimTestBase {
   void testSimModeConstructsWithSimProfile() {
     // -PtestSim → SimRobotProfile (no CTRE CAN IDs, lightweight constants)
     System.setProperty("testSim", "true");
-    RobotContainer container = new RobotContainer();
-    assertNotNull(container, "RobotContainer must construct without error in testSim mode");
+    ExampleRobot container = new ExampleRobot();
+    assertNotNull(container, "ExampleRobot must construct without error in testSim mode");
   }
 
   @Test
   void defaultSimModeConstructsWithRealProfile() {
     // No testSim → ExampleRobotProfile instantiated reflectively; createDrive() uses SIM branch
-    RobotContainer container = new RobotContainer();
-    assertNotNull(container, "RobotContainer must construct without error in default sim mode");
+    ExampleRobot container = new ExampleRobot();
+    assertNotNull(container, "ExampleRobot must construct without error in default sim mode");
   }
 
-  // ── delegation: getAutonomousCommand ──────────────────────────────────────
+  // ── getAutonomousCommand ──────────────────────────────────────────────────
 
   @Test
   void getAutonomousCommandFallsThroughToChooserDefault() {
     System.setProperty("testSim", "true");
-    RobotContainer container = new RobotContainer();
+    ExampleRobot container = new ExampleRobot();
     // BuildAutos runs on the first scheduler tick (ignoringDisable), so run one cycle to
     // populate the chooser before asserting. Without -PvisualTest the chooser default
     // (Commands.none()) is returned — the contract is "non-null, no-op".
@@ -106,19 +113,19 @@ class RobotContainerSmokeTest extends SimTestBase {
   void getAutonomousCommandNonNullWithVisualTest() {
     System.setProperty("testSim", "true");
     System.setProperty("visualTest", "true");
-    RobotContainer container = new RobotContainer();
+    ExampleRobot container = new ExampleRobot();
     assertNotNull(container.getAutonomousCommand(),
-        "With -PvisualTest, getAutonomousCommand() must delegate the SwerveVisualTest sequence");
+        "With -PvisualTest, getAutonomousCommand() must return the SwerveVisualTest sequence");
   }
 
-  // ── delegation: resetToAllianceStart ──────────────────────────────────────
+  // ── resetToAllianceStart ──────────────────────────────────────────────────
 
   @Test
-  void resetToAllianceStartDelegatesWithoutThrowing() {
+  void resetToAllianceStartRunsWithoutThrowing() {
     System.setProperty("testSim", "true");
-    RobotContainer container = new RobotContainer();
+    ExampleRobot container = new ExampleRobot();
     assertDoesNotThrow(container::resetToAllianceStart,
-        "resetToAllianceStart() must delegate to ExampleRobot without throwing");
+        "resetToAllianceStart() must run without throwing");
   }
 
   // ── DemoIntake subsystem periodic ─────────────────────────────────────────
@@ -146,7 +153,7 @@ class RobotContainerSmokeTest extends SimTestBase {
     // IntakeSimulation.removeObtainedGamePieces(). No extend/retract/fire inputs are
     // active so no game-piece mutations occur.
     System.setProperty("testSim", "true");
-    new RobotContainer();
+    new ExampleRobot();
 
     enableTeleop();
 
@@ -163,7 +170,7 @@ class RobotContainerSmokeTest extends SimTestBase {
     // X on the simulated controller and verify the demo elevator actually climbs
     // toward its 0.75 m midpoint via the AllMechanismsToMidpoints parallel command.
     System.setProperty("testSim", "true");
-    new RobotContainer();
+    new ExampleRobot();
 
     var elevator = ExampleRobot.getDemoElevator().orElseThrow(
         () -> new AssertionError("sim demo mechanisms should exist in simulation"));
@@ -196,7 +203,7 @@ class RobotContainerSmokeTest extends SimTestBase {
     // DemoIntake has no default command; its periodic() runs regardless of enable state
     // because SubsystemBase.periodic() is always called by the scheduler.
     System.setProperty("testSim", "true");
-    new RobotContainer();
+    new ExampleRobot();
 
     // Robot stays disabled (SimTestBase default)
     assertDoesNotThrow(() -> pumpCycles(5),

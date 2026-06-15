@@ -118,7 +118,7 @@ For 2026 REEFSCAPE, a typical starting pose is around x=1.5 m, y=4.0 m for a cen
 This is the one file that describes your robot. Open it in VS Code:
 
 ```
-src/main/java/frc/robot/example/ExampleRobotProfile.java
+src/main/java/org/frc5010/examples/ExampleRobotProfile.java
 ```
 
 ### 4a — Fill in `SwerveConstants`
