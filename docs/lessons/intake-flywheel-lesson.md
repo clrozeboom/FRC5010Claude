@@ -37,6 +37,21 @@ Two commands you'll use constantly:
 | `./gradlew simulateJava -PwebUI` | Launches the robot in simulation with a browser control panel on port **5800**. (On Windows, use `.\gradlew.bat simulateJava -PwebUI`.) |
 | `./gradlew test` | Compiles your code and runs the automated tests — a fast way to check you didn't break anything. |
 
+### 📚 Concept deep dives
+
+This lesson stays hands-on and keeps explanations short. Whenever a basic idea first comes up,
+you'll see a **📚 Deep dive** link to a companion page that explains it slowly and from scratch.
+Read them when you want more, skip them when you're cruising. The full set:
+
+| Deep dive | When it helps |
+|---|---|
+| [Java basics](concepts/java-basics.md) | classes, packages, `extends`, lambdas — the Java this lesson uses |
+| [Git & GitHub](concepts/git-github.md) | branches, commits, push, pull requests |
+| [WPILib units](concepts/units.md) | `Degrees.of(110)`, `RPM.of(3000)`, and why typed units exist |
+| [Command-based programming](concepts/command-based.md) | subsystems, commands, triggers, composing them |
+| [Control: feedforward, PID & LQR](concepts/control-pid-lqr.md) | how the arm (LQR) and flywheels (PID) actually steer themselves |
+| [Simulation & the IO layer](concepts/simulation-and-io.md) | how the same code runs in sim and on real hardware |
+
 ---
 
 ## Module 0 — Get set up (and meet Git/GitHub)
@@ -48,6 +63,9 @@ If you have never set up this project, follow **[docs/student-setup.md](../stude
 install). Come back here once `./gradlew simulateJava -PwebUI` opens a field you can drive.
 
 ### Git and GitHub in 90 seconds
+
+> 📚 **Deep dive:** [Git & GitHub](concepts/git-github.md) — staging vs. committing, branches,
+> remotes, pull requests, and how to undo safely.
 
 **Git** is a tool that takes snapshots of your code so you can save progress, undo mistakes, and
 share work. **GitHub** is a website that stores those snapshots online.
@@ -83,7 +101,8 @@ on-screen controls. This proves your tools work *before* you change anything.
 
 ## Module 1 — Java and "command-based" ideas you'll use
 
-You don't need to know all of Java. Here are just the ideas this lesson uses:
+You don't need to know all of Java. Here are just the ideas this lesson uses. Each links to a
+deep dive if you want the slow version.
 
 - **Class** — a blueprint. `public class Shooter { ... }` describes what a Shooter *is* and can
   *do*. An **object** is one real Shooter built from that blueprint with `new Shooter()`.
@@ -92,11 +111,14 @@ You don't need to know all of Java. Here are just the ideas this lesson uses:
   `org.frc5010.examples` — we will *not* depend on those; you're building your own.
 - **`extends`** — "is a kind of." `class Shooter extends Flywheel` means your Shooter gets all of
   the library `Flywheel`'s abilities for free, and you only fill in your robot's numbers.
+  &nbsp;📚 *Deep dive:* [Java basics](concepts/java-basics.md) (classes, packages, `extends`, `super`, `@Override`).
 - **Lambdas / method references** — tiny inline functions. `drive::getPose` means "a function
   that calls `drive.getPose()`." We pass these around so one part of the robot can *ask* another
   for live information (like the robot's position) whenever it needs it.
+  &nbsp;📚 *Deep dive:* [Java basics §6](concepts/java-basics.md#6-lambdas-and-method-references).
 - **Units** — instead of bare numbers, WPILib uses typed units so you can't mix up degrees and
   rotations: `Degrees.of(110)`, `RPM.of(3000)`, `Meters.of(0.5)`.
+  &nbsp;📚 *Deep dive:* [WPILib units](concepts/units.md).
 - **Subsystem, Command, Trigger** — the heart of robot code:
   - A **Subsystem** is a part of the robot (the arm, a flywheel, the LEDs). Each runs a
     `periodic()` method every 20 ms.
@@ -105,8 +127,11 @@ You don't need to know all of Java. Here are just the ideas this lesson uses:
     `b`; `waitUntil(condition)` pauses until something becomes true.
   - A **Trigger** is a condition (a button press, "is the wheel at speed?") that *schedules* a
     command when it happens.
+  - &nbsp;📚 *Deep dive:* [Command-based programming](concepts/command-based.md) (the scheduler,
+    requirements, and how to compose commands).
 - **Simulation vs. real ("IO")** — the same code runs in the simulator and on a real robot; a
   thin layer underneath swaps simulated motors for real ones. You write the behavior once.
+  &nbsp;📚 *Deep dive:* [Simulation & the IO layer](concepts/simulation-and-io.md).
 
 That's enough to start. You'll see each idea in real code below.
 
@@ -201,6 +226,11 @@ public class IntakeArm extends Arm {
 physics roughly right and it just works. (In Module 3 you'll meet the *other* style, PID, on the
 flywheels — so you'll have used both.)
 
+> 📚 **Deep dives:** [Control: feedforward, PID & LQR](concepts/control-pid-lqr.md) explains what
+> LQR is doing and why `kG` is still needed; [Java basics](concepts/java-basics.md#5-inheritance-extends-and-super)
+> covers the `extends`/`super` pattern this class uses; [WPILib units](concepts/units.md) covers
+> `Degrees.of(...)` and `Volts.of(...)`.
+
 To see the arm move, bind a button to it — **temporarily**. In `LessonRobot`, override
 `configureBindings()`:
 
@@ -277,6 +307,9 @@ the voltage needed up front. For a flywheel the feedforward does nearly all the 
 starting guess is `kV ≈ 12 volts ÷ free speed in rotations/second`, and `kP` just cleans up the
 rest. Unlike LQR, *you* pick these numbers — but they're easy to reason about.
 
+> 📚 **Deep dive:** [Control: feedforward, PID & LQR](concepts/control-pid-lqr.md#3-pid) walks
+> through P, I, D and feedforward one term at a time, and compares PID with the arm's LQR.
+
 Now create `Shooter.java` the same way (CAN 43, 4-inch wheel, also `PROFILED_PID`, with a
 `SHOOT_RPM = RPM.of(3000)` constant and a `RPM_TOLERANCE = RPM.of(150)`).
 
@@ -336,7 +369,9 @@ public class FuelHandler extends SimRobotState implements AutoCloseable {
 ```
 
 **Concept — composing commands.** Build *deploy* by running the arm and roller at the same time,
-and starting collection just before:
+and starting collection just before. (📚 Deep dive:
+[Command-based programming](concepts/command-based.md) — the scheduler, requirements, and every
+builder used here.)
 
 ```java
 public Command deployCommand() {
@@ -350,7 +385,8 @@ public Command deployCommand() {
 `retractCommand()` is the mirror image (arm to `RETRACT_ANGLE`, roller to 0, `stopIntake()`).
 
 **Concept — the "at speed" gate.** Scoring should wait until the shooter is actually fast enough.
-`Flywheel` gives you `isAtSpeed(...)`, a Trigger you can wait on:
+`Flywheel` gives you `isAtSpeed(...)`, a Trigger you can wait on (📚 deep dive:
+[tolerances & `isAtSpeed`](concepts/control-pid-lqr.md#6-at-speed--at-angle-tolerances)):
 
 ```java
 public Command scoreCommand() {
@@ -470,7 +506,8 @@ rainbow.
    robot constructs, deploys, and scores correctly.
 4. **Full run-through:** `./gradlew simulateJava -PwebUI` and play the whole flow — drive, deploy,
    collect, aim, score — watching the LEDs and the `heldFuel` / `scoredFuel` numbers.
-5. **Ship it.** Commit everything, push, and open a pull request:
+5. **Ship it.** Commit everything, push, and open a pull request (📚 deep dive:
+   [Git & GitHub §7](concepts/git-github.md#7-pull-requests)):
    ```bash
    git add . && git commit -m "Finish intake + dual-flywheel lesson robot"
    git push -u origin my-intake-lesson
@@ -504,6 +541,16 @@ The complete, working reference solution is committed in this repo:
 - Game-piece simulation: collecting and launching, and launching **in the direction the robot
   is facing**.
 - Status LEDs driven by live device state.
+
+### Go deeper on the basics
+
+If any idea here felt fast, the companion deep dives explain it from scratch:
+[Java basics](concepts/java-basics.md) ·
+[Git & GitHub](concepts/git-github.md) ·
+[WPILib units](concepts/units.md) ·
+[Command-based programming](concepts/command-based.md) ·
+[Control: feedforward, PID & LQR](concepts/control-pid-lqr.md) ·
+[Simulation & the IO layer](concepts/simulation-and-io.md)
 
 ### Where to go next
 
