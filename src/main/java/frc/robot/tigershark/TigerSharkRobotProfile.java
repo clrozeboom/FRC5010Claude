@@ -1,7 +1,10 @@
 package frc.robot.tigershark;
 
+import static edu.wpi.first.units.Units.Hertz;
 import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Pounds;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
 
 import org.frc5010.common.drive.swerve.SwerveConstants;
 import org.frc5010.common.drive.swerve.SwerveConstants.GyroType;
@@ -25,7 +28,6 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.RobotBase;
-import frc.robot.generated.TunerConstants;
 
 /**
  * Robot profile for the real competition robot.
@@ -54,6 +56,8 @@ public class TigerSharkRobotProfile extends RobotProfile {
       .trackWidth(Inches.of(22))
       .wheelBase(Inches.of(22))
       .wheelRadius(Inches.of(2.0))
+      .maxLinearSpeed(MetersPerSecond.of(4.5))         // TODO measure
+      .maxAngularSpeed(RadiansPerSecond.of(2 * Math.PI)) // TODO measure
       .robotMass(Pounds.of(125))
       .bumperLength(Inches.of(30))
       .bumperWidth(Inches.of(30))
@@ -61,6 +65,8 @@ public class TigerSharkRobotProfile extends RobotProfile {
       .frontRightIds(2, 1, 16)
       .backLeftIds(6, 5, 14)
       .backRightIds(8, 7, 0)
+      .canBusName("")                                  // match TunerConstants.kCANBus
+      .odometryFrequency(Hertz.of(100))                // 100 Hz RIO bus, 250 Hz CANivore
       .build();
 
   // TODO: Set the actual Blue-alliance starting pose for this year's game.

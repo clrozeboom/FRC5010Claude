@@ -5,6 +5,19 @@
 > verify before moving on. Tell Claude when you hit an issue at a checkpoint and
 > we'll revise the lesson before continuing.
 
+> **Heads-up — the tigershark branch already contains a first draft of these files.**
+> `TigerSharkRobot.java`, `TigerSharkRobotProfile.java`, `TigerSharkElevator.java`,
+> and `TigerSharkLeds.java` exist under `src/main/java/frc/robot/tigershark/`, and
+> `RobotContainer.java` already points at them. Treat each lesson's "Work" section
+> as a **review-and-revise** checklist against the existing files, not a from-scratch
+> copy. Compare what's there to the lesson's guidance and edit anything that drifted
+> (e.g. CAN IDs that were placeholders, missing speed limits, control-style choices).
+
+> **Note on example-code paths (post main-merge):** the demo robot's code moved out of
+> `frc.robot.example` and `frc.robot.mechanisms` into `org.frc5010.examples` and
+> `org.frc5010.examples.mechanisms`. Anywhere this plan tells you to copy from or refer
+> to an `Example*` or `Demo*` file, look under `src/main/java/org/frc5010/examples/`.
+
 ## Course overview
 
 **You are building:** a new FRC robot configuration named "TigerShark" — a swerve
@@ -48,7 +61,7 @@ rewritten to be independent of the demo intake.
 **Files you'll edit:** just `src/main/java/frc/robot/RobotContainer.java` (two lines).
 
 **Files you'll leave alone but use as reference:** everything in
-`frc/robot/example/` and `frc/robot/mechanisms/Example*.java`.
+`org/frc5010/examples/` and `org/frc5010/examples/mechanisms/Example*.java`.
 
 ---
 
@@ -156,7 +169,7 @@ the field centre and rotates 180°).
 
 Path: `src/main/java/frc/robot/tigershark/TigerSharkRobotProfile.java`
 
-1. Copy `src/main/java/frc/robot/example/ExampleRobotProfile.java` to the new
+1. Copy `src/main/java/org/frc5010/examples/ExampleRobotProfile.java` to the new
    location. Change the package to `frc.robot.tigershark` and the class name to
    `TigerSharkRobotProfile`.
 
@@ -293,7 +306,7 @@ mass and gearing); on the real robot, characterize it with `sysId()` later
 
 Path: `src/main/java/frc/robot/tigershark/TigerSharkElevator.java`
 
-1. Copy `src/main/java/frc/robot/mechanisms/ExampleElevator.java` into the new
+1. Copy `src/main/java/org/frc5010/examples/mechanisms/ExampleElevator.java` into the new
    package.
 
 2. Change the package to `frc.robot.tigershark` and rename the class to
@@ -334,11 +347,31 @@ Path: `src/main/java/frc/robot/tigershark/TigerSharkElevator.java`
    `maxVelocity`) in a comment above the `s.maxVelocity` line so anyone reading
    can verify it later.
 
+5. **Expose an `isMoving()` helper** that the LED class will subscribe to. The
+   base `Elevator` already publishes `getVelocity()` (returns a `LinearVelocity`),
+   so the helper is one line plus a threshold constant:
+
+   ```java
+   private static final double MOVING_THRESHOLD_MPS = 0.02;
+
+   /** True when the carriage is moving fast enough to count as "in motion". */
+   public boolean isMoving() {
+     return Math.abs(getVelocity().in(MetersPerSecond)) > MOVING_THRESHOLD_MPS;
+   }
+   ```
+
+   Why a threshold rather than `!= 0`: gear lash, sensor noise, and tiny LQR
+   correction commands mean a stopped carriage still reports ~mm/s of velocity.
+   A 2 cm/s dead-band keeps the "moving" LED state honest. Also expose
+   `SCORING_HEIGHT` as a public `Distance` constant — `TigerSharkRobot` will
+   reference it for a button binding.
+
 ### Checkpoint
 - File compiles.
 - `s.motorModel` is `DCMotor.getKrakenX60(2)` — not `(1)`.
 - The cruise-velocity sanity check is documented in a comment above
   `maxVelocity`.
+- `isMoving()` and `SCORING_HEIGHT` are both public on the class.
 
 ### Self-check questions
 - *If `followerOpposed` is wrong, what symptom do you see at power-on?*
@@ -377,7 +410,7 @@ You're writing a thin `periodic()` that maps `(robot state) → (LED pattern)`.
 
 Path: `src/main/java/frc/robot/tigershark/TigerSharkLeds.java`
 
-1. Copy `frc/robot/example/DemoLeds.java` to the new location.
+1. Copy `src/main/java/org/frc5010/examples/DemoLeds.java` to the new location.
 
 2. Change the package, rename to `TigerSharkLeds`, and **rip out anything that
    references `DemoIntake`** — including the `intakeExtended` param,
@@ -455,7 +488,7 @@ as a string. Typos fail at runtime, not compile time. Be careful.
 
 Path: `src/main/java/frc/robot/tigershark/TigerSharkRobot.java`
 
-1. Copy `ExampleRobot.java` into the new package. Rename class to
+1. Copy `src/main/java/org/frc5010/examples/ExampleRobot.java` into the new package. Rename class to
    `TigerSharkRobot`.
 
 2. **Strip out** all the demo-mechanism construction
@@ -479,7 +512,7 @@ Path: `src/main/java/frc/robot/tigershark/TigerSharkRobot.java`
    }
    ```
    You'll add real autos later — see `docs/auto.md` and
-   `frc/robot/example/AutoRoutines.java` for the patterns when you're ready.
+   `org/frc5010/examples/AutoRoutines.java` for the patterns when you're ready.
 
 5. Write `configureBindings()`:
    ```java
@@ -490,14 +523,17 @@ Path: `src/main/java/frc/robot/tigershark/TigerSharkRobot.java`
      elevator = new TigerSharkElevator();
      registerMechanism(elevator::close);
 
-     // Preset heights — replace with TigerShark's real game positions
+     // Three preset heights — low / scoring / max.
+     // SCORING_HEIGHT is the public constant you added on TigerSharkElevator in
+     // Lesson 3; maxHeight comes from settings so it can't drift from the
+     // mechanism's actual soft limit.
      controller.a().onTrue(elevator.goToHeight(Meters.of(0.0)));
-     controller.b().onTrue(elevator.goToHeight(Meters.of(0.6)));
-     controller.y().onTrue(elevator.goToHeight(Meters.of(1.2)));
+     controller.b().onTrue(elevator.goToHeight(TigerSharkElevator.SCORING_HEIGHT));
+     controller.y().onTrue(elevator.goToHeight(elevator.getSettings().maxHeight));
 
      // LEDs are real hardware on a PWM port, so create them in both real and sim
      // (unlike DemoLeds which was sim-only because DemoIntake is sim-only)
-     leds = new TigerSharkLeds(LED_PWM_PORT, () -> elevator.isMoving());
+     leds = new TigerSharkLeds(LED_PWM_PORT, elevator::isMoving);
      registerMechanism(leds::close);
    }
    ```
@@ -610,7 +646,7 @@ What you're looking for:
 
 | Check | Pass criterion |
 |---|---|
-| Tests pass | `BUILD SUCCESSFUL`, no `RobotContainerSmokeTest` failure |
+| Tests pass | `BUILD SUCCESSFUL`, no `RobotContainerDelegationTest` failure (the test that constructs `RobotContainer` → your `TigerSharkRobot`). The renamed `ExampleRobotSmokeTest` still runs against the demo robot independently. |
 | Field2d at start pose | Robot rectangle visible at `BLUE_START` |
 | Drive | WASD or stick moves robot without unwanted yaw |
 | Elevator A | Carriage tracks to 0.0 m smoothly |
@@ -657,7 +693,7 @@ proven in sim:
 - `src/main/java/frc/robot/RobotContainer.java`
 
 **Untouched (reference):**
-- Everything under `frc/robot/example/` and `frc/robot/mechanisms/`.
+- Everything under `org/frc5010/examples/` and `org/frc5010/examples/mechanisms/`.
 
 ---
 
