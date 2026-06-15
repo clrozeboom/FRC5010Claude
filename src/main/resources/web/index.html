@@ -668,11 +668,11 @@ function fieldToCanvas(W, H) {
   if (alliance === 'Red') {
     cx = (y / fieldHeight) * W;
     cy = (x / fieldWidth)  * H;
-    canvasAngle = -headingRad + Math.PI / 2;
+    canvasAngle = -headingRad + Math.PI;
   } else {
     cx = (1 - y / fieldHeight) * W;
     cy = H - (x / fieldWidth) * H;
-    canvasAngle = -headingRad - Math.PI / 2;
+    canvasAngle = -headingRad;
   }
   return { cx, cy, canvasAngle };
 }
@@ -685,8 +685,11 @@ function fieldPt(fx, fy, W, H) {
 }
 
 // Convert a field angle (CCW from +X, radians) to a canvas rotation angle.
+// The Blue view maps field +X to screen-up and +Y to screen-left; shapes whose
+// reference direction is local-up (the robot front, the tag facing tick) therefore
+// rotate by -rad. The Red view is the Blue view rotated 180°, hence -rad + π.
 function fieldAngle(rad) {
-  return state.alliance === 'Red' ? -rad + Math.PI / 2 : -rad - Math.PI / 2;
+  return state.alliance === 'Red' ? -rad + Math.PI : -rad;
 }
 
 // Average pixels-per-metre scale (used for label sizing only).
