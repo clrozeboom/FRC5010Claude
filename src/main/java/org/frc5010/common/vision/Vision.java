@@ -54,6 +54,13 @@ public class Vision extends SubsystemBase {
   private final Alert[] disconnectedAlerts;
 
   /**
+   * IDs of every AprilTag any camera saw on the most recent {@link #periodic()} cycle.
+   * Replaced wholesale each cycle on the robot thread; read (e.g. by the web UI HTTP
+   * thread via {@link #getVisibleTagIds()}) without locking, hence {@code volatile}.
+   */
+  private volatile int[] visibleTagIds = new int[0];
+
+  /**
    * Constructs a Vision subsystem.
    *
    * @param consumer    Called for each accepted pose observation. Use
@@ -96,6 +103,7 @@ public class Vision extends SubsystemBase {
     List<Pose3d> allRobotPoses = new ArrayList<>();
     List<Pose3d> allAccepted   = new ArrayList<>();
     List<Pose3d> allRejected   = new ArrayList<>();
+    List<Integer> allTagIds    = new ArrayList<>();
 
     for (int ci = 0; ci < io.length; ci++) {
       disconnectedAlerts[ci].set(!inputs[ci].connected);
@@ -108,6 +116,7 @@ public class Vision extends SubsystemBase {
       // Visualize seen tags.
       for (int id : inputs[ci].tagIds) {
         fieldLayout.getTagPose(id).ifPresent(tagPoses::add);
+        if (!allTagIds.contains(id)) allTagIds.add(id);
       }
 
       // Reconstruct PoseObservation from parallel arrays and process each one.
@@ -166,6 +175,24 @@ public class Vision extends SubsystemBase {
     Logger.recordOutput("Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[0]));
     Logger.recordOutput("Vision/Summary/Accepted",   allAccepted.toArray(new Pose3d[0]));
     Logger.recordOutput("Vision/Summary/Rejected",   allRejected.toArray(new Pose3d[0]));
+
+    // Publish the per-cycle set of visible tag IDs for consumers outside the robot loop
+    // (e.g. the web UI, which highlights tags currently in view).
+    int[] ids = new int[allTagIds.size()];
+    for (int i = 0; i < ids.length; i++) ids[i] = allTagIds.get(i);
+    visibleTagIds = ids;
+  }
+
+  /**
+   * Returns the IDs of every AprilTag any camera saw on the most recent cycle.
+   *
+   * <p>Thread-safe: returns a snapshot reference that is replaced wholesale each cycle, so
+   * callers (such as the web UI HTTP threads) may read it without locking.
+   *
+   * @return the visible tag IDs (empty when no tags are in view); do not mutate
+   */
+  public int[] getVisibleTagIds() {
+    return visibleTagIds;
   }
 
   /** Matches the signature of {@code AkitSwerveDrive.addVisionMeasurement}. */

@@ -78,6 +78,11 @@ public class WebDriveController {
     private volatile BooleanSupplier intakeExtendedSupplier = () -> false;
     private volatile IntSupplier scoredFuelSupplier    = () -> 0;
 
+    // Supplies the AprilTag IDs currently visible to the cameras (wired by {@link #bindVisibleTags}
+    // when a Vision subsystem exists). The web UI highlights these tags. Read from the HTTP
+    // thread; the backing snapshot is replaced atomically each robot cycle, so no lock is needed.
+    private volatile java.util.function.Supplier<int[]> visibleTagsSupplier = () -> new int[0];
+
     // LED strip bound by {@link #bindLeds}; null when the robot has no strip. The colour
     // snapshot is rebuilt each cycle on the robot thread in applyPendingControl (the strip's
     // buffer is not thread-safe to read from HTTP threads) and served from ledsBuf.
@@ -280,6 +285,18 @@ public class WebDriveController {
     }
 
     /**
+     * Binds a supplier of the AprilTag IDs currently visible to the cameras, surfaced in
+     * {@code /api/state} as a {@code "visibleTags"} array so the web field highlights tags in
+     * view. The supplier is invoked from the HTTP thread; implementations must be thread-safe
+     * (e.g. {@link org.frc5010.common.vision.Vision#getVisibleTagIds()}).
+     *
+     * @param supplier returns the visible tag IDs each call (never null; empty when none seen)
+     */
+    public void bindVisibleTags(java.util.function.Supplier<int[]> supplier) {
+        this.visibleTagsSupplier = supplier;
+    }
+
+    /**
      * Binds the LED strip whose colours are surfaced in {@code /api/state} as a
      * {@code "leds"} array of hex strings. The strip's buffer is read only on the robot
      * thread (in {@link #applyPendingControl}); pass the strip the robot renders to.
@@ -440,12 +457,12 @@ public class WebDriveController {
             "\"enabled\":%b,\"alliance\":\"%s\",\"connected\":%b," +
             "\"mode\":\"%s\",\"selectedAuto\":\"%s\"," +
             "\"heldFuel\":%d,\"intakeExtended\":%b,\"scoredFuel\":%d," +
-            "\"leds\":%s}",
+            "\"visibleTags\":%s,\"leds\":%s}",
             p[0], p[1], p[2], p[3], maxLinearMps, maxAngularRps,
             enabledBuf.get(), allianceBuf.get(), isConnected(),
             modeBuf.get(), jsonEscape(selectedAutoBuf.get()),
             heldFuelSupplier.getAsInt(), intakeExtendedSupplier.getAsBoolean(), scoredFuelSupplier.getAsInt(),
-            ledsBuf.get());
+            intArrayJson(visibleTagsSupplier.get()), ledsBuf.get());
         respond(ex, 200, "application/json", json);
     }
 
@@ -554,6 +571,17 @@ public class WebDriveController {
     }
 
     private static double clamp(double v) { return Math.max(-1.0, Math.min(1.0, v)); }
+
+    /** Serializes an int array as a JSON array, e.g. {@code [1,4,7]} (null → {@code []}). */
+    private static String intArrayJson(int[] values) {
+        if (values == null || values.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder(values.length * 3 + 2).append('[');
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) sb.append(',');
+            sb.append(values[i]);
+        }
+        return sb.append(']').toString();
+    }
 
     /**
      * Extracts a JSON string value for {@code key} (i.e. {@code "key":"value"}). Returns null
