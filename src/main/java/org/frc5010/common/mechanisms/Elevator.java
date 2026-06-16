@@ -29,6 +29,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import java.util.function.DoubleSupplier;
 import java.util.List;
 import java.util.Set;
 import org.frc5010.common.robot.RobotMode;
@@ -376,8 +377,17 @@ public class Elevator extends SingleDofMechanism {
 
   /** Command: SysId routine for characterizing kG/kS/kV/kA, guarded by the travel limits. */
   public Command sysId() {
-    Trigger nearTop = isAtHeight(settings.maxHeight, Inches.of(3));
-    Trigger nearBottom = isAtHeight(settings.minHeight, Inches.of(3));
+    return sysId(settings.minHeight, settings.maxHeight);
+  }
+
+  /**
+   * Command: SysId routine limited to a custom height range.
+   * Use this for first-time characterization when you want to stay within a safe
+   * fraction of full travel (e.g. {@code maxLimit = Meters.of(maxHeight * 0.8)}).
+   */
+  public Command sysId(Distance minLimit, Distance maxLimit) {
+    Trigger nearTop = isAtHeight(maxLimit, Inches.of(3));
+    Trigger nearBottom = isAtHeight(minLimit, Inches.of(3));
     return Commands.sequence(
             Commands.runOnce(this::enterVoltageMode),
             sysIdRoutine.quasistatic(SysIdRoutine.Direction.kForward).until(nearTop),
@@ -386,6 +396,18 @@ public class Elevator extends SingleDofMechanism {
             sysIdRoutine.dynamic(SysIdRoutine.Direction.kReverse).until(nearBottom))
         .finallyDo(this::exitVoltageMode)
         .withName(settings.name + " SysId");
+  }
+
+  /**
+   * Command: open-loop voltage from a live supplier. Use for manual joystick-driven
+   * testing (e.g. right trigger = up, left trigger = down). Positive = up.
+   * Exits voltage mode and stops when the command ends.
+   */
+  public Command runVoltage(DoubleSupplier voltsSupplier) {
+    return Commands.run(() -> {
+      enterVoltageMode();
+      io.setVoltage(voltsSupplier.getAsDouble());
+    }, this).finallyDo(this::exitVoltageMode).withName(settings.name + " ManualVoltage");
   }
 
   /** Current carriage height (from the AdvantageKit inputs — replay-safe). */
