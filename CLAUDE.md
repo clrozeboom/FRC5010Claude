@@ -195,8 +195,10 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 
 | Topic | File |
 |---|---|
+| **Guided lesson plan — build a team robot end to end (swerve + 2-motor elevator + LEDs), with deep-dive links per lesson** | [docs/build-your-robot.md](docs/build-your-robot.md) |
 | `SwerveConstants` field reference, units conventions, speed accessors | [docs/configuration.md](docs/configuration.md) |
 | `RobotProfile` pattern, REAL/SIM branching, field length, vision wiring | [docs/robot-profiles.md](docs/robot-profiles.md) |
+| Driver controls — `JoystickAxis`/`DriveVector` pipeline, button bindings, `axis(2)` rotation gotcha | [docs/controls.md](docs/controls.md) |
 | Simulation scenarios, Gradle flags (`-PtestSim` / `-PvisualTest` / `-PwebUI`), AdvantageScope | [docs/simulation.md](docs/simulation.md) |
 | Test pyramid in depth, per-cycle call order, `SimulatedArena` teardown, log analysis | [docs/testing.md](docs/testing.md) |
 | Vision architecture (IO pattern, design decisions, usage example) | [docs/vision.md](docs/vision.md) |
