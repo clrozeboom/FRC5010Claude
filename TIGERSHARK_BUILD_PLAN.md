@@ -5,19 +5,6 @@
 > verify before moving on. Tell Claude when you hit an issue at a checkpoint and
 > we'll revise the lesson before continuing.
 
-> **Heads-up — the tigershark branch already contains a first draft of these files.**
-> `TigerSharkRobot.java`, `TigerSharkRobotProfile.java`, `TigerSharkElevator.java`,
-> and `TigerSharkLeds.java` exist under `src/main/java/frc/robot/tigershark/`, and
-> `RobotContainer.java` already points at them. Treat each lesson's "Work" section
-> as a **review-and-revise** checklist against the existing files, not a from-scratch
-> copy. Compare what's there to the lesson's guidance and edit anything that drifted
-> (e.g. CAN IDs that were placeholders, missing speed limits, control-style choices).
-
-> **Note on example-code paths (post main-merge):** the demo robot's code moved out of
-> `frc.robot.example` and `frc.robot.mechanisms` into `org.frc5010.examples` and
-> `org.frc5010.examples.mechanisms`. Anywhere this plan tells you to copy from or refer
-> to an `Example*` or `Demo*` file, look under `src/main/java/org/frc5010/examples/`.
-
 ## Course overview
 
 **You are building:** a new FRC robot configuration named "TigerShark" — a swerve
@@ -224,17 +211,26 @@ Path: `src/main/java/frc/robot/tigershark/TigerSharkRobotProfile.java`
    Add imports for `GyroIO`, `GyroIOPigeon2`, `ModuleIO`, `ModuleIOTalonFXReal`,
    and `frc.robot.tigershark.TunerConstants`.
 
-5. Update `createVision()` — only two edits needed:
-   - Update `FRONT_CAM_TRANSFORM` to TigerShark's real camera mounting (forward
-     distance, lateral offset, height in metres; and a `Rotation3d(roll, pitch,
-     yaw)` in radians).
-   - If you renamed the camera in PhotonVision, change `"photon_front"` to that
-     name.
+5. **Skip `createVision()` for now.** The base `RobotProfile.createVision()`
+   already returns `null`, which disables vision entirely. Do **not** override
+   it until you have a PhotonVision coprocessor physically connected and
+   configured. Overriding it with a missing camera causes a stream of
+   `PhotonVision coprocessor not found` errors every loop cycle and wastes CPU.
+
+   When you are ready to add vision later, restore the override with:
+   - The real `FRONT_CAM_TRANSFORM` for TigerShark's camera mounting position.
+   - The correct camera name matching what is set in PhotonVision's web UI.
+
+   Remove (or do not add) these imports until then — the compiler will flag them
+   unused and they clutter the file:
+   `CameraConfig`, `Vision`, `VisionFactory`, `AprilTagFieldLayout`,
+   `AprilTagFields`, `Rotation3d`, `Transform3d`, `Translation3d`.
 
 ### Checkpoint
 - File compiles in your IDE — no red squigglies.
 - The CAN IDs in `frontLeftIds(...)` match `TunerConstants.kFrontLeft*` exactly.
 - `BLUE_START` is set to a real field position, not the placeholder `(1.5, 2.0)`.
+- `createVision()` is **not** overridden (no camera yet).
 
 ### Self-check questions
 - *Why does the framework need `robotMass` for the simulator? What goes wrong if
@@ -520,6 +516,30 @@ Path: `src/main/java/frc/robot/tigershark/TigerSharkRobot.java`
    protected void configureBindings() {
      super.configureBindings();              // wires drive + standard buttons — don't skip
 
+     // ⚠️ Gotcha — replace the default keyboard drive with proper Xbox axes.
+     // The base configureBindings() maps rotation to axis(2), which is the LEFT
+     // TRIGGER on an Xbox controller, not the right stick. Override the drive
+     // default command here, after calling super, using the correct named axes.
+     JoystickAxis forward  = controller.leftY().negate().deadzone(0.05).power(2.0);
+     JoystickAxis strafe   = controller.leftX().negate().deadzone(0.05).power(2.0);
+     JoystickAxis rotation = controller.rightX().negate().deadzone(0.10);
+     DriveVector translate = DriveVector.of(forward, strafe).unitCircle();
+
+     drive.setDefaultCommand(
+         Commands.run(
+             () -> {
+               double flip = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
+                   ? -1.0 : 1.0;
+               Translation2d xy = translate.get();
+               drive.runVelocityFieldRelative(new ChassisSpeeds(
+                   flip * xy.getX() * drive.getMaxLinearSpeed().in(MetersPerSecond),
+                   flip * xy.getY() * drive.getMaxLinearSpeed().in(MetersPerSecond),
+                   rotation.getAsDouble() * drive.getMaxAngularSpeed().in(RadiansPerSecond)));
+             },
+             drive
+         ).withName("XboxDrive")
+     );
+
      elevator = new TigerSharkElevator();
      registerMechanism(elevator::close);
 
@@ -538,6 +558,18 @@ Path: `src/main/java/frc/robot/tigershark/TigerSharkRobot.java`
    }
    ```
 
+   Add these imports for the drive command:
+   ```java
+   import static edu.wpi.first.units.Units.MetersPerSecond;
+   import static edu.wpi.first.units.Units.RadiansPerSecond;
+   import org.frc5010.common.input.DriveVector;
+   import org.frc5010.common.input.JoystickAxis;
+   import edu.wpi.first.math.geometry.Translation2d;
+   import edu.wpi.first.math.kinematics.ChassisSpeeds;
+   import edu.wpi.first.wpilibj.DriverStation;
+   import edu.wpi.first.wpilibj.DriverStation.Alliance;
+   ```
+
 6. Declare the fields and the PWM port constant:
    ```java
    private static final int LED_PWM_PORT = 9;
@@ -548,6 +580,8 @@ Path: `src/main/java/frc/robot/tigershark/TigerSharkRobot.java`
 ### Checkpoint
 - File compiles.
 - `super.configureBindings()` is the first line of `configureBindings()`.
+- The `XboxDrive` default command uses `controller.leftY()`, `controller.leftX()`,
+  and `controller.rightX()` — **not** `axis(2)` for rotation.
 - Both `elevator` and `leds` are registered via `registerMechanism(...)`.
 - No references to `Example*` classes, `DemoIntake`, or `DemoLeds`.
 
@@ -558,6 +592,9 @@ Path: `src/main/java/frc/robot/tigershark/TigerSharkRobot.java`
 - *If you write `controller.a().onTrue(elevator.goToHeight(low).andThen(
   elevator.goToHeight(high)))`, what actually happens when the driver presses
   A? (Trick question — think about the "goal commands never finish" rule.)*
+- *Why does the base `SwerveRobotContainer` use `axis(2)` for rotation? What
+  device is typically on axis 2 in simulation, and why does that not work for
+  a real Xbox controller on a competition robot?*
 
 ---
 
@@ -660,6 +697,19 @@ What you're looking for:
 - *If the elevator overshoots violently in sim, which Settings field is the
   first thing to check?*
 - *If the robot spins instead of going straight, which constants are suspect?*
+
+---
+
+## Lessons learned on first hardware deploy
+
+These issues were discovered when deploying TigerShark to the real roboRIO for
+the first time. They are **not** caught in simulation. Add them to your mental
+checklist before every new hardware deploy.
+
+| Symptom | Root cause | Fix |
+|---------|-----------|-----|
+| Constant `PhotonVision coprocessor not found` errors filling the DS log | `createVision()` is overridden but the camera co-processor is not connected | Remove the `createVision()` override until the co-processor is physically installed and running; the base returns `null` which silently disables vision |
+| Translation works, rotation does nothing | Base `configureBindings()` assigns rotation to `axis(2)` (left trigger on Xbox); right stick X is axis 4 | Override `drive.setDefaultCommand(...)` in `TigerSharkRobot.configureBindings()` after calling `super`, using `controller.rightX()` for rotation |
 
 ---
 

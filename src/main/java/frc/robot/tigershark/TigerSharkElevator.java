@@ -16,17 +16,28 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Distance;
 
 /**
- * TigerShark LQR elevator: 2 Kraken X60s on a TalonFX (CAN 9 lead, 10 follower), 6:1
+ * TigerShark elevator: 2 Kraken X60s on TalonFX (CAN 9 lead, 10 follower), 6:1
  * gearbox driving a 1.1 in radius drum, 2.27 kg carriage, ~1.95 m of travel.
+ *
+ * <p>Control style: LQR with a SysId-characterized plant (kV/kA replace the
+ * mass-based model so carriage mass uncertainty doesn't affect the controller).
+ *
+ * <p>SysId results (June 15 2026, from FRC_20260615_223425.wpilog):
+ * <ul>
+ *   <li>kG = 0.26765 V  — gravity hold voltage
+ *   <li>kV = 3.7408 V·s/m — back-EMF slope (theoretical ≈ 4.1; measured lower = less friction)
+ *   <li>kA = 0.26304 V·s²/m — inertia (implies ~2.5 kg effective mass, vs 2.27 kg estimated)
+ *   <li>kS = 0.20317 V — static friction (not used by LQR, documented for reference)
+ * </ul>
  *
  * <p>Robot-specific numbers live here; all control logic is in the common {@link Elevator}.
  */
 public class TigerSharkElevator extends Elevator {
 
   /** CAN ID of the lead elevator TalonFX. */
-  public static final int CAN_ID = 9;
+  public static final int CAN_ID = 10;
   /** CAN ID of the second motor on the gearbox, following the lead. */
-  public static final int FOLLOWER_CAN_ID = 10;
+  public static final int FOLLOWER_CAN_ID = 11;
   /** Game-piece scoring height. */
   public static final Distance SCORING_HEIGHT = Meters.of(0.75);
 
@@ -62,7 +73,11 @@ public class TigerSharkElevator extends Elevator {
     s.maxVelocity = MetersPerSecond.of(0.9);
     s.maxAcceleration = MetersPerSecondPerSecond.of(2.0);
 
-    s.kG = Volts.of(0.3);                              // initial guess; refine via /tune-mechanism
+    s.kG = Volts.of(0.26765);                              // from SysId — gravity hold
+    // Characterized plant from SysId — replaces the mass-based LQR model.
+    // carriageMass above is still used by ElevatorSim (simulation physics only).
+    s.characterizedKv = 3.7408;                            // V per m/s
+    s.characterizedKa = 0.26304;                           // V per m/s²
     s.visualPose3d = new Pose3d(
         new Translation3d(
             Inches.of(5.75).in(Meters),

@@ -37,6 +37,7 @@ public class GyroIOPigeon2 implements GyroIO {
     yaw.setUpdateFrequency(constants.odometryFrequency.in(edu.wpi.first.units.Units.Hertz));
     yawVelocity.setUpdateFrequency(50.0);
     pigeon.optimizeBusUtilization();
+    TalonFXOdometryThread.createInstance(constants);
     yawTimestampQueue = TalonFXOdometryThread.getInstance().makeTimestampQueue();
     yawPositionQueue = TalonFXOdometryThread.getInstance().registerSignal(yaw.clone());
   }

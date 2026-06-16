@@ -29,7 +29,7 @@ import edu.wpi.first.wpilibj.util.Color;
 public class TigerSharkLeds extends LedStripSegments {
 
   /** Number of LEDs on the strip. */
-  public static final int LENGTH = 28;
+  public static final int LENGTH = 23;
 
   private static final LEDPattern RAINBOW =
       LEDPattern.rainbow(255, 128).scrollAtRelativeSpeed(Hertz.of(0.5));

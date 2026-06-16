@@ -16,17 +16,9 @@ import org.frc5010.common.drive.swerve.akit.GyroIOPigeon2;
 import org.frc5010.common.drive.swerve.akit.ModuleIO;
 import org.frc5010.common.drive.swerve.akit.ModuleIOTalonFXReal;
 import org.frc5010.common.profiles.RobotProfile;
-import org.frc5010.common.vision.CameraConfig;
-import org.frc5010.common.vision.Vision;
-import org.frc5010.common.vision.VisionFactory;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -48,19 +40,18 @@ import edu.wpi.first.wpilibj.RobotBase;
  */
 public class TigerSharkRobotProfile extends RobotProfile {
 
-  // TODO: Replace with actual robot measurements and CAN IDs.
-  private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
+    private static final SwerveConstants CONSTANTS = new SwerveConstants.Builder()
       .moduleType(ModuleType.TALON_FX)   // or SPARK_TALON
       .gyroType(GyroType.PIGEON2)        // or NAVX
       .gyroCanId(50)
-      .trackWidth(Inches.of(22))
-      .wheelBase(Inches.of(22))
-      .wheelRadius(Inches.of(2.0))
-      .maxLinearSpeed(MetersPerSecond.of(4.5))         // TODO measure
-      .maxAngularSpeed(RadiansPerSecond.of(2 * Math.PI)) // TODO measure
-      .robotMass(Pounds.of(125))
-      .bumperLength(Inches.of(30))
-      .bumperWidth(Inches.of(30))
+      .trackWidth(Inches.of(22)) // measured
+      .wheelBase(Inches.of(22)) // measured
+      .wheelRadius(Inches.of(2.0)) // measured
+      .maxLinearSpeed(MetersPerSecond.of(2.5)) // made a safe value
+      .maxAngularSpeed(RadiansPerSecond.of(2 * Math.PI)) // OK for now
+      .robotMass(Pounds.of(125)) // OK for now
+      .bumperLength(Inches.of(30)) // ok for now
+      .bumperWidth(Inches.of(30)) // OK for now
       .frontLeftIds(4, 3, 13)
       .frontRightIds(2, 1, 16)
       .backLeftIds(6, 5, 14)
@@ -69,7 +60,6 @@ public class TigerSharkRobotProfile extends RobotProfile {
       .odometryFrequency(Hertz.of(100))                // 100 Hz RIO bus, 250 Hz CANivore
       .build();
 
-  // TODO: Set the actual Blue-alliance starting pose for this year's game.
   private static final Pose2d BLUE_START = new Pose2d(1.5, 2.0, new Rotation2d());
 
   @Override
@@ -93,40 +83,9 @@ public class TigerSharkRobotProfile extends RobotProfile {
     return BLUE_START;
   }
 
+  // Vision is disabled until the PhotonVision coprocessor is available.
+  // To re-enable, uncomment createVision() and restore the camera transform + VisionFactory wiring.
   // Front-facing camera: 30 cm forward, 50 cm up, aligned with robot heading.
-  private static final Transform3d FRONT_CAM_TRANSFORM = new Transform3d(
-      new Translation3d(0.30, 0.0, 0.50), new Rotation3d());
-
-  /**
-   * Wires the {@code photon_front} PhotonVision camera and publishes static AprilTag poses to
-   * the drive's Field2d so Glass renders AT*.png overlays for each tag.
-   *
-   * <p>The pose supplier uses the TRUE physics position ({@code getSimulatedPose}) rather than
-   * the estimator so that injected estimator errors (e.g. push-correction test) do not prevent
-   * the camera sim from detecting tags. See CLAUDE.md Vision architecture section.
-   */
-  @Override
-  public Vision createVision(AkitSwerveDrive drive) {
-    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
-
-    Vision vision = VisionFactory.build(
-        drive::addVisionMeasurement,
-        () -> drive.getSimulatedPose().orElse(drive.getPose()),
-        drive::getRotation,
-        new CameraConfig[] {
-            new CameraConfig.Builder("photon_front")
-                .robotToCamera(FRONT_CAM_TRANSFORM)
-                .backend(CameraConfig.Backend.PHOTON)
-                .build()
-        });
-
-    // Publish each tag's 2D pose as a named Field2d object so Glass draws the
-    // AT*.png overlays configured in simgui.json.
-    layout.getTags().forEach(tag ->
-        drive.getField2d()
-             .getObject("Field Tag " + tag.ID)
-             .setPose(tag.pose.toPose2d()));
-
-    return vision;
-  }
+  // private static final Transform3d FRONT_CAM_TRANSFORM = new Transform3d(
+  //     new Translation3d(0.30, 0.0, 0.50), new Rotation3d());
 }
