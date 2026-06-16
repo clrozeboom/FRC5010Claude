@@ -197,6 +197,7 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 
 | Topic | File |
 |---|---|
+| **Lessons hub — index of guided lessons, beginner concept pages, and authoring conventions** | [docs/lessons/README.md](docs/lessons/README.md) |
 | **Guided lesson plan — build a team robot end to end (swerve + 2-motor elevator + LEDs), with deep-dive links per lesson** | [docs/build-your-robot.md](docs/build-your-robot.md) |
 | `SwerveConstants` field reference, units conventions, speed accessors | [docs/configuration.md](docs/configuration.md) |
 | `RobotProfile` pattern, REAL/SIM branching, field length, vision wiring | [docs/robot-profiles.md](docs/robot-profiles.md) |

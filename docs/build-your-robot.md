@@ -1,5 +1,9 @@
 # Build Your Robot — a guided lesson plan
 
+> Part of the [**Lessons**](lessons/README.md) collection. New to Java or coding? The beginner
+> [Intake + Dual-Flywheel](lessons/intake-flywheel-lesson.md) lesson builds a virtual robot from
+> scratch first.
+
 > **Format:** This is a guided walkthrough. Each lesson has a goal, the concepts
 > you need to understand *before* writing code, the work itself, a checkpoint to
 > verify before moving on, and links to the **deep-dive docs** that cover each

@@ -1,5 +1,8 @@
 # Lesson: Build a Virtual Intake-Arm + Dual-Flywheel Robot
 
+> Part of the [**Lessons**](README.md) collection. Next step after this one:
+> [Build Your Robot](../build-your-robot.md) (wire a real competition robot).
+
 Welcome! In this lesson you will build a **virtual robot** — one that runs entirely in
 simulation, no hardware needed — that can:
 
