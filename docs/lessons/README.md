@@ -16,7 +16,7 @@ over to the next.
 
 | Lesson | Level | You build | Runs on |
 |---|---|---|---|
-| [**Build Your Robot**](../build-your-robot.md) | Intermediate | A real competition robot end-to-end — a Kraken/TalonFX swerve drivetrain plus a two-motor elevator and state-driven LEDs — through to hardware deploy, tuning, and calibration. | Sim → real hardware |
+| [**Build Your Robot**](build-your-robot.md) | Intermediate | A real competition robot end-to-end — a Kraken/TalonFX swerve drivetrain plus a two-motor elevator and state-driven LEDs — through to hardware deploy, tuning, and calibration. | Sim → real hardware |
 | [**Intake + Dual-Flywheel Robot**](intake-flywheel-lesson.md) | Beginner | A virtual robot built from scratch in `frc.robot`: an intake arm (LQR), two flywheels (onboard PID), status LEDs, and Fuel that launches along the robot's heading. Teaches Java **and** GitHub from zero. | Simulation only |
 
 **Not sure which?** If you have a physical robot to wire up, take **Build Your Robot**. If you're

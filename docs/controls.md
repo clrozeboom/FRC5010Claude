@@ -157,6 +157,6 @@ handles between cases.
 
 - [docs/robot-profiles.md](robot-profiles.md) — where the `controller`,
   `drive`, and lifecycle come from
-- [docs/build-your-robot.md](build-your-robot.md) — the guided lesson plan that
+- [docs/lessons/build-your-robot.md](lessons/build-your-robot.md) — the guided lesson plan that
   applies all of this end to end (Lesson 5)
 - [docs/mechanisms.md](mechanisms.md) — the goal commands you bind buttons to
