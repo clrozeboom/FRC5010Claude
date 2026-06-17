@@ -195,7 +195,9 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 
 | Topic | File |
 |---|---|
+| **Lessons hub — index of guided lessons, beginner concept pages, and authoring conventions** | [docs/lessons/README.md](docs/lessons/README.md) |
 | **Guided lesson plan — build a team robot end to end (swerve + 2-motor elevator + LEDs), with deep-dive links per lesson** | [docs/build-your-robot.md](docs/build-your-robot.md) |
+| Beginner lesson: build an intake-arm + dual-flywheel robot in `frc.robot` (Java + GitHub, LQR + PID, status LEDs) | [docs/lessons/intake-flywheel-lesson.md](docs/lessons/intake-flywheel-lesson.md) |
 | `SwerveConstants` field reference, units conventions, speed accessors | [docs/configuration.md](docs/configuration.md) |
 | `RobotProfile` pattern, REAL/SIM branching, field length, vision wiring | [docs/robot-profiles.md](docs/robot-profiles.md) |
 | Driver controls — `JoystickAxis`/`DriveVector` pipeline, button bindings, `axis(2)` rotation gotcha | [docs/controls.md](docs/controls.md) |
