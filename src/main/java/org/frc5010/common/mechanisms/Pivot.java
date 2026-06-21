@@ -323,6 +323,14 @@ public class Pivot extends SingleDofMechanism {
     return goalCommand(angle.in(Radians), settings.name + " GoToAngle");
   }
 
+  /**
+   * Continuously commands the pivot to {@code angle} from a periodic loop (no command).
+   * For owners that re-assert a moving setpoint every cycle, e.g. a turret tracking a target.
+   */
+  public void track(Angle angle) {
+    commandGoalNative(angle.in(Radians));
+  }
+
   /** Command: SysId routine for characterizing kS/kV/kA, guarded by the travel limits. */
   public Command sysId() {
     Trigger nearMax = isAtAngle(settings.maxAngle, Degrees.of(8));

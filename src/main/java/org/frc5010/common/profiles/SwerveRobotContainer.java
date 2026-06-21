@@ -63,10 +63,11 @@ import org.frc5010.common.vision.Vision;
  */
 public abstract class SwerveRobotContainer {
 
-  // Glass keyboard joystick 0 (simgui-ds.json):
-  //   axis 0 — A(dec) / D(inc)  →  strafe
-  //   axis 1 — W(dec) / S(inc)  →  forward/back (W = negative axis)
-  //   axis 2 — E(dec) / R(inc)  →  rotation
+  // Glass keyboard joystick 0 (simgui-ds.json) mirrors a real Xbox pad — 6 axes, 10 buttons,
+  // 1 POV — so the same standard mapping drives sim and hardware:
+  //   axis 0 (Left X)  — A(dec) / D(inc)  →  strafe
+  //   axis 1 (Left Y)  — W(dec) / S(inc)  →  forward/back (W = negative axis)
+  //   axis 4 (Right X) — E(dec) / Q(inc)  →  rotation   (axis 2 is the left trigger, unused)
   /** The primary driver controller. Accessible to subclasses for additional bindings. */
   protected final XboxConfigurableController controller;
 
@@ -167,6 +168,10 @@ public abstract class SwerveRobotContainer {
    */
   protected SwerveRobotContainer(RobotProfile profile, int controllerPort) {
     this.profile  = profile;
+    // The profile is the authority on the field: publish its AprilTag layout to the shared
+    // holder BEFORE building the drive/vision (and before any FieldConstants class loads), so
+    // pose estimation and field geometry all follow the profile's chosen field variant.
+    org.frc5010.common.vision.AprilTags.setAprilTagFieldLayout(profile.getAprilTagFieldLayout());
     this.drive    = profile.createDrive();
     this.vision   = profile.createVision(this.drive);
     boolean webUI = RobotBase.isSimulation() && Boolean.getBoolean("webUI");
@@ -273,9 +278,13 @@ public abstract class SwerveRobotContainer {
       if (vision != null) webControl.bindVision(vision);
     }
 
-    JoystickAxis forward  = controller.axis(1).negate().deadzone(0.05);
-    JoystickAxis strafe   = controller.axis(0).negate().deadzone(0.05);
-    JoystickAxis rotation = controller.axis(2).negate().deadzone(0.05);
+    // Standard Xbox axes: left stick translates, right-stick X rotates. The Glass keyboard
+    // joystick (simgui-ds.json) is configured to mirror an Xbox pad — 6 axes / 10 buttons / 1 POV,
+    // with W/S → leftY, A/D → leftX, E/Q → rightX — so the same mapping drives the sim keyboard
+    // and a real controller. (On an Xbox pad axis 2 is the left trigger, NOT rotation.)
+    JoystickAxis forward  = controller.leftY().negate().deadzone(0.05);
+    JoystickAxis strafe   = controller.leftX().negate().deadzone(0.05);
+    JoystickAxis rotation = controller.rightX().negate().deadzone(0.05);
     DriveVector translate = DriveVector.of(forward, strafe).unitCircle();
 
     drive.setDefaultCommand(

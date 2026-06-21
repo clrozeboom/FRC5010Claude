@@ -2,6 +2,8 @@ package org.frc5010.common.profiles;
 
 import static edu.wpi.first.units.Units.Meters;
 
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.units.measure.Distance;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
@@ -107,5 +109,18 @@ public abstract class RobotProfile {
    */
   public Distance getFieldLength() {
     return Meters.of(16.540988);
+  }
+
+  /**
+   * The AprilTag field layout this robot plays on.
+   *
+   * <p>This is the authority for the field: {@link SwerveRobotContainer} pushes it into the
+   * shared {@link org.frc5010.common.vision.AprilTags} holder before building the drive and
+   * vision, so the rest of the vision and field-geometry code follows the profile's choice.
+   * Default: WPILib's current-season default ({@code kDefaultField}, the welded variant).
+   * Override to compete on a different variant (e.g. {@code k2026RebuiltAndymark}).
+   */
+  public AprilTagFieldLayout getAprilTagFieldLayout() {
+    return AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
   }
 }

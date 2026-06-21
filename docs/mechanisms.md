@@ -99,6 +99,12 @@ Commands: `goToHeight(Distance)` / `goToAngle(Angle)` / `goToSpeed(AngularVeloci
 `Elevator.homeCommand()`; triggers: `isAtHeight` / `isAtAngle` / `isAtSpeed`;
 `getSettings()` for start points; `close()` frees the CAN IDs for tests.
 
+Non-command goal setters — `Arm.track(Angle)` / `Pivot.track(Angle)` /
+`Flywheel.track(AngularVelocity)` (and `SingleDofMechanism.commandGoalNative`) — write the goal
+directly from another subsystem's `periodic()` for a **continuously moving setpoint** (e.g. a
+turret tracking a target), avoiding a fresh command schedule each loop. Call every cycle (the
+goal latches). Full contract + example: [docs/rebuilt-robot.md](rebuilt-robot.md#the-track-api-mechanism-addition).
+
 **Real-robot hardware options** (all in Settings):
 - `followerCanId`/`followerOpposed` — second TalonFX on the same gearbox (set
   `motorModel = DCMotor.getKrakenX60(2)` so the plant/sim include both motors).
