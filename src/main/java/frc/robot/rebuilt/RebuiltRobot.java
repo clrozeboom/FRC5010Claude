@@ -34,14 +34,16 @@ import frc.robot.rebuilt.subsystems.RebuiltLeds;
  *
  * <p>Controls (work over the web UI for the six driver face buttons A/B/X/Y/LB/RB):
  * <ul>
- *   <li><b>A</b> — intake: deploy + collect Fuel</li>
+ *   <li><b>A</b> — intake: deploy hopper to 0° + collect Fuel</li>
  *   <li><b>B</b> (hold) — launcher PREP (aim + spin up; auto-feeds when ready); release → LOW_SPEED</li>
- *   <li><b>X</b> — fire one Fuel at the hub (manual, sim)</li>
- *   <li><b>Y</b> — retract intake + indexer idle</li>
+ *   <li><b>X</b> — retract intake + indexer idle (hopper to 120°)</li>
+ *   <li><b>Y</b> — retract intake + indexer idle (same as X, redundant)</li>
  *   <li><b>LB</b> (hold) — indexer HARD_CHURN (un-jam); release → idle</li>
  *   <li><b>RB</b> — launcher HAMMERTIME (safe stow)</li>
- *   <li><b>Back</b> — hopper deployed; <b>Start</b> — hopper retracted</li>
+ *   <li><b>Back</b> — hopper deployed (no rollers); <b>Start</b> — hopper retracted</li>
  * </ul>
+ * Firing is automatic: the coupling loop scores Fuel when the launcher is at goal and the
+ * indexer is feeding (triggered by holding B).
  * Operator (Xbox port 1): A/B/X/Y hold → tower / hub / hub / forward PRESET, release → LOW_SPEED.
  */
 public class RebuiltRobot extends SwerveRobotContainer {
@@ -147,24 +149,14 @@ public class RebuiltRobot extends SwerveRobotContainer {
   private void configureDriverBindings() {
     controller.a().onTrue(intake.intakeCommand(() -> Constants.Intake.INTAKE_IN));
     controller.b().onTrue(launcher.prepCommand()).onFalse(launcher.lowSpeedCommand());
+    // X retracts the hopper (mirrors Y — A deploys to 0°, X/Y retract to 120°).
+    // Automatic Fuel firing is handled by the coupling loop when the launcher is at goal.
+    controller.x().onTrue(intake.retractCommand()).onTrue(indexer.idleCommand());
     controller.y().onTrue(intake.retractCommand()).onTrue(indexer.idleCommand());
     controller.leftBumper().onTrue(indexer.hardChurnCommand()).onFalse(indexer.idleCommand());
     controller.rightBumper().onTrue(launcher.hammertimeCommand());
     controller.back().onTrue(intake.deployCommand());
     controller.start().onTrue(intake.retractCommand());
-
-    // X manually fires one Fuel at the hub (sim game-piece layer).
-    controller
-        .x()
-        .onTrue(
-            Commands.runOnce(
-                    () -> {
-                      if (gameSim != null) {
-                        CommandScheduler.getInstance().schedule(gameSim.fireCommand());
-                      }
-                    })
-                .ignoringDisable(true)
-                .withName("Launcher/ManualFire"));
   }
 
   private void configureOperatorBindings() {

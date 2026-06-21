@@ -195,25 +195,38 @@ class RebuiltRobotSmokeTest extends SimTestBase {
         LauncherState.HAMMERTIME, launcher.getState(), "launcher stows while hopper blocks turret");
   }
 
-  // ── game-piece firing ──────────────────────────────────────────────────────
+  // ── hopper retract via X ───────────────────────────────────────────────────
 
+  /**
+   * X is now the retract button (mirrors Y): A deploys to 0°, X retracts to 120°.
+   * Firing is automatic via the coupling loop when the launcher is at goal.
+   */
   @Test
-  void xButtonFiresAPreloadFuel() throws InterruptedException {
+  void xButtonRetractsHopperAfterDeploy() throws InterruptedException {
     RebuiltRobot robot = new RebuiltRobot();
-    var gameSim = robot.getGameSim().orElse(null);
-    assertNotNull(gameSim, "physics sim provides the Fuel game-piece layer");
-    int before = gameSim.getHeldFuel();
-    assertTrue(before > 0, "robot starts preloaded with Fuel");
+    var intake = robot.getIntake();
 
     enableTeleop();
     XboxControllerSim driver = new XboxControllerSim(0);
+
+    // Deploy with A first.
+    driver.setAButton(true);
+    DriverStationSim.notifyNewData();
+    DriverStation.refreshData();
+    pumpCycles(60); // wait for hopper to reach 0° (0.6 s settle + motion time)
+    assertEquals(IntakeState.INTAKING, intake.getCurrentState(), "A deploys the hopper");
+
+    // Release A, press X to retract.
+    driver.setAButton(false);
     driver.setXButton(true);
     DriverStationSim.notifyNewData();
     DriverStation.refreshData();
-    pumpCycles(10);
+    pumpCycles(60); // wait for hopper to return to 120°
 
+    assertEquals(IntakeState.RETRACTED, intake.getCurrentState(), "X retracts the hopper");
     assertTrue(
-        gameSim.getHeldFuel() < before,
-        "pressing X must fire one held Fuel (was " + before + ", now " + gameSim.getHeldFuel() + ")");
+        intake.getHopper().getAngleDegrees() >= 117,
+        "hopper should return to retracted position (~120°), was "
+            + intake.getHopper().getAngleDegrees());
   }
 }
