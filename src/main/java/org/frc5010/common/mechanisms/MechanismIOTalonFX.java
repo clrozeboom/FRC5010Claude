@@ -83,6 +83,17 @@ public class MechanismIOTalonFX implements MechanismIO {
     /** CANcoder magnet offset, rotations (reading at the mechanism's zero). */
     public double cancoderOffsetRot = 0;
     /**
+     * Fused-CANcoder absolute discontinuity point, rotations: the absolute position
+     * reported by a 1:1 CANcoder wraps over the range {@code [point − 1, point)}. The
+     * Phoenix default (0.5 → ±180°) is wrong for any mechanism whose travel spans more
+     * than ±180° from the CANcoder zero, because at power-on the Talon seeds its fused
+     * position from this wrapping absolute reading and would be ~360° off. Set this so
+     * the wrap falls <em>outside</em> the mechanism's travel (e.g. opposite the travel
+     * midpoint). Only used when {@link #cancoderId} is set.
+     */
+    public double absoluteSensorDiscontinuityRot = 0.5;
+
+    /**
      * Run all control requests with FOC commutation (~15% more torque, smoother
      * low-speed control). Requires Phoenix Pro licensing on the device; unlicensed
      * devices fall back to non-FOC and raise an UnlicensedFeatureInUse fault.
@@ -131,6 +142,10 @@ public class MechanismIOTalonFX implements MechanismIO {
       cancoder = new CANcoder(config.cancoderId);
       var cancoderConfig = new CANcoderConfiguration();
       cancoderConfig.MagnetSensor.MagnetOffset = -config.cancoderOffsetRot;
+      // Place the absolute wrap outside the travel so power-on seeding is unambiguous
+      // even for arms/pivots that swing past ±180° from the CANcoder zero.
+      cancoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint =
+          config.absoluteSensorDiscontinuityRot;
       cancoder.getConfigurator().apply(cancoderConfig);
       talonConfig.Feedback.FeedbackRemoteSensorID = config.cancoderId;
       talonConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
