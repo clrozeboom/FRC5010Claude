@@ -73,53 +73,30 @@ why the gotcha below exists.
 
 ---
 
-## ⚠️ Gotcha: `axis(2)` is the left trigger, not rotation
+## Rotation axis: standard Xbox layout, sim and hardware
 
-`SwerveRobotContainer.configureBindings()` wires a **keyboard-friendly** default
-drive command:
-
-```java
-JoystickAxis forward  = controller.axis(1).negate().deadzone(0.05);
-JoystickAxis strafe   = controller.axis(0).negate().deadzone(0.05);
-JoystickAxis rotation = controller.axis(2).negate().deadzone(0.05);   // ← axis 2
-```
-
-In Glass's simulated keyboard, axis 2 is mapped to rotation keys, so this is
-perfect for sim. **On a physical Xbox controller, axis 2 is the left trigger** —
-so on the real robot translation works and rotation does nothing (or twitches
-when you brush the trigger). This is one of the first-hardware-deploy surprises.
-
-**Fix — override the drive default command in your subclass**, after calling
-`super.configureBindings()`, using the *named* right-stick accessor for rotation:
+The default drive command uses the **standard Xbox axes** — left stick translates, right-stick X
+rotates:
 
 ```java
-@Override
-protected void configureBindings() {
-  super.configureBindings();   // keep the standard bindings, then replace drive
-
-  JoystickAxis forward  = controller.leftY().negate().deadzone(0.05).power(2.0);
-  JoystickAxis strafe   = controller.leftX().negate().deadzone(0.05).power(2.0);
-  JoystickAxis rotation = controller.rightX().negate().deadzone(0.10);   // ← rightX
-  DriveVector translate = DriveVector.of(forward, strafe).unitCircle();
-
-  drive.setDefaultCommand(
-      Commands.run(
-          () -> {
-            double flip = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
-                ? -1.0 : 1.0;
-            Translation2d xy = translate.get();
-            drive.runVelocityFieldRelative(new ChassisSpeeds(
-                flip * xy.getX() * drive.getMaxLinearSpeed().in(MetersPerSecond),
-                flip * xy.getY() * drive.getMaxLinearSpeed().in(MetersPerSecond),
-                rotation.getAsDouble() * drive.getMaxAngularSpeed().in(RadiansPerSecond)));
-          },
-          drive)
-      .withName("XboxDrive"));
-}
+JoystickAxis forward  = controller.leftY().negate().deadzone(0.05);  // axis 1
+JoystickAxis strafe   = controller.leftX().negate().deadzone(0.05);  // axis 0
+JoystickAxis rotation = controller.rightX().negate().deadzone(0.05); // axis 4
 ```
 
-You only need this on the real robot, but it is harmless in sim (the right stick
-still drives), so override it once and use the same code in both modes.
+The classic "rotation does nothing on a real pad" surprise came from the Glass keyboard mapping
+rotation to **axis 2** — which on a physical Xbox pad is the **left trigger**, not rotation. The
+fix is that **the Glass keyboard joystick (`simgui-ds.json`) is configured to mirror a real Xbox
+controller**: 6 axes, 10 buttons, 1 POV, with `W/S → leftY`, `A/D → leftX`, **`E/Q → rightX`
+(axis 4)**. So the *same* standard mapping drives the sim keyboard and a real controller — no
+per-team override, no runtime axis juggling. (Pinned by `SwerveDriveAxisTest`: right-stick X
+rotates, the left trigger does not.)
+
+> If you regenerate `simgui-ds.json` from a fresh Glass session, re-apply the Xbox keyboard
+> layout (axisCount 6, rotation on axis 4) or rotation will land on the wrong axis in sim.
+
+Want a different feel (larger rotation deadzone, a `power()` curve)? Override the drive default
+command in your subclass after `super.configureBindings()` with the named accessors.
 
 ---
 

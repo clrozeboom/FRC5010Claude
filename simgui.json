@@ -8,7 +8,11 @@
       "/SmartDashboard/Auto Mode": "String Chooser",
       "/SmartDashboard/Field": "Field2d",
       "/SmartDashboard/PhotonAlerts": "Alerts",
-      "/SmartDashboard/VisionSystemSim-vision_photon_front/Sim Field": "Field2d"
+      "/SmartDashboard/RobotMechanisms3D": "Mechanism2d",
+      "/SmartDashboard/VisionSystemSim-vision_left-bagel/Sim Field": "Field2d",
+      "/SmartDashboard/VisionSystemSim-vision_photon_front/Sim Field": "Field2d",
+      "/SmartDashboard/VisionSystemSim-vision_rear-prometheus/Sim Field": "Field2d",
+      "/SmartDashboard/VisionSystemSim-vision_right-raikou/Sim Field": "Field2d"
     },
     "windows": {
       "/SmartDashboard/Auto Mode": {
@@ -272,6 +276,11 @@
           "visible": true
         }
       },
+      "/SmartDashboard/RobotMechanisms3D": {
+        "window": {
+          "visible": true
+        }
+      },
       "/SmartDashboard/VisionSystemSim-vision_photon_front/Sim Field": {
         "Robot": {
           "arrows": false,
@@ -302,6 +311,14 @@
         "visibleTargetPoses": {
           "arrows": false
         },
+        "width": 16.54119300842285
+      },
+      "/SmartDashboard/VisionSystemSim-vision_right-raikou/Sim Field": {
+        "bottom": 1914,
+        "height": 8.069275856018066,
+        "left": 245,
+        "right": 3942,
+        "top": 118,
         "width": 16.54119300842285,
         "window": {
           "visible": true
@@ -321,5 +338,8 @@
         "open": true
       }
     }
+  },
+  "NetworkTables Info": {
+    "visible": true
   }
 }

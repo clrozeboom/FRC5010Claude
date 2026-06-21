@@ -1,7 +1,6 @@
 package org.frc5010.common.vision;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import java.util.function.Supplier;
@@ -52,7 +51,9 @@ public final class VisionFactory {
       Supplier<Rotation2d> headingSupplier,
       CameraConfig[] configs) {
 
-    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
+    // Single source of truth: the 2026 Rebuilt AndyMark layout (the variant we compete on),
+    // shared with the field-geometry helpers so pose estimation and geometry never diverge.
+    AprilTagFieldLayout layout = AprilTags.aprilTagFieldLayout;
     Mode mode = RobotMode.get();
 
     VisionIO[] io = new VisionIO[configs.length];

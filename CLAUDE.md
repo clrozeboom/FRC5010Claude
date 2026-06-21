@@ -205,6 +205,7 @@ Several real bugs passed the whole test suite and only surfaced when the sim was
 | Test pyramid in depth, per-cycle call order, `SimulatedArena` teardown, log analysis | [docs/testing.md](docs/testing.md) |
 | Vision architecture (IO pattern, design decisions, usage example) | [docs/vision.md](docs/vision.md) |
 | Mechanisms — TalonFX-native LQR/MotionMagic, tuning, gotchas, test pump | [docs/mechanisms.md](docs/mechanisms.md) |
+| Rebuilt 2026 robot (`frc.robot.rebuilt`) — subsystems, controls, autos, cameras, `track()` API, sim gotchas | [docs/rebuilt-robot.md](docs/rebuilt-robot.md) |
 | LED strips — segments, custom animations, robot-state mapping | [docs/leds.md](docs/leds.md) |
 | Motor calibration workflow (sim ramp → SysId → apply gains) | [docs/calibration.md](docs/calibration.md) |
 | BLine path-following — auto chooser, JSON + code-defined paths, drive-to-pose button | [docs/auto.md](docs/auto.md) |

@@ -193,16 +193,17 @@ class WebUIFunctionalTest {
      * <p>Requires the robot to be enabled (established by {@link #robotEnablesViaHttpControl}).
      */
     @Test @Order(4)
-    void demoIntakeExtendsViaWebButton() throws Exception {
-        // LB = buttons index 4.  A rising edge in DemoIntake.step() sets intakeExtended=true.
+    void intakeExtendsViaWebButton() throws Exception {
+        // A = buttons index 0. RebuiltRobot maps A → intake INTAKING; once the hopper deploys
+        // (≈0.6 s settle) the coupling starts the Fuel game-piece collection, flipping
+        // intakeExtended=true in /api/state.
         post("/api/drive",
             "{\"vx\":0.0,\"vy\":0.0,\"omega\":0.0," +
-            "\"buttons\":[false,false,false,false,true,false]}");
-        // DemoIntake default command runs every 20 ms while enabled; 200 ms = 10 loops.
-        waitMs(200);
+            "\"buttons\":[true,false,false,false,false,false]}");
+        waitMs(1_500); // deploy settle + coupling extend
         String state = get("/api/state");
         assertTrue(bodyContains(state, "intakeExtended", "true"),
-            "DemoIntake must extend when LB (buttons[4]=true) is received. State: " + state);
+            "Intake must deploy + collect when A (buttons[0]=true) is received. State: " + state);
     }
 
     /**
@@ -212,10 +213,10 @@ class WebUIFunctionalTest {
     @Test @Order(5)
     void autosEndpointListsRoutines() throws Exception {
         String autos = get("/api/autos");
-        assertTrue(autos.contains("\"None\""),
-            "Auto list must contain the default 'None' option. Body: " + autos);
-        assertTrue(autos.contains("BLine: Example Score (JSON)"),
-            "Auto list must contain the JSON example routine. Body: " + autos);
+        assertTrue(autos.contains("\"Do Nothing\""),
+            "Auto list must contain the default 'Do Nothing' option. Body: " + autos);
+        assertTrue(autos.contains("Shoot Preload"),
+            "Auto list must contain the 'Shoot Preload' routine. Body: " + autos);
         assertTrue(autos.contains("\"selected\":"),
             "Auto list must report the selected routine. Body: " + autos);
     }
@@ -231,26 +232,27 @@ class WebUIFunctionalTest {
         // Disable first so the mode switch takes effect on the next enable (real-DS semantics).
         post("/api/control", "{\"enabled\":false}");
         waitMs(300);
-        post("/api/control", "{\"auto\":\"BLine: Example Score (JSON)\"}");
+        post("/api/control", "{\"auto\":\"Drive Out + Shoot Preload\"}");
         post("/api/control", "{\"mode\":\"auto\"}");
         waitMs(300);
 
         String autos = get("/api/autos");
-        assertTrue(autos.contains("\"selected\":\"BLine: Example Score (JSON)\""),
+        assertTrue(autos.contains("\"selected\":\"Drive Out + Shoot Preload\""),
             "Selecting an auto must update /api/autos selected. Body: " + autos);
 
-        // Enable in autonomous — the robot resets to start, then BLine drives to (3.0, 2.0).
+        // Enable in autonomous — the routine shoots the preload (~3.5 s) then drives out +X.
+        String before = get("/api/state");
+        double x0 = extractDouble(before, "x");
         post("/api/control", "{\"enabled\":true}");
-        waitMs(3_000);
+        waitMs(6_000);
 
         String state = get("/api/state");
         assertTrue(state.contains("\"mode\":\"auto\""),
             "State must report autonomous mode after enabling in auto. State: " + state);
-        double x = extractDouble(state, "x");
-        double y = extractDouble(state, "y");
-        assertTrue(x > 2.5 && Math.abs(y - 2.0) < 0.5,
-            String.format("ExampleScore auto must drive the robot to ~(3.0, 2.0); got (%.2f, %.2f). "
-                + "State: %s", x, y, state));
+        double x1 = extractDouble(state, "x");
+        assertTrue(x1 - x0 > 0.3,
+            String.format("'Drive Out + Shoot Preload' must drive the robot forward; "
+                + "got Δx = %.2f (x0=%.2f, x1=%.2f). State: %s", x1 - x0, x0, x1, state));
     }
 
     /**
@@ -261,7 +263,10 @@ class WebUIFunctionalTest {
      * {@code LedStripSegments → bindLeds → applyPendingControl} snapshot chain.
      */
     @Test @Order(7)
-    void ledStripSurfacesAndAnimatesInStateJson() throws Exception {
+    void ledStripSurfacesInStateJson() throws Exception {
+        // RebuiltLeds shows a solid colour while disabled (green once the turret is zeroed),
+        // per the source LED spec — so this verifies the strip surfaces (30 hex colours)
+        // rather than animation.
         post("/api/control", "{\"enabled\":false}");
         waitMs(400);
 
@@ -270,11 +275,6 @@ class WebUIFunctionalTest {
             "leds array must contain all 30 strip colours. Got: " + leds1);
         assertTrue(leds1.contains("\"#"),
             "leds entries must be hex colour strings. Got: " + leds1);
-
-        waitMs(400);
-        String leds2 = extractLedsArray(get("/api/state"));
-        assertNotEquals(leds1, leds2,
-            "disabled-after-enable rainbow must animate between polls. Both: " + leds1);
     }
 
     /** Extracts the raw {@code "leds":[...]} array substring from the state JSON. */
