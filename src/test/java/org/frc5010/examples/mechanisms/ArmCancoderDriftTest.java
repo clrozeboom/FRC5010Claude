@@ -153,27 +153,30 @@ public class ArmCancoderDriftTest extends SimTestBase {
   }
 
   /**
-   * Case 2: documents that the SIM seeds the continuous Position (not the wrapping
-   * AbsolutePosition), so booting parked past 180° reads correctly in sim even though
-   * real hardware would seed ~360° off. This is why the discontinuity fix can't be
-   * validated in simulation as the sim IO is written today.
+   * Case 2: verifies the discontinuity fix. The arm auto-places the CANcoder's absolute
+   * wrap opposite the travel midpoint (range [−90°, 270°) for −30°..210°), so the
+   * absolute reading no longer wraps anywhere inside the travel. Parking at 210° (the
+   * upper stop) now reads ≈ +0.583 rot instead of the −0.417 rot the Phoenix default
+   * (±180°) would produce — which is exactly what keeps real-robot power-on seeding
+   * unambiguous. The sim models the absolute signal faithfully (we watched it wrap in
+   * case 1), so this sign is a genuine check of the fix, not just of the fused position.
    */
   @Test
-  public void bootParkedPastDiscontinuityIsNotReproducedInSim() {
-    Arm arm = new Arm(cancoderArm("BootParkedArm", 200)); // parked past the 180° boundary
+  public void discontinuityPlacedOutsideTravelSoAbsoluteDoesNotWrap() {
+    Arm arm = new Arm(cancoderArm("BootParkedArm", 210)); // parked at the upper stop
     CANcoder probe = new CANcoder(CANCODER_ID); // read-only handle to the same sim device
     try {
       enableTeleop();
       runScheduledFor(0.2);
       double fused = arm.getAngle().in(Degrees);
       double abs = probe.getAbsolutePosition().getValueAsDouble();
-      // The absolute signal HAS wrapped past the discontinuity (reads negative ≈ −156°)...
-      assertTrue(abs < 0,
-          "AbsolutePosition should have wrapped negative at 200°, was " + abs + " rot");
-      // ...yet the sim's fused reading is still the true 200°, because the sim seeds the
-      // continuous Position directly. On real hardware this would be ~−160° instead.
-      assertEquals(200, fused, 6,
-          "sim seeds continuous Position, so it reads the true angle despite the wrap");
+      // With the wrap moved out of the way, the absolute reading at 210° stays positive
+      // (≈ 0.583 rot). Under the ±180° default it would have wrapped to ≈ −0.417 rot.
+      assertTrue(abs > 0.5,
+          "discontinuity should be placed so 210° does not wrap; abs was " + abs + " rot");
+      assertEquals(210.0 / 360.0, abs, 0.02,
+          "absolute reading should equal the true mechanism angle, not a wrapped value");
+      assertEquals(210, fused, 6, "fused position should read the true angle");
     } finally {
       probe.close();
       arm.close();
