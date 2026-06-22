@@ -180,7 +180,7 @@ public class MechanismIOTalonFX implements MechanismIO {
     talonConfig.Slot0.GravityType = config.gravityType;
     talon.getConfigurator().apply(talonConfig);
     if (cancoder == null) {
-      talon.setPosition(config.startingPositionRot);
+      seedStartingPosition();
     }
 
     if (config.followerCanId >= 0) {
@@ -249,6 +249,21 @@ public class MechanismIOTalonFX implements MechanismIO {
   @Override
   public void setSensorPosition(double positionRot) {
     talon.setPosition(positionRot);
+  }
+
+  /**
+   * Seeds the mechanism's starting position at construction (rotor-sensor mode only — a fused
+   * CANcoder reads absolute and needs no seed). The REAL path seeds the Talon's mechanism
+   * position directly; the SIM subclass overrides this to seed the simulated <em>raw rotor</em>
+   * instead, so the physics-driven rotor stays the single source of truth.
+   *
+   * <p>Seeding both — the Talon mechanism offset (here) <em>and</em> the simulated raw rotor —
+   * double-counts the start angle: a 120° start would read 240° (the symptom this split fixes).
+   * Only {@code config}, {@code talon}, and {@code cancoder} are touched, all set before this is
+   * invoked from the constructor.
+   */
+  protected void seedStartingPosition() {
+    talon.setPosition(config.startingPositionRot);
   }
 
   @Override
