@@ -12,8 +12,11 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Volts;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import org.frc5010.common.mechanisms.MechanismVisuals3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -99,9 +102,11 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     this.poseSupplier = poseSupplier;
     this.fieldVelocitySupplier = fieldVelocitySupplier;
 
-    flywheel = new Flywheel(flywheelSettings());
-    hood = new Arm(hoodSettings());
+    // Turret first: hood and flywheel use it as a visual parent so their 3D poses track
+    // the live turret heading (both mount at the turret tip).
     turret = new SmartTurretController(turretConfig());
+    hood = new Arm(hoodSettings(turret));
+    flywheel = new Flywheel(flywheelSettings(turret));
     turret.start(); // 200 Hz control Notifier
 
     setDefaultCommand(Commands.run(this::applyState, this).withName("Launcher/StateMachine"));
@@ -109,7 +114,7 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
 
   // ── mechanism configuration ────────────────────────────────────────────────
 
-  private static Flywheel.Settings flywheelSettings() {
+  private static Flywheel.Settings flywheelSettings(SmartTurretController turret) {
     Flywheel.Settings s = new Flywheel.Settings();
     s.name = "Flywheel";
     s.controlStyle = ControlStyle.PROFILED_PID;
@@ -123,10 +128,14 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     s.kP = 2.0; // sim
     s.kV = 2.1962; // sim ≈ 12 ÷ free-speed-rot/s
     s.statorCurrentLimit = Amps.of(60);
+    // Mount at the turret tip — disc appears at the shooter, oriented in the turret's
+    // forward-vertical plane (correct for a flywheel spinning around a horizontal axis).
+    s.visualPose3d = new Pose3d(0, 0, 0, Rotation3d.kZero);
+    s.visualParent = turret::attachmentPose;
     return s;
   }
 
-  private static Arm.Settings hoodSettings() {
+  private static Arm.Settings hoodSettings(SmartTurretController turret) {
     Arm.Settings s = new Arm.Settings();
     s.name = "Hood";
     s.controlStyle = ControlStyle.PROFILED_PID;
@@ -143,9 +152,10 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     s.kV = 3.7; // ≈ 12 V ÷ free-speed-rot/s (KrakenX60 @ ≈30.76:1) — MotionMagic needs kV
     s.kG = Volts.of(0.3);
     s.statorCurrentLimit = Amps.of(60);
-    s.visualPose3d =
-        new edu.wpi.first.math.geometry.Pose3d(
-            0.1, 0, 0.7, edu.wpi.first.math.geometry.Rotation3d.kZero);
+    // Mount at the turret tip, rotated 180° in yaw so the hood arm extends backward
+    // (opposite the turret indicator), matching the physical shooter orientation.
+    s.visualPose3d = new Pose3d(0, 0, 0, new Rotation3d(0, 0, Math.PI));
+    s.visualParent = turret::attachmentPose;
     return s;
   }
 
@@ -157,6 +167,11 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     c.gearRatio = 30.0;
     c.motorModel = DCMotor.getKrakenX60(1);
     c.moiKgM2 = 0.05;
+    // Physical turret pivot position on the robot (from CAD).
+    c.visualPose3d = new Pose3d(
+        Units.inchesToMeters(-4.856), Units.inchesToMeters(4.863),
+        Units.inchesToMeters(14.723), MechanismVisuals3d.YAW_PLANE);
+    c.visualArmLengthM = Units.inchesToMeters(7);
     return c; // gains/limits default to the ported source values
   }
 
@@ -241,6 +256,7 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     if (DriverStation.isDisabled()) {
       turret.disable();
     }
+    turret.updateVisualization();
     Logger.recordOutput("Launcher/State", state.name());
     Logger.recordOutput("Launcher/AtGoal", isAtGoal());
     Logger.recordOutput("Launcher/TurretState", turret.getState().name());

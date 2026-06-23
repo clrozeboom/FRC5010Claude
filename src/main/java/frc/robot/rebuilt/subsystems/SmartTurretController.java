@@ -12,13 +12,18 @@ import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.frc5010.common.mechanisms.MechanismVisuals3d;
 import org.frc5010.common.robot.Mode;
 import org.frc5010.common.robot.RobotMode;
 import org.littletonrobotics.junction.Logger;
@@ -257,10 +262,48 @@ public class SmartTurretController implements AutoCloseable {
     return config;
   }
 
+  /**
+   * Robot-frame pose at the tip of the turret arm for this cycle. Use as a
+   * {@code visualParent} supplier for the hood or flywheel: the translation is the tip
+   * position, the rotation is a pure yaw equal to the current turret angle (so the child
+   * mechanism's identity-rotation working plane sweeps in the correct pitch plane).
+   * Returns {@link Pose3d#kZero} when no {@code visualPose3d} is configured.
+   */
+  public Pose3d attachmentPose() {
+    if (config.visualPose3d == null) return Pose3d.kZero;
+    double actualRad = getActualPositionRot() * 2 * Math.PI;
+    Translation3d pivot = MechanismVisuals3d.planarPoint(config.visualPose3d, 0, 0);
+    Translation3d tip = MechanismVisuals3d.planarOffset(
+        config.visualPose3d, pivot, actualRad, config.visualArmLengthM);
+    return new Pose3d(tip, new Rotation3d(0, 0, actualRad));
+  }
+
+  /**
+   * Publishes 3D visualization segments for this cycle — call from the owning subsystem's
+   * {@code periodic()} (robot thread). No-op when {@code config.visualPose3d} is null.
+   */
+  public void updateVisualization() {
+    if (config.visualPose3d == null) return;
+    double actualRad = getActualPositionRot() * 2 * Math.PI;
+    double goalRad = getTargetRot() * 2 * Math.PI;
+    Translation3d pivot = MechanismVisuals3d.planarPoint(config.visualPose3d, 0, 0);
+    double len = config.visualArmLengthM;
+    MechanismVisuals3d.publish(config.name, List.of(
+        new MechanismVisuals3d.Segment("goal", pivot,
+            MechanismVisuals3d.planarOffset(config.visualPose3d, pivot, goalRad, len),
+            "#ffffff", 1),
+        new MechanismVisuals3d.Segment("turret", pivot,
+            MechanismVisuals3d.planarOffset(config.visualPose3d, pivot, actualRad, len),
+            "#f8961e", 3)));
+  }
+
   @Override
   public void close() {
     notifier.stop();
     notifier.close();
     talonFX.close();
+    if (config.visualPose3d != null) {
+      MechanismVisuals3d.remove(config.name);
+    }
   }
 }

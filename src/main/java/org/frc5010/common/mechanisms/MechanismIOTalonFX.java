@@ -83,6 +83,17 @@ public class MechanismIOTalonFX implements MechanismIO {
     /** CANcoder magnet offset, rotations (reading at the mechanism's zero). */
     public double cancoderOffsetRot = 0;
     /**
+     * Fused-CANcoder absolute discontinuity point, rotations: the absolute position
+     * reported by a 1:1 CANcoder wraps over the range {@code [point − 1, point)}. The
+     * Phoenix default (0.5 → ±180°) is wrong for any mechanism whose travel spans more
+     * than ±180° from the CANcoder zero, because at power-on the Talon seeds its fused
+     * position from this wrapping absolute reading and would be ~360° off. Set this so
+     * the wrap falls <em>outside</em> the mechanism's travel (e.g. opposite the travel
+     * midpoint). Only used when {@link #cancoderId} is set.
+     */
+    public double absoluteSensorDiscontinuityRot = 0.5;
+
+    /**
      * Run all control requests with FOC commutation (~15% more torque, smoother
      * low-speed control). Requires Phoenix Pro licensing on the device; unlicensed
      * devices fall back to non-FOC and raise an UnlicensedFeatureInUse fault.
@@ -131,6 +142,10 @@ public class MechanismIOTalonFX implements MechanismIO {
       cancoder = new CANcoder(config.cancoderId);
       var cancoderConfig = new CANcoderConfiguration();
       cancoderConfig.MagnetSensor.MagnetOffset = -config.cancoderOffsetRot;
+      // Place the absolute wrap outside the travel so power-on seeding is unambiguous
+      // even for arms/pivots that swing past ±180° from the CANcoder zero.
+      cancoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint =
+          config.absoluteSensorDiscontinuityRot;
       cancoder.getConfigurator().apply(cancoderConfig);
       talonConfig.Feedback.FeedbackRemoteSensorID = config.cancoderId;
       talonConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
@@ -165,7 +180,7 @@ public class MechanismIOTalonFX implements MechanismIO {
     talonConfig.Slot0.GravityType = config.gravityType;
     talon.getConfigurator().apply(talonConfig);
     if (cancoder == null) {
-      talon.setPosition(config.startingPositionRot);
+      seedStartingPosition();
     }
 
     if (config.followerCanId >= 0) {
@@ -234,6 +249,21 @@ public class MechanismIOTalonFX implements MechanismIO {
   @Override
   public void setSensorPosition(double positionRot) {
     talon.setPosition(positionRot);
+  }
+
+  /**
+   * Seeds the mechanism's starting position at construction (rotor-sensor mode only — a fused
+   * CANcoder reads absolute and needs no seed). The REAL path seeds the Talon's mechanism
+   * position directly; the SIM subclass overrides this to seed the simulated <em>raw rotor</em>
+   * instead, so the physics-driven rotor stays the single source of truth.
+   *
+   * <p>Seeding both — the Talon mechanism offset (here) <em>and</em> the simulated raw rotor —
+   * double-counts the start angle: a 120° start would read 240° (the symptom this split fixes).
+   * Only {@code config}, {@code talon}, and {@code cancoder} are touched, all set before this is
+   * invoked from the constructor.
+   */
+  protected void seedStartingPosition() {
+    talon.setPosition(config.startingPositionRot);
   }
 
   @Override
