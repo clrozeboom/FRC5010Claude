@@ -12,8 +12,10 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Volts;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import org.frc5010.common.mechanisms.MechanismVisuals3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -157,6 +159,11 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     c.gearRatio = 30.0;
     c.motorModel = DCMotor.getKrakenX60(1);
     c.moiKgM2 = 0.05;
+    // Mount: offset from TURRET_OFFSET constants; height 0.4 m estimated; YAW_PLANE so the
+    // mechanism angle sweeps horizontally (0° = robot forward, CCW positive).
+    c.visualPose3d = new Pose3d(
+        Units.inchesToMeters(-4.856), Units.inchesToMeters(4.863), 0.4,
+        MechanismVisuals3d.YAW_PLANE);
     return c; // gains/limits default to the ported source values
   }
 
@@ -241,6 +248,7 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     if (DriverStation.isDisabled()) {
       turret.disable();
     }
+    turret.updateVisualization();
     Logger.recordOutput("Launcher/State", state.name());
     Logger.recordOutput("Launcher/AtGoal", isAtGoal());
     Logger.recordOutput("Launcher/TurretState", turret.getState().name());

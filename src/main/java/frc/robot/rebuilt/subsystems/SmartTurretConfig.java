@@ -1,5 +1,6 @@
 package frc.robot.rebuilt.subsystems;
 
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.system.plant.DCMotor;
 
 /**
@@ -12,6 +13,17 @@ import edu.wpi.first.math.system.plant.DCMotor;
  * {@code Settings} convention.
  */
 public class SmartTurretConfig {
+
+  /** Telemetry/visualization name. */
+  public String name = "Turret";
+  /**
+   * Robot-frame mount pose for 3D visualization, or {@code null} to disable.
+   * Use {@link org.frc5010.common.mechanisms.MechanismVisuals3d#YAW_PLANE} as the rotation so
+   * the turret sweeps in the horizontal plane (0° = robot forward, CCW positive).
+   */
+  public Pose3d visualPose3d = null;
+  /** Length of the turret arm drawn in the 3D view, meters. */
+  public double visualArmLengthM = 0.15;
 
   /** CAN ID of the turret TalonFX. */
   public int canId = 18;
