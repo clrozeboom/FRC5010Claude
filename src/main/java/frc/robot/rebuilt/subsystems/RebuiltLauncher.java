@@ -14,6 +14,7 @@ import static edu.wpi.first.units.Units.Volts;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import org.frc5010.common.mechanisms.MechanismVisuals3d;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -101,9 +102,11 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     this.poseSupplier = poseSupplier;
     this.fieldVelocitySupplier = fieldVelocitySupplier;
 
-    flywheel = new Flywheel(flywheelSettings());
-    hood = new Arm(hoodSettings());
+    // Turret first: hood and flywheel use it as a visual parent so their 3D poses track
+    // the live turret heading (turret → hood → flywheel kinematic chain).
     turret = new SmartTurretController(turretConfig());
+    hood = new Arm(hoodSettings(turret));
+    flywheel = new Flywheel(flywheelSettings(hood));
     turret.start(); // 200 Hz control Notifier
 
     setDefaultCommand(Commands.run(this::applyState, this).withName("Launcher/StateMachine"));
@@ -111,7 +114,7 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
 
   // ── mechanism configuration ────────────────────────────────────────────────
 
-  private static Flywheel.Settings flywheelSettings() {
+  private static Flywheel.Settings flywheelSettings(Arm hood) {
     Flywheel.Settings s = new Flywheel.Settings();
     s.name = "Flywheel";
     s.controlStyle = ControlStyle.PROFILED_PID;
@@ -125,10 +128,13 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     s.kP = 2.0; // sim
     s.kV = 2.1962; // sim ≈ 12 ÷ free-speed-rot/s
     s.statorCurrentLimit = Amps.of(60);
+    // Mount at the hood tip — the circle tracks wherever the hood points.
+    s.visualPose3d = new Pose3d(0, 0, 0, Rotation3d.kZero);
+    s.visualParent = hood::attachmentPose;
     return s;
   }
 
-  private static Arm.Settings hoodSettings() {
+  private static Arm.Settings hoodSettings(SmartTurretController turret) {
     Arm.Settings s = new Arm.Settings();
     s.name = "Hood";
     s.controlStyle = ControlStyle.PROFILED_PID;
@@ -145,9 +151,10 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     s.kV = 3.7; // ≈ 12 V ÷ free-speed-rot/s (KrakenX60 @ ≈30.76:1) — MotionMagic needs kV
     s.kG = Volts.of(0.3);
     s.statorCurrentLimit = Amps.of(60);
-    s.visualPose3d =
-        new edu.wpi.first.math.geometry.Pose3d(
-            0.1, 0, 0.7, edu.wpi.first.math.geometry.Rotation3d.kZero);
+    // Mount at the turret tip with identity local rotation: the hood swings in the pitch
+    // plane aligned to the live turret heading (yaw carried by the turret's attachmentPose).
+    s.visualPose3d = new Pose3d(0, 0, 0, Rotation3d.kZero);
+    s.visualParent = turret::attachmentPose;
     return s;
   }
 
