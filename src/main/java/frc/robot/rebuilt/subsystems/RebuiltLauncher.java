@@ -301,6 +301,15 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     return state == LauncherState.PREP;
   }
 
+  /** True when the turret is forward and the hood is low — safe for the hopper to retract. */
+  public boolean isStowed() {
+    boolean turretForward = Math.abs(turret.getActualPositionRot())
+        <= TURRET_TOL.in(edu.wpi.first.units.Units.Rotations);
+    boolean hoodLow = Math.abs(hood.getAngle().in(Degrees)
+        - Constants.Launcher.LOW_HOOD_ANGLE.in(Degrees)) <= HOOD_TOL.in(Degrees);
+    return turretForward && hoodLow;
+  }
+
   public LauncherState getState() {
     return state;
   }

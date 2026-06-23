@@ -36,8 +36,8 @@ import frc.robot.rebuilt.subsystems.RebuiltLeds;
  * <ul>
  *   <li><b>A</b> — intake: deploy hopper to 0° + collect Fuel</li>
  *   <li><b>B</b> (hold) — launcher PREP (aim + spin up; auto-feeds when ready); release → LOW_SPEED</li>
- *   <li><b>X</b> — retract intake + indexer idle (hopper to 120°)</li>
- *   <li><b>Y</b> — retract intake + indexer idle (same as X, redundant)</li>
+ *   <li><b>X</b> — safe retract: stow launcher → wait for stow → retract hopper to 120°</li>
+ *   <li><b>Y</b> — same as X (redundant)</li>
  *   <li><b>LB</b> (hold) — indexer HARD_CHURN (un-jam); release → idle</li>
  *   <li><b>RB</b> — launcher HAMMERTIME (safe stow)</li>
  *   <li><b>Back</b> — hopper deployed (no rollers); <b>Start</b> — hopper retracted</li>
@@ -85,9 +85,23 @@ public class RebuiltRobot extends SwerveRobotContainer {
             Commands.runOnce(drive::stop, drive)));
   }
 
-  /** PREP the launcher, let it aim + spin, and hold long enough for the coupling to feed. */
+  /**
+   * Stows the launcher + idles the indexer, waits up to 2 s for the turret and hood to reach
+   * safe stow, then retracts the hopper. Safe to call from both teleop bindings and auto.
+   */
+  private edu.wpi.first.wpilibj2.command.Command safeRetractCommand() {
+    return Commands.sequence(
+            Commands.parallel(launcher.hammertimeCommand(), indexer.idleCommand()),
+            Commands.waitUntil(launcher::isStowed).withTimeout(2.0),
+            intake.retractCommand())
+        .withName("SafeRetract");
+  }
+
+  /** Deploy the intake, PREP the launcher, auto-feed the preload, then safe-retract. */
   private edu.wpi.first.wpilibj2.command.Command shootPreload() {
     return Commands.sequence(
+            intake.intakeCommand(() -> Constants.Intake.INTAKE_IN), // deploy hopper
+            Commands.waitUntil(intake::isExtended).withTimeout(2.0),
             launcher.prepCommand(),
             Commands.waitSeconds(3.5), // spin up, aim, and auto-feed the preload via the coupling
             launcher.lowSpeedCommand())
@@ -150,14 +164,14 @@ public class RebuiltRobot extends SwerveRobotContainer {
   private void configureDriverBindings() {
     controller.a().onTrue(intake.intakeCommand(() -> Constants.Intake.INTAKE_IN));
     controller.b().onTrue(launcher.prepCommand()).onFalse(launcher.lowSpeedCommand());
-    // X retracts the hopper (mirrors Y — A deploys to 0°, X/Y retract to 120°).
-    // Automatic Fuel firing is handled by the coupling loop when the launcher is at goal.
-    controller.x().onTrue(intake.retractCommand()).onTrue(indexer.idleCommand());
-    controller.y().onTrue(intake.retractCommand()).onTrue(indexer.idleCommand());
+    // X/Y/Start retract: stow launcher first, wait for turret+hood to reach safe stow, then
+    // retract the hopper — prevents retracting through the turret's rotation plane.
+    controller.x().onTrue(safeRetractCommand());
+    controller.y().onTrue(safeRetractCommand());
     controller.leftBumper().onTrue(indexer.hardChurnCommand()).onFalse(indexer.idleCommand());
     controller.rightBumper().onTrue(launcher.hammertimeCommand());
     controller.back().onTrue(intake.deployCommand());
-    controller.start().onTrue(intake.retractCommand());
+    controller.start().onTrue(safeRetractCommand());
   }
 
   private void configureOperatorBindings() {

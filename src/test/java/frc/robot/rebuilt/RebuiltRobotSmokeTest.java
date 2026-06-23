@@ -180,10 +180,10 @@ class RebuiltRobotSmokeTest extends SimTestBase {
   }
 
   @Test
-  void launcherEntersPrepWhileIntakeRetracted() throws InterruptedException {
-    // At the fully-retracted position (hopper arm at 120°) the arm tip is above the turret
-    // pivot height and does not sweep through the turret's rotation plane, so the launcher
-    // can PREP without being forced to HAMMERTIME. Only the in-motion RETRACTING sweep blocks.
+  void launcherIsStowedWhileIntakeRetracted() throws InterruptedException {
+    // The hopper starts RETRACTED (120°) and blocks the turret — B must stay in HAMMERTIME.
+    // The driver must press X/Y to run the safe-retract sequence... wait, no: the hopper
+    // is already retracted. The turret can only aim once the hopper is DEPLOYED/INTAKING.
     RebuiltRobot robot = new RebuiltRobot();
     var launcher = robot.getLauncher();
     enableTeleop();
@@ -193,7 +193,8 @@ class RebuiltRobotSmokeTest extends SimTestBase {
     DriverStation.refreshData();
     pumpCycles(5);
     assertEquals(
-        LauncherState.PREP, launcher.getState(), "B enters PREP even with hopper retracted");
+        LauncherState.HAMMERTIME, launcher.getState(),
+        "B is blocked to HAMMERTIME while hopper is retracted");
   }
 
   // ── hopper retract via X ───────────────────────────────────────────────────
