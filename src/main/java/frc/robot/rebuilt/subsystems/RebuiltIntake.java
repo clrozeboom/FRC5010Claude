@@ -7,7 +7,11 @@ import static edu.wpi.first.units.Units.DegreesPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Volts;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -82,7 +86,7 @@ public class RebuiltIntake extends SubsystemBase implements AutoCloseable {
     s.followerOpposed = true; // hopper follower is inverted
     s.motorModel = DCMotor.getKrakenX60(2);
     s.gearReductionStages = new double[] {24.0};
-    s.length = edu.wpi.first.units.Units.Meters.of(0.5);
+    s.length = edu.wpi.first.units.Units.Meters.of(Units.inchesToMeters(11.6));
     s.mass = edu.wpi.first.units.Units.Kilograms.of(2.0);
     s.minAngle = Degrees.of(-10); // headroom below the 0° deployed hard stop
     s.maxAngle = Degrees.of(130); // headroom above the 120° retracted hard stop
@@ -100,6 +104,12 @@ public class RebuiltIntake extends SubsystemBase implements AutoCloseable {
     s.physicsMinAngle = Constants.Intake.HOPPER_DEPLOYED_ANGLE;   // 0° — floor hard stop
     s.physicsMaxAngle = Constants.Intake.HOPPER_RETRACTED_ANGLE;  // 120° — stowed hard stop
     s.clearGoalOnDisable = false;
+    // Physical pivot of the right-side hopper arm (from CAD). The follower (left side) is
+    // mirrored across the robot centerline — same X/Z, negated Y.
+    s.visualPose3d = new Pose3d(
+        Units.inchesToMeters(11.725), Units.inchesToMeters(-13.5),
+        Units.inchesToMeters(8.483), Rotation3d.kZero);
+    s.followerVisualOffset = new Translation3d(0, Units.inchesToMeters(27), 0);
     hopper = new HopperArm(s);
 
     setDefaultCommand(Commands.run(this::applyState, this).withName("Intake/StateMachine"));

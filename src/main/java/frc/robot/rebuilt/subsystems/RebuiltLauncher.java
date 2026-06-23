@@ -103,10 +103,10 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     this.fieldVelocitySupplier = fieldVelocitySupplier;
 
     // Turret first: hood and flywheel use it as a visual parent so their 3D poses track
-    // the live turret heading (turret → hood → flywheel kinematic chain).
+    // the live turret heading (both mount at the turret tip).
     turret = new SmartTurretController(turretConfig());
     hood = new Arm(hoodSettings(turret));
-    flywheel = new Flywheel(flywheelSettings(hood));
+    flywheel = new Flywheel(flywheelSettings(turret));
     turret.start(); // 200 Hz control Notifier
 
     setDefaultCommand(Commands.run(this::applyState, this).withName("Launcher/StateMachine"));
@@ -114,7 +114,7 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
 
   // ── mechanism configuration ────────────────────────────────────────────────
 
-  private static Flywheel.Settings flywheelSettings(Arm hood) {
+  private static Flywheel.Settings flywheelSettings(SmartTurretController turret) {
     Flywheel.Settings s = new Flywheel.Settings();
     s.name = "Flywheel";
     s.controlStyle = ControlStyle.PROFILED_PID;
@@ -128,9 +128,10 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     s.kP = 2.0; // sim
     s.kV = 2.1962; // sim ≈ 12 ÷ free-speed-rot/s
     s.statorCurrentLimit = Amps.of(60);
-    // Mount at the hood tip — the circle tracks wherever the hood points.
+    // Mount at the turret tip — disc appears at the shooter, oriented in the turret's
+    // forward-vertical plane (correct for a flywheel spinning around a horizontal axis).
     s.visualPose3d = new Pose3d(0, 0, 0, Rotation3d.kZero);
-    s.visualParent = hood::attachmentPose;
+    s.visualParent = turret::attachmentPose;
     return s;
   }
 
@@ -151,9 +152,9 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     s.kV = 3.7; // ≈ 12 V ÷ free-speed-rot/s (KrakenX60 @ ≈30.76:1) — MotionMagic needs kV
     s.kG = Volts.of(0.3);
     s.statorCurrentLimit = Amps.of(60);
-    // Mount at the turret tip with identity local rotation: the hood swings in the pitch
-    // plane aligned to the live turret heading (yaw carried by the turret's attachmentPose).
-    s.visualPose3d = new Pose3d(0, 0, 0, Rotation3d.kZero);
+    // Mount at the turret tip, rotated 180° in yaw so the hood arm extends backward
+    // (opposite the turret indicator), matching the physical shooter orientation.
+    s.visualPose3d = new Pose3d(0, 0, 0, new Rotation3d(0, 0, Math.PI));
     s.visualParent = turret::attachmentPose;
     return s;
   }
@@ -166,11 +167,11 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     c.gearRatio = 30.0;
     c.motorModel = DCMotor.getKrakenX60(1);
     c.moiKgM2 = 0.05;
-    // Mount: offset from TURRET_OFFSET constants; height 0.4 m estimated; YAW_PLANE so the
-    // mechanism angle sweeps horizontally (0° = robot forward, CCW positive).
+    // Physical turret pivot position on the robot (from CAD).
     c.visualPose3d = new Pose3d(
-        Units.inchesToMeters(-4.856), Units.inchesToMeters(4.863), 0.4,
-        MechanismVisuals3d.YAW_PLANE);
+        Units.inchesToMeters(-4.856), Units.inchesToMeters(4.863),
+        Units.inchesToMeters(14.723), MechanismVisuals3d.YAW_PLANE);
+    c.visualArmLengthM = Units.inchesToMeters(7);
     return c; // gains/limits default to the ported source values
   }
 
