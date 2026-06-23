@@ -26,11 +26,23 @@ public class MechanismIOTalonFXSim extends MechanismIOTalonFX {
   public MechanismIOTalonFXSim(Config config, MechanismSim sim) {
     super(config);
     this.sim = sim;
-    // Seed the sim state so the first refresh matches the configured start position.
-    talon.getSimState().setRawRotorPosition(config.startingPositionRot * config.gearing);
+    // The raw-rotor seed is applied by the overridden seedStartingPosition() during super(); here
+    // we only seed an absolute CANcoder's sim state when one is configured (the rotor-sensor case
+    // is fully handled by the override, so the start angle is seeded exactly once).
     if (cancoder != null) {
       cancoder.getSimState().setRawPosition(config.startingPositionRot + config.cancoderOffsetRot);
     }
+  }
+
+  /**
+   * Seeds the simulated raw rotor (rotor = mechanism × gearing) instead of the REAL path's
+   * {@code talon.setPosition()}. The physics-driven rotor is the single source of truth in sim,
+   * so seeding the Talon's mechanism offset as well would double-count the start angle — a 120°
+   * hopper start read 240° while disabled until this override replaced the base seed.
+   */
+  @Override
+  protected void seedStartingPosition() {
+    talon.getSimState().setRawRotorPosition(config.startingPositionRot * config.gearing);
   }
 
   @Override

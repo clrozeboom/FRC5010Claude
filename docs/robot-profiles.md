@@ -210,3 +210,23 @@ public Distance getFieldLength() {
     return Meters.of(16.541);  // 2026 standard; adjust for other years
 }
 ```
+
+## AprilTag field layout
+
+**The profile is the authority on which field you play on.** Override
+`getAprilTagFieldLayout()` to pick the variant; `SwerveRobotContainer` publishes it to the
+shared `org.frc5010.common.vision.AprilTags` holder *before* it builds the drive and vision, so
+pose estimation (`VisionFactory`) and any field-geometry helpers all follow your choice — they
+never load their own copy.
+
+```java
+@Override
+public AprilTagFieldLayout getAprilTagFieldLayout() {
+    // Default (if not overridden) is AprilTagFields.kDefaultField (welded).
+    return AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark); // e.g. the AndyMark variant
+}
+```
+
+For a practice/lab layout you can also call `AprilTags.setAprilTagFieldLayout(...)` directly
+during init — but do it before anything reads field constants (the container's profile call
+already runs ahead of the subsystems).

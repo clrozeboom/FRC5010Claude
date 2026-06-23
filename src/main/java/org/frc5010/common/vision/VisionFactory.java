@@ -1,7 +1,6 @@
 package org.frc5010.common.vision;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import java.util.function.Supplier;
@@ -52,8 +51,14 @@ public final class VisionFactory {
       Supplier<Rotation2d> headingSupplier,
       CameraConfig[] configs) {
 
-    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
+    // Single source of truth: the field layout the active profile published into the shared
+    // AprilTags holder, so pose estimation and the field-geometry helpers never diverge.
+    AprilTagFieldLayout layout = AprilTags.aprilTagFieldLayout;
     Mode mode = RobotMode.get();
+
+    // One PhotonVision simulator shared by every sim camera, regardless of camera count —
+    // created lazily on the first PHOTON camera in SIM mode (null otherwise).
+    SharedVisionSim sharedSim = null;
 
     VisionIO[] io = new VisionIO[configs.length];
     for (int i = 0; i < configs.length; i++) {
@@ -66,7 +71,10 @@ public final class VisionFactory {
           case QUESTNAV -> new VisionIOQuestNav(cfg, poseSupplier);
         };
         case SIM -> switch (cfg.backend) {
-          case PHOTON    -> new VisionIOSim(cfg, layout, poseSupplier);
+          case PHOTON    -> {
+            if (sharedSim == null) sharedSim = new SharedVisionSim(layout);
+            yield new VisionIOSim(cfg, layout, poseSupplier, sharedSim);
+          }
           // Limelight has no PhotonVision sim equivalent — use no-op; logs will show no tags.
           case LIMELIGHT -> new VisionIO() {};
           // No Quest headset in simulation — use no-op; logs will show no QuestNav poses.

@@ -348,6 +348,16 @@ public class Flywheel extends SubsystemBase implements AutoCloseable {
     }, this).withName(settings.name + " GoToSpeed");
   }
 
+  /**
+   * Continuously commands the wheel to {@code speed} from a periodic loop (no command).
+   * For owners that re-assert a moving setpoint every cycle, e.g. a launcher tracking a shot
+   * solution.
+   */
+  public void track(AngularVelocity speed) {
+    mode = OutputMode.GOAL;
+    goalRadPerSec = speed.in(RadiansPerSecond);
+  }
+
   /** Command: open-loop duty cycle (battery-compensated onboard). Coast when it ends. */
   public Command setDutyCycle(double dutyCycle) {
     return Commands.run(() -> {

@@ -69,7 +69,20 @@ public class Arm extends SingleDofMechanism {
      * the mirror swings with the live arm every cycle.
      */
     public Translation3d followerVisualOffset = new Translation3d(0, 0.2, 0);
-    /** CAN ID of a fused CANcoder mounted 1:1 on the joint; −1 = rotor sensor. */
+    /**
+     * CAN ID of a fused CANcoder mounted 1:1 on the joint; −1 = rotor sensor.
+     *
+     * <p>A 1:1 CANcoder's absolute reading wraps once per revolution. The arm places
+     * that wrap opposite the travel midpoint automatically (from {@link #minAngle}/
+     * {@link #maxAngle}), so power-on is unambiguous as long as the total travel
+     * ({@code maxAngle − minAngle}) is under 360°. If your arm can physically rest more
+     * than ~360° away from where it powers up, a 1:1 absolute sensor cannot disambiguate
+     * it — use a geared-down CANcoder or home against a hard stop instead.
+     *
+     * <p>Note: simulation seeds the continuous sensor position directly, so it always
+     * reads the true angle and will <em>not</em> reproduce a real-robot power-on
+     * mis-seed — this is a hardware-only concern.
+     */
     public int cancoderId = -1;
     /** CANcoder reading at the arm's zero (horizontal), for the magnet offset. */
     public Angle cancoderOffset = Degrees.of(0);
@@ -165,6 +178,21 @@ public class Arm extends SingleDofMechanism {
     public double characterizedKv = 0;
     /** Measured kA from a SysId run, volts per rotation/s². See {@link #characterizedKv}. */
     public double characterizedKa = 0;
+
+    // --- Sim physics hard stops (optional — separate from TalonFX soft limits) ---
+    /**
+     * Physical hard stop at the low end, enforced by the sim. Defaults to {@link #minAngle}
+     * when null. Set this when the TalonFX soft limit needs headroom below the actual hard
+     * stop (e.g. for open-loop homing below the deployed stop) but the physics simulation
+     * should still clamp at the real wall. Only used in SIM mode.
+     */
+    public Angle physicsMinAngle = null;
+    /**
+     * Physical hard stop at the high end, enforced by the sim. Defaults to {@link #maxAngle}
+     * when null. Set this when the TalonFX soft limit has headroom beyond the actual hard stop
+     * but the sim should prevent the arm from escaping past the real wall.
+     */
+    public Angle physicsMaxAngle = null;
   }
 
   private final Settings settings;
@@ -200,6 +228,14 @@ public class Arm extends SingleDofMechanism {
     config.followerOpposed = settings.followerOpposed;
     config.cancoderId = settings.cancoderId;
     config.cancoderOffsetRot = settings.cancoderOffset.in(Rotations);
+    // Place the CANcoder's absolute discontinuity opposite the travel midpoint, so the
+    // wrap never falls inside the arm's range — power-on seeding stays unambiguous even
+    // for arms that swing past ±180° from the CANcoder zero (e.g. −30°..210°). The
+    // absolute range becomes [mid − 0.5, mid + 0.5) rotations, centered on the travel.
+    double midRot =
+        (settings.minAngle.in(Rotations) + settings.maxAngle.in(Rotations)) / 2.0;
+    double discontinuity = midRot + 0.5;
+    config.absoluteSensorDiscontinuityRot = discontinuity - Math.floor(discontinuity); // → [0,1)
     config.gearing = gearing;
     config.statorCurrentLimitAmps = settings.statorCurrentLimit.in(Amps);
     config.softLimitLowRot = settings.minAngle.in(Rotations);
@@ -253,13 +289,21 @@ public class Arm extends SingleDofMechanism {
   }
 
   private static MechanismSim armSim(Settings settings, double gearing) {
+    // Physics hard stops default to the TalonFX soft-limit angles when not explicitly set.
+    // Use physicsMinAngle/physicsMaxAngle when the soft limits need headroom beyond the actual
+    // physical wall (e.g. a deployed-hard-stop homing routine that drives slightly below 0°).
+    final double physicsMinRad = (settings.physicsMinAngle != null
+        ? settings.physicsMinAngle : settings.minAngle).in(Radians);
+    final double physicsMaxRad = (settings.physicsMaxAngle != null
+        ? settings.physicsMaxAngle : settings.maxAngle).in(Radians);
+
     var sim = new SingleJointedArmSim(
         settings.motorModel,
         gearing,
         SingleJointedArmSim.estimateMOI(settings.length.in(Meters), settings.mass.in(Kilograms)),
         settings.length.in(Meters),
-        settings.minAngle.in(Radians),
-        settings.maxAngle.in(Radians),
+        physicsMinRad,
+        physicsMaxRad,
         true,
         settings.startingAngle.in(Radians));
     return new MechanismSim() {
@@ -275,7 +319,10 @@ public class Arm extends SingleDofMechanism {
 
       @Override
       public double getPositionRot() {
-        return sim.getAngleRads() / (2 * Math.PI);
+        // Clamp explicitly — WPILib's internal clamp can fail to zero velocity when gravity
+        // presses into the wall, allowing the arm to escape the limit over many cycles.
+        double clamped = Math.max(physicsMinRad, Math.min(physicsMaxRad, sim.getAngleRads()));
+        return clamped / (2 * Math.PI);
       }
 
       @Override
@@ -331,6 +378,15 @@ public class Arm extends SingleDofMechanism {
   public Command goToAngle(Angle angle) {
     Logger.recordOutput(settings.name + "/CommandedAngleDegrees", angle.in(Degrees));
     return goalCommand(angle.in(Radians), settings.name + " GoToAngle");
+  }
+
+  /**
+   * Continuously commands the arm to {@code angle} from a periodic loop (no command).
+   * For owners that re-assert a moving setpoint every cycle, e.g. a launcher hood tracking
+   * a shot solution.
+   */
+  public void track(Angle angle) {
+    commandGoalNative(angle.in(Radians));
   }
 
   /** Command: SysId routine for characterizing kG/kS/kV/kA, guarded by the travel limits. */

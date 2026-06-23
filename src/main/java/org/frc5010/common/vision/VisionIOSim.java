@@ -14,25 +14,43 @@ import org.photonvision.simulation.VisionSystemSim;
  * real and simulated result parsing, so {@code updateInputs()} logic is shared.
  * Each cycle, the sim is updated with the robot's current pose before reading results.
  *
+ * <p>The camera registers into a {@link SharedVisionSim}, so a robot with several cameras uses
+ * <b>one</b> {@code VisionSystemSim} for all of them (see {@link VisionFactory}). Constructed
+ * standalone, it gets its own dedicated sim — convenient for single-camera setups and tests.
+ *
  * <p>Works for both Layer 2 tests ({@code buildWithoutPhysics}) and Layer 3 tests
  * ({@code build()}) — the caller supplies the pose via {@code poseSupplier}.
  */
 public class VisionIOSim extends VisionIOPhoton {
 
-  private final VisionSystemSim visionSim;
+  private final SharedVisionSim visionSim;
   private final Supplier<Pose2d> poseSupplier;
 
   /**
+   * Standalone constructor — this camera gets its own dedicated {@link VisionSystemSim}. Use for
+   * single-camera setups and direct construction in tests. When the {@link VisionFactory} builds
+   * several cameras together they instead share one sim.
+   *
    * @param config       Camera config — name, transform, and backend (must be PHOTON).
    * @param layout       Field AprilTag layout used to place simulated targets.
    * @param poseSupplier Current robot pose; typically {@code drive::getPose}.
    */
   public VisionIOSim(CameraConfig config, AprilTagFieldLayout layout, Supplier<Pose2d> poseSupplier) {
+    this(config, layout, poseSupplier, new SharedVisionSim(layout));
+  }
+
+  /**
+   * Shared-sim constructor — registers this camera into a {@link SharedVisionSim} owned by the
+   * caller, so every camera built together resolves against the one simulator.
+   */
+  VisionIOSim(
+      CameraConfig config,
+      AprilTagFieldLayout layout,
+      Supplier<Pose2d> poseSupplier,
+      SharedVisionSim sharedSim) {
     super(config, layout); // creates the PhotonCamera
     this.poseSupplier = poseSupplier;
-
-    visionSim = new VisionSystemSim("vision_" + config.name);
-    visionSim.addAprilTags(layout);
+    this.visionSim = sharedSim;
 
     SimCameraProperties props = SimCameraProperties.PERFECT_90DEG();
     PhotonCameraSim cameraSim = new PhotonCameraSim(camera, props);
@@ -42,7 +60,7 @@ public class VisionIOSim extends VisionIOPhoton {
 
   @Override
   public void updateInputs(VisionIOInputs inputs) {
-    visionSim.update(poseSupplier.get()); // advance sim to current robot pose
-    super.updateInputs(inputs);           // read camera results via PhotonCamera
+    visionSim.updateOncePerLoop(poseSupplier.get()); // advance shared sim (once per loop)
+    super.updateInputs(inputs);                      // read camera results via PhotonCamera
   }
 }

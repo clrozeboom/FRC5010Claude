@@ -238,6 +238,17 @@ public abstract class SingleDofMechanism extends SubsystemBase implements AutoCl
     profileState = new TrapezoidProfile.State(positionNative(), velocityNative());
   }
 
+  /**
+   * Continuously commands a goal in native units directly from a periodic loop — no
+   * command/requirement needed. Use this when an owning subsystem re-asserts the setpoint
+   * every cycle (e.g. a launcher tracking a moving target); periodic() acts on the goal the
+   * same way it does for {@link #goalCommand}. Subclasses expose typed wrappers.
+   */
+  protected void commandGoalNative(double targetNative) {
+    mode = OutputMode.GOAL;
+    goalNative = targetNative;
+  }
+
   /** Command factory: track a goal in native units. Never finishes. */
   protected Command goalCommand(double targetNative, String commandName) {
     return Commands.run(() -> {
