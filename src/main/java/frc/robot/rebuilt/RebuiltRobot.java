@@ -115,6 +115,7 @@ public class RebuiltRobot extends SwerveRobotContainer {
     indexer.setFlywheelReadyForChurn(launcher::isFlywheelReadyForChurn);
 
     registerMechanism(intake::close);
+    registerMechanism(indexer::close);
     registerMechanism(launcher::close);
 
     configureDriverBindings();
@@ -205,7 +206,7 @@ public class RebuiltRobot extends SwerveRobotContainer {
     if (fireCooldown > 0) fireCooldown--;
     if (launcher.isReadyToFire() && indexer.isFeeding() && gameSim.getHeldFuel() > 0 && fireCooldown == 0) {
       CommandScheduler.getInstance().schedule(gameSim.fireCommand());
-      fireCooldown = 12; // ~0.24 s between shots
+      fireCooldown = 5; // 50 Hz ÷ 5 = 10 fuel/sec
     }
   }
 

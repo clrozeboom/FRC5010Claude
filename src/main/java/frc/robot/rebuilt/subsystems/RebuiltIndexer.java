@@ -1,10 +1,15 @@
 package frc.robot.rebuilt.subsystems;
 
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import java.util.ArrayList;
 import java.util.function.BooleanSupplier;
 import frc.robot.rebuilt.Constants;
+import org.frc5010.common.mechanisms.MechanismVisuals3d;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -20,7 +25,19 @@ import org.littletonrobotics.junction.Logger;
  * (PREP+atGoal → FEED, PREP+spinning-up → CHURN, else IDLE) is wired by the container; the
  * indexer only owns its state and the {@code flywheelReadyForChurn} gate.
  */
-public class RebuiltIndexer extends SubsystemBase {
+public class RebuiltIndexer extends SubsystemBase implements AutoCloseable {
+
+  // ── 3D visual mounts ──────────────────────────────────────────────────────
+  // Spindexer: horizontal rotating disc at the robot centre, ~10" above the floor.
+  private static final Pose3d SPINDEXER_MOUNT = new Pose3d(
+      0, 0, Units.inchesToMeters(10), MechanismVisuals3d.YAW_PLANE);
+  private static final double SPINDEXER_RADIUS_M = Units.inchesToMeters(7); // ~14" disc
+
+  // Transfer: vertical roller below the turret pivot (-4.856", 4.863", ~9").
+  private static final Pose3d TRANSFER_MOUNT = new Pose3d(
+      Units.inchesToMeters(-4.856), Units.inchesToMeters(4.863),
+      Units.inchesToMeters(9), Rotation3d.kZero);
+  private static final double TRANSFER_RADIUS_M = Units.inchesToMeters(2); // ~4" roller
 
   /** Indexer state, ported from {@code IndexerCommands.IndexerState}. */
   public enum IndexerState {
@@ -86,6 +103,39 @@ public class RebuiltIndexer extends SubsystemBase {
     Logger.recordOutput("Indexer/StateCurrent", current.name());
     Logger.recordOutput("Indexer/Spindexer", spindexerSpeed);
     Logger.recordOutput("Indexer/Transfer", transferSpeed);
+    updateVisualization();
+  }
+
+  private void updateVisualization() {
+    // Spindexer — horizontal disc; needle sweeps CCW for forward (positive duty), CW for reverse.
+    double spindexerFrac = Math.max(-1, Math.min(1, spindexerSpeed));
+    double spindexerNeedle = -Math.PI / 2 + spindexerFrac * Math.PI;
+    var spindexerCenter = MechanismVisuals3d.planarPoint(SPINDEXER_MOUNT, 0, 0);
+    var spindexerSegs = new ArrayList<>(MechanismVisuals3d.planarCircle(
+        SPINDEXER_MOUNT, 0, 0, SPINDEXER_RADIUS_M, 20, "spindexer", "#9b59b6", 1));
+    spindexerSegs.add(new MechanismVisuals3d.Segment("spindexer-needle", spindexerCenter,
+        MechanismVisuals3d.planarOffset(SPINDEXER_MOUNT, spindexerCenter, spindexerNeedle,
+            SPINDEXER_RADIUS_M * 0.85),
+        spindexerFrac != 0 ? "#d4a6f7" : "#555555", 3));
+    MechanismVisuals3d.publish("Spindexer", spindexerSegs);
+
+    // Transfer roller — vertical disc below the turret; needle sweeps by duty cycle.
+    double transferFrac = Math.max(-1, Math.min(1, transferSpeed));
+    double transferNeedle = -Math.PI / 2 + transferFrac * Math.PI;
+    var transferCenter = MechanismVisuals3d.planarPoint(TRANSFER_MOUNT, 0, 0);
+    var transferSegs = new ArrayList<>(MechanismVisuals3d.planarCircle(
+        TRANSFER_MOUNT, 0, 0, TRANSFER_RADIUS_M, 16, "transfer", "#e67e22", 1));
+    transferSegs.add(new MechanismVisuals3d.Segment("transfer-needle", transferCenter,
+        MechanismVisuals3d.planarOffset(TRANSFER_MOUNT, transferCenter, transferNeedle,
+            TRANSFER_RADIUS_M * 0.85),
+        transferFrac != 0 ? "#ffa055" : "#555555", 3));
+    MechanismVisuals3d.publish("Transfer", transferSegs);
+  }
+
+  @Override
+  public void close() {
+    MechanismVisuals3d.remove("Spindexer");
+    MechanismVisuals3d.remove("Transfer");
   }
 
   // ── requests + accessors ───────────────────────────────────────────────────

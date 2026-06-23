@@ -291,9 +291,14 @@ public class RebuiltIntake extends SubsystemBase implements AutoCloseable {
         || current == IntakeState.ANGLED;
   }
 
-  /** Whether the hopper blocks the turret (retracting/retracted) — launcher must stow. */
+  /**
+   * Whether the hopper arm is actively sweeping through the turret's rotation plane.
+   * Only true while RETRACTING (arm swings from 0° up through ~60–90° where it crosses the
+   * turret height). When fully RETRACTED (arm at 120°, tip above the turret), the turret is
+   * clear and can aim freely.
+   */
   public boolean isBlockingTurret() {
-    return current == IntakeState.RETRACTING || current == IntakeState.RETRACTED;
+    return current == IntakeState.RETRACTING;
   }
 
   /**

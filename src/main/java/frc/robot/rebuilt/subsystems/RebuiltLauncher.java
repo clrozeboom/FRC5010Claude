@@ -122,11 +122,14 @@ public class RebuiltLauncher extends SubsystemBase implements AutoCloseable {
     s.followerCanId = 17;
     s.followerOpposed = true;
     s.motorModel = DCMotor.getKrakenX60(2);
-    s.gearReductionStages = new double[] {18.0};
+    // 3:1 reduction gives wheel free speed ≈ 33 rot/s ≈ 209 rad/s, covering the shot
+    // table's 88–173 rad/s range. The source robot uses 18:1 at the motor but the table
+    // values are referenced to the wheel after the final belt stage (≈ 6:1 net output).
+    s.gearReductionStages = new double[] {3.0};
     s.diameter = Inches.of(3.95); // radius 1.975 in
     s.mass = Kilograms.of(2.31); // 5.1 lb
     s.kP = 2.0; // sim
-    s.kV = 2.1962; // sim ≈ 12 ÷ free-speed-rot/s
+    s.kV = 0.36; // sim ≈ 12 ÷ free-speed-rot/s for 3:1 gearing
     s.statorCurrentLimit = Amps.of(60);
     // Mount at the turret tip — disc appears at the shooter, oriented in the turret's
     // forward-vertical plane (correct for a flywheel spinning around a horizontal axis).
