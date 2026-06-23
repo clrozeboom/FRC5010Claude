@@ -132,16 +132,27 @@ public class MechanismsFunctionalTest extends SimTestBase {
 
   @Test
   public void advantageKitInputsTrackMechanismState() {
-    ExampleElevator elevator = new ExampleElevator();
+    ExampleElevator elevator = new ExampleElevator(); // starts at 0.1 m
     try {
-      // Sample mid-travel (the move takes ~0.7 s) so velocity is meaningfully nonzero.
-      scheduleAndRun(elevator.goToHeight(Meters.of(0.5)), 0.5);
-      // The public getters read from the @AutoLog IO inputs (the replay bubble) —
-      // verify they reflect real motion, not defaults.
-      assertTrue(elevator.getHeight().in(Meters) > 0.15,
-          "inputs should reflect actual motion, not stay at defaults");
-      assertTrue(elevator.getVelocity().in(MetersPerSecond) > 0.05,
-          "velocity input should be populated while climbing");
+      // Drive the elevator from its 0.1 m start to 0.5 m and poll the @AutoLog IO inputs
+      // (the replay bubble) across the whole move, tracking the peaks. Asserting on the
+      // maxima — rather than one fixed mid-travel instant — keeps this robust to real-time
+      // device-thread scheduling jitter on a loaded CI runner (the same reason
+      // assertConverges polls in slices).
+      enableTeleop();
+      CommandScheduler.getInstance().schedule(elevator.goToHeight(Meters.of(0.5)));
+      double maxHeight = 0.0;
+      double maxVelocity = 0.0;
+      for (int i = 0; i < 20; i++) { // ~2 s total, sampled every 0.1 s
+        runScheduledFor(0.1);
+        maxHeight = Math.max(maxHeight, elevator.getHeight().in(Meters));
+        maxVelocity = Math.max(maxVelocity, elevator.getVelocity().in(MetersPerSecond));
+      }
+      // The getters read from the IO inputs — verify they reflect real motion, not defaults.
+      assertTrue(maxHeight > 0.15,
+          "height input should reflect real motion past the 0.1 m start, not defaults; max=" + maxHeight);
+      assertTrue(maxVelocity > 0.05,
+          "velocity input should be populated during travel; max=" + maxVelocity);
     } finally {
       elevator.close();
     }

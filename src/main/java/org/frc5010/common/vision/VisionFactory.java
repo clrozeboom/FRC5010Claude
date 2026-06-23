@@ -56,6 +56,10 @@ public final class VisionFactory {
     AprilTagFieldLayout layout = AprilTags.aprilTagFieldLayout;
     Mode mode = RobotMode.get();
 
+    // One PhotonVision simulator shared by every sim camera, regardless of camera count —
+    // created lazily on the first PHOTON camera in SIM mode (null otherwise).
+    SharedVisionSim sharedSim = null;
+
     VisionIO[] io = new VisionIO[configs.length];
     for (int i = 0; i < configs.length; i++) {
       CameraConfig cfg = configs[i];
@@ -67,7 +71,10 @@ public final class VisionFactory {
           case QUESTNAV -> new VisionIOQuestNav(cfg, poseSupplier);
         };
         case SIM -> switch (cfg.backend) {
-          case PHOTON    -> new VisionIOSim(cfg, layout, poseSupplier);
+          case PHOTON    -> {
+            if (sharedSim == null) sharedSim = new SharedVisionSim(layout);
+            yield new VisionIOSim(cfg, layout, poseSupplier, sharedSim);
+          }
           // Limelight has no PhotonVision sim equivalent — use no-op; logs will show no tags.
           case LIMELIGHT -> new VisionIO() {};
           // No Quest headset in simulation — use no-op; logs will show no QuestNav poses.

@@ -204,9 +204,10 @@ class MechanismVisuals3dTest extends SimTestBase {
       elevator.periodic();
       arm.periodic();
 
+      // Don't assert absolute carriage height — the simulated TalonFX seeds its sensor on a
+      // real-time device thread, so the first cycle may read stale state (see CLAUDE.md gotcha 12).
+      // The actual contract is that the arm base tracks whatever position the elevator reports.
       Pose3d carriage = elevator.attachmentPose();
-      assertTrue(carriage.getTranslation().getZ() > 0.05,
-          "carriage should ride up to the elevator's starting height");
 
       Segment armSeg = MechanismVisuals3d.getSegments("ExampleArm").stream()
           .filter(s -> "arm".equals(s.label())).findFirst().orElseThrow();
