@@ -19,6 +19,7 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import org.frc5010.common.input.DriveVector;
 import org.frc5010.common.input.XboxConfigurableController;
@@ -86,6 +87,9 @@ public abstract class SwerveRobotContainer {
 
   /** Auto routines registered by name, in display order. Populated by {@link #buildAutos()}. */
   protected final LinkedHashMap<String, Command> autos = new LinkedHashMap<>();
+
+  /** Blue-alliance start pose for each auto that declares one. Used by {@link #resetToAllianceStart()} in sim. */
+  private final Map<String, Pose2d> autoStartPoses = new LinkedHashMap<>();
 
   /** SmartDashboard chooser mirroring {@link #autos}. Published by {@link #finalizeAutos()}. */
   protected final SendableChooser<Command> autoChooser = new SendableChooser<>();
@@ -360,6 +364,24 @@ public abstract class SwerveRobotContainer {
   }
 
   /**
+   * Registers a named autonomous routine with its blue-alliance starting pose.
+   *
+   * <p>In simulation, {@link #resetToAllianceStart()} teleports the robot to this pose
+   * (mirrored for Red alliance) rather than the profile's generic starting pose. Use this
+   * overload for path-following autos whose first waypoint is known at build time.
+   *
+   * @param name          display name shown in the chooser and web UI dropdown
+   * @param cmd           the command to schedule when this auto is selected
+   * @param blueStartPose blue-alliance starting pose (the path's first waypoint)
+   */
+  protected void addAuto(String name, Command cmd, Pose2d blueStartPose) {
+    addAuto(name, cmd);
+    if (blueStartPose != null) {
+      autoStartPoses.put(name, blueStartPose);
+    }
+  }
+
+  /**
    * Override to register game-specific autonomous routines via {@link #addAuto}.
    *
    * <p>Called automatically on the first scheduler tick (first {@code robotPeriodic()} cycle),
@@ -398,18 +420,39 @@ public abstract class SwerveRobotContainer {
 
   /**
    * Teleports the physics body and pose estimator to the alliance-correct starting pose.
+   * In simulation, prefers the selected auto's registered start pose (set via
+   * {@link #addAuto(String, Command, Pose2d)}) over the profile's generic start.
    * Call this from {@code autonomousInit()} and {@code teleopInit()} in simulation.
    */
   public void resetToAllianceStart() {
-    drive.resetSimulationPose(getAllianceStartPose());
+    Pose2d blueStart = getSelectedAutoBlueStart();
+    drive.resetSimulationPose(blueStart != null ? mirrorForAlliance(blueStart) : getAllianceStartPose());
   }
 
   /**
-   * Computes the alliance-correct starting pose from {@link #getBlueAllianceStartPose()}.
-   * On Red alliance, mirrors x across the field centre and adds 180° to the heading.
+   * Returns the blue-alliance start pose registered for the currently selected auto,
+   * or {@code null} if no pose was registered for it (falls back to the profile start).
    */
-  protected final Pose2d getAllianceStartPose() {
-    Pose2d blue = getBlueAllianceStartPose();
+  private Pose2d getSelectedAutoBlueStart() {
+    // Web UI selection takes priority (string name, always current).
+    if (webControl != null && webSelectedAuto != null) {
+      return autoStartPoses.get(webSelectedAuto);
+    }
+    // SmartDashboard chooser: reverse-look-up the selected Command to find its name.
+    Command selected = autoChooser.getSelected();
+    if (selected == null) return null;
+    return autos.entrySet().stream()
+        .filter(e -> e.getValue() == selected)
+        .findFirst()
+        .map(e -> autoStartPoses.get(e.getKey()))
+        .orElse(null);
+  }
+
+  /**
+   * Applies alliance mirroring to a blue-alliance pose: flips X across the field centre
+   * and rotates heading 180° for Red; returns the pose unchanged for Blue.
+   */
+  private Pose2d mirrorForAlliance(Pose2d blue) {
     if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red) {
       return new Pose2d(
           getFieldLength().in(Meters) - blue.getX(),
@@ -417,5 +460,13 @@ public abstract class SwerveRobotContainer {
           blue.getRotation().plus(Rotation2d.fromDegrees(180)));
     }
     return blue;
+  }
+
+  /**
+   * Computes the alliance-correct starting pose from {@link #getBlueAllianceStartPose()}.
+   * On Red alliance, mirrors x across the field centre and adds 180° to the heading.
+   */
+  protected final Pose2d getAllianceStartPose() {
+    return mirrorForAlliance(getBlueAllianceStartPose());
   }
 }

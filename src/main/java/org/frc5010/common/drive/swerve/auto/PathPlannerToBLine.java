@@ -1,5 +1,6 @@
 package org.frc5010.common.drive.swerve.auto;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Filesystem;
@@ -50,6 +51,29 @@ public final class PathPlannerToBLine {
 
   /** Default number of straight sub-segments each Bézier segment is sampled into. */
   public static final int DEFAULT_SAMPLES_PER_SEGMENT = 12;
+
+  /**
+   * Reads only the first anchor and {@code idealStartingState.rotation} from a PathPlanner
+   * {@code .path} file and returns the path's starting {@link Pose2d}.
+   * Lighter than {@link #load} — useful for positioning the sim robot before an auto.
+   *
+   * @param pathName the PathPlanner path file name (without extension)
+   * @return starting pose (first waypoint translation + ideal starting heading)
+   */
+  public static Pose2d loadStartPose(String pathName) {
+    File file =
+        new File(Filesystem.getDeployDirectory(), "pathplanner/paths/" + pathName + ".path");
+    try (FileReader reader = new FileReader(file)) {
+      JSONObject json = (JSONObject) new JSONParser().parse(reader);
+      JSONArray waypoints = (JSONArray) json.get("waypoints");
+      Translation2d firstAnchor = anchor(waypoints, 0);
+      double startRot = rotationDeg(json, "idealStartingState");
+      return new Pose2d(firstAnchor, Rotation2d.fromDegrees(startRot));
+    } catch (Exception e) {
+      throw new RuntimeException(
+          "Failed to load start pose from PathPlanner path '" + pathName + "'", e);
+    }
+  }
 
   /**
    * Loads {@code deploy/pathplanner/paths/<pathName>.path} and converts it to a BLine path with
