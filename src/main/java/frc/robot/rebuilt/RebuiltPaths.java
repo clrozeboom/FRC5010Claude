@@ -335,13 +335,14 @@ public final class RebuiltPaths {
 
     // ── Right / Orbit-right ─────────────────────────────────────────────────
 
-    // TR-CTR-QTR: (4.41,0.49)[90°] → (7.40,0.83) → (7.82,3.60)[90°]
+    // TR-CTR-QTR: (4.41,0.49)[90°] → (7.00,0.83) → (7.82,3.60)[90°]
+    // X=7.000 keeps corner 0.82m west of trench entrance; ~0.5m swerve overshoot peaks at X≈7.5 < 7.82 safe.
     // Events: intakeIntake@seg0+17.3%; rot 90.8°@seg0+50.0%, 89.1°@seg1+9.7%
     m.put("TR-CTR-QTR", path(
         wp(4.413, 0.494, 90.0),
         et(0.173, "intakeIntake"),
         rt(0.500, 90.8),
-        tt(7.403, 0.829),
+        tt(7.000, 0.829),
         rt(0.097, 89.1),
         wp(7.822, 3.596, 90.0)
     ));
@@ -378,13 +379,14 @@ public final class RebuiltPaths {
         wp(0.475, 0.800, -90.0)
     ));
 
-    // TR-CTR-QTRLong: (3.53,0.62)[0°] → (7.14,1.01) → (7.59,3.74)[90°]
+    // TR-CTR-QTRLong: (3.53,0.62)[0°] → (7.00,1.01) → (7.59,3.74)[90°]
+    // X=7.000 keeps corner 0.82m west of trench entrance; ~0.5m swerve overshoot peaks at X≈7.5 < 7.82 safe.
     // Events: intakeIntake@seg0+33.7%; rot 0°@seg0+50%, 89.1°@seg1+9.7%
     m.put("TR-CTR-QTRLong", path(
         wp(3.534, 0.615, 0.0),
         et(0.337, "intakeIntake"),
         rt(0.500, 0.0),
-        tt(7.144, 1.008),
+        tt(7.000, 1.008),
         rt(0.097, 89.1),
         wp(7.592, 3.740, 90.0)
     ));
@@ -400,13 +402,14 @@ public final class RebuiltPaths {
         wp(0.475, 0.800, -90.0)
     ));
 
-    // TR-CTR-QTRAngled: (4.41,0.49)[90°] → (7.46,0.90) → (7.99,3.17)[90°]
+    // TR-CTR-QTRAngled: (4.41,0.49)[90°] → (7.00,0.90) → (7.99,3.17)[90°]
+    // X=7.000 keeps corner 0.82m west of trench entrance; ~0.5m swerve overshoot peaks at X≈7.5 < 7.82 safe.
     // Events: intakeIntake@seg0+33.7%; rot 0°@seg0+50%, 90°@seg1+9.7%
     m.put("TR-CTR-QTRAngled", path(
         wp(4.413, 0.494, 90.0),
         et(0.337, "intakeIntake"),
         rt(0.500, 0.0),
-        tt(7.461, 0.899),
+        tt(7.000, 0.899),
         rt(0.097, 90.0),
         wp(7.986, 3.172, 90.0)
     ));
@@ -444,12 +447,13 @@ public final class RebuiltPaths {
         wp(2.992, 0.680, 0.0)
     ));
 
-    // TR-CTR-QTRShort: (4.41,0.49)[90°] → (7.51,0.88) → (7.75,3.19)[90°]
+    // TR-CTR-QTRShort: (4.41,0.49)[90°] → (7.00,0.88) → (7.75,3.19)[90°]
+    // X=7.000 keeps corner 0.82m west of trench entrance; ~0.5m swerve overshoot peaks at X≈7.5 < 7.82 safe.
     // Events: intakeIntake@seg0+23.2%; rot 89.1°@seg1+9.7%
     m.put("TR-CTR-QTRShort", path(
         wp(4.413, 0.494, 90.0),
         et(0.232, "intakeIntake"),
-        tt(7.510, 0.878),
+        tt(7.000, 0.878),
         rt(0.097, 89.1),
         wp(7.752, 3.188, 90.0)
     ));
@@ -464,13 +468,14 @@ public final class RebuiltPaths {
         wp(3.534, 0.615, 0.0)
     ));
 
-    // TRSide-CTR-QTR: (3.52,0.65)[-0.1°] → (7.54,0.85) → (7.82,3.60)[90°]
+    // TRSide-CTR-QTR: (3.52,0.65)[-0.1°] → (7.00,0.85) → (7.82,3.60)[90°]
+    // X=7.000 keeps corner 0.82m west of trench entrance; ~0.5m swerve overshoot peaks at X≈7.5 < 7.82 safe.
     // Events: intakeIntake@seg0+0.0%; rot 0°@seg0+69.9%, 89.1°@seg1+9.7%
     m.put("TRSide-CTR-QTR", path(
         wp(3.522, 0.652, -0.1),
         et(0.000, "intakeIntake"),
         rt(0.699, 0.0),
-        tt(7.539, 0.849),
+        tt(7.000, 0.849),
         rt(0.097, 89.1),
         wp(7.822, 3.596, 90.0)
     ));
@@ -523,14 +528,14 @@ public final class RebuiltPaths {
         wp(0.612, 2.376, 89.0)
     ));
 
-    // TR-CTR-QTR-BR-TR: big loop path through right trench; default handoff at (7.61,0.86)
-    // Y=0.858 < 1.064 m safe limit; default 0.45 m handoff is sufficient for the 90° turn.
+    // TR-CTR-QTR-BR-TR: big loop path through right trench; corner at (7.00,0.86)
+    // X=7.000 keeps east→north corner 0.82m west of trench entrance; overshoot peaks at X≈7.5 < 7.82 safe.
     // Events: intakeIntake@seg0+19.4%, launcherPrep@seg5+24.9%, launcherLow@seg7+28.1%
     m.put("TR-CTR-QTR-BR-TR", path(
         wp(3.522, 0.652, -0.1),
         et(0.194, "intakeIntake"),
         rt(0.445, 0.0),
-        tt(7.607, 0.858),
+        tt(7.000, 0.858),
         rt(0.000, 89.8),
         tt(7.607, 3.275),
         rt(0.662, 90.0),
@@ -568,13 +573,14 @@ public final class RebuiltPaths {
         wp(0.470, 0.741, -90.1)
     ));
 
-    // TR-CTR-QTR-BR-HP Longer: (3.53,0.62)[0°] → (7.62,0.92) → (7.62,4.29) → …
+    // TR-CTR-QTR-BR-HP Longer: (3.53,0.62)[0°] → (7.00,0.92) → (7.62,4.29) → …
+    // X=7.000 keeps east→north corner 0.82m west of trench entrance; overshoot peaks at X≈7.5 < 7.82 safe.
     // Events: intakeIntake@seg0+41.1%, launcherPrep@seg4+27.8%; many rotations
     m.put("TR-CTR-QTR-BR-HP Longer", path(
         wp(3.534, 0.615, 0.0),
         et(0.411, "intakeIntake"),
         rt(0.500, 0.0),
-        tt(7.623, 0.923),
+        tt(7.000, 0.923),
         rt(0.000, 77.6),
         tt(7.623, 4.287),
         rt(0.701, 124.5),
@@ -608,25 +614,27 @@ public final class RebuiltPaths {
 
     // ── Delay / Follow paths ─────────────────────────────────────────────────
 
-    // DelayTR-QTRL: (3.58,0.65)[-2.1°] → (7.64,0.92) → (7.91,3.95)[90°]
+    // DelayTR-QTRL: (3.58,0.65)[-2.1°] → (7.10,0.92) → (7.91,3.95)[90°]
+    // X=7.100 keeps corner 0.72m west of trench entrance; ~0.5m swerve overshoot peaks at X≈7.6 < 7.82 safe.
     // Events: intakeIntake@seg0+0.0%, launcherLow@seg1+60.1%; rot 0°@seg0+50%, 89.1°@seg1+24.6%
     m.put("DelayTR-QTRL", path(
         wp(3.583, 0.654, -2.1),
         et(0.000, "intakeIntake"),
         rt(0.500, 0.0),
-        tt(7.636, 0.923),
+        tt(7.100, 0.923),
         rt(0.097, 89.1),
         et(0.601, "launcherLow"),
         wp(7.909, 3.948, 90.0)
     ));
 
-    // DelayTRS-CTR-QTR-BR-HP Longer: (3.58,0.65)[-2.1°] → (7.72,0.80) → (7.72,3.51) → …
+    // DelayTRS-CTR-QTR-BR-HP Longer: (3.58,0.65)[-2.1°] → (7.00,0.80) → (7.72,3.51) → …
+    // X=7.000 keeps east→north corner 0.82m west of trench entrance; overshoot peaks at X≈7.5 < 7.82 safe.
     // Events: intakeIntake@seg0+52.7%, launcherPrep@seg4+6.9%; many rotations
     m.put("DelayTRS-CTR-QTR-BR-HP Longer", path(
         wp(3.583, 0.654, -2.1),
         et(0.527, "intakeIntake"),
         rt(0.500, 0.0),
-        tt(7.724, 0.800),
+        tt(7.000, 0.800),
         rt(0.000, 77.6),
         tt(7.724, 3.510),
         rt(0.701, 124.5),
