@@ -76,50 +76,54 @@ public class RebuiltRobot extends SwerveRobotContainer {
     // the same launcher/indexer building blocks the source's NamedCommandsReg registers; the
     // launcher→indexer coupling and the game-piece layer fire the preload when the shot is ready.
     // No explicit start pose — these start from the profile's blueStartPose() (hub-front centre).
-    addAuto("Do Nothing", Commands.none());
-    addAuto("Shoot Preload", shootPreload());
+    // Factories are stored lazily; the actual command is built only when the auto is selected.
+    addAuto("Do Nothing", Commands::none);
+    addAuto("Shoot Preload", this::shootPreload);
     addAuto(
         "Drive Out + Shoot Preload",
-        Commands.sequence(
-            shootPreload(),
-            Commands.run(() -> drive.runVelocityFieldRelative(new ChassisSpeeds(1.5, 0, 0)), drive)
-                .withTimeout(1.5),
-            Commands.runOnce(drive::stop, drive)));
+        () ->
+            Commands.sequence(
+                shootPreload(),
+                Commands.run(
+                        () -> drive.runVelocityFieldRelative(new ChassisSpeeds(1.5, 0, 0)), drive)
+                    .withTimeout(1.5),
+                Commands.runOnce(drive::stop, drive)));
 
     // Orbit autos — the source PathPlanner Orbit routines ported to BLine. Each auto follows
     // Bézier-sampled PathPlanner paths (carrying their embedded intake/launcher event markers)
     // composed with the same launcher/indexer state requests as the source .auto files.
-    // The start pose is read from the path file's first waypoint so the sim robot spawns there.
+    // The start pose is read from the path file's first waypoint (cheap) so the sim robot spawns
+    // there; the full path load is deferred into each factory lambda (invoked on selection only).
     RebuiltAutoRoutines auto = new RebuiltAutoRoutines(drive, intake, launcher, indexer);
-    addAuto("Orbit: Left",                       auto.orbitLeft(),              ps("TL-QTRH"));
-    addAuto("Orbit: Right",                      auto.orbitRight(),             ps("TR-CTR-QTR"));
-    addAuto("Orbit: Left 1 Swipe",               auto.orbitLeft1Swipe(),        ps("TL-QTRHLong"));
-    addAuto("Orbit: Right 1 Swipe",              auto.orbitRight1Swipe(),       ps("TR-CTR-QTRLong"));
-    addAuto("Orbit: Right 2 Swipe (no HP)",      auto.orbitRight2Swipe(),       ps("TR-CTR-QTRAngled"));
-    addAuto("Orbit: Churn Right 2 Swipe (no HP)",auto.churnOrbitRight2Swipe(), ps("TR-CTR-QTRAngled"));
+    addAuto("Orbit: Left",                        () -> auto.orbitLeft(),             ps("TL-QTRH"));
+    addAuto("Orbit: Right",                       () -> auto.orbitRight(),            ps("TR-CTR-QTR"));
+    addAuto("Orbit: Left 1 Swipe",                () -> auto.orbitLeft1Swipe(),       ps("TL-QTRHLong"));
+    addAuto("Orbit: Right 1 Swipe",               () -> auto.orbitRight1Swipe(),      ps("TR-CTR-QTRLong"));
+    addAuto("Orbit: Right 2 Swipe (no HP)",       () -> auto.orbitRight2Swipe(),      ps("TR-CTR-QTRAngled"));
+    addAuto("Orbit: Churn Right 2 Swipe (no HP)", () -> auto.churnOrbitRight2Swipe(), ps("TR-CTR-QTRAngled"));
 
     // Delay Trench / Disrupt
-    addAuto("Delay Trench Neutral Bump HP", auto.delayTrenchNeutralBumpHP(), ps("StartTR-CTR-HLF-BR-HP"));
-    addAuto("Disrupt",                      auto.disrupt(),                  ps("RightDisrupt1"));
+    addAuto("Delay Trench Neutral Bump HP", () -> auto.delayTrenchNeutralBumpHP(), ps("StartTR-CTR-HLF-BR-HP"));
+    addAuto("Disrupt",                      () -> auto.disrupt(),                  ps("RightDisrupt1"));
     // Follow — robot starts at the shooting position then drives; pose comes from path's start
-    addAuto("Follow: Left Bump Depot",   auto.followLeftBumpDepot(),   ps("TLBack-CTL-QTL-BL-L"));
-    addAuto("Follow: Left Trench",       auto.followLeftTrench(),       ps("TLback-CTL-QTL"));
-    addAuto("Follow: Right Bump HP",     auto.followRightBumpHP(),     ps("DelayTRS-CTR-QTR-BR-HP Longer"));
-    addAuto("Follow: Right Trench HP",   auto.followRightTrenchHP(),   ps("DelayTR-QTRL"));
+    addAuto("Follow: Left Bump Depot",  () -> auto.followLeftBumpDepot(),  ps("TLBack-CTL-QTL-BL-L"));
+    addAuto("Follow: Left Trench",      () -> auto.followLeftTrench(),      ps("TLback-CTL-QTL"));
+    addAuto("Follow: Right Bump HP",    () -> auto.followRightBumpHP(),    ps("DelayTRS-CTR-QTR-BR-HP Longer"));
+    addAuto("Follow: Right Trench HP",  () -> auto.followRightTrenchHP(),  ps("DelayTR-QTRL"));
     // Left
-    addAuto("Left: 2056 Double HP",  auto.left2056DoubleHP(),  ps("TL-CTR-QTL-BL-TL"));
-    addAuto("Left: 5010 Double",     auto.left5010Double(),    ps("TL-CTL-QTL"));
-    addAuto("Left: 3 Shuttle HPC",   auto.left3ShuttleHPC(),   ps("TL-QTLCTLSHORT"));
+    addAuto("Left: 2056 Double HP", () -> auto.left2056DoubleHP(), ps("TL-CTR-QTL-BL-TL"));
+    addAuto("Left: 5010 Double",    () -> auto.left5010Double(),   ps("TL-CTL-QTL"));
+    addAuto("Left: 3 Shuttle HPC",  () -> auto.left3ShuttleHPC(),  ps("TL-QTLCTLSHORT"));
     // Quals
-    addAuto("Quals 110", auto.quals110(), ps("TLback-CTL-QTL"));
-    addAuto("Quals 73",  auto.quals73(),  ps("DelayTR-QTRL"));
+    addAuto("Quals 110", () -> auto.quals110(), ps("TLback-CTL-QTL"));
+    addAuto("Quals 73",  () -> auto.quals73(),  ps("DelayTR-QTRL"));
     // Right
-    addAuto("Right: 2056 Double HP",         auto.right2056DoubleHP(),         ps("TR-CTR-QTR-BR-TR"));
-    addAuto("Right: 5010 Double",            auto.right5010Double(),            ps("TRSide-CTR-QTR"));
-    addAuto("Right: 5010 Double (Old)",      auto.right5010DoubleOld(),         ps("TRSide-CTR-QTR"));
-    addAuto("Right: 5010 Double (Optimized)",auto.right5010DoubleOptimized(),  ps("TRSide-CTR-QTR"));
-    addAuto("Right: 5010 Double (Short)",    auto.right5010DoubleShort(),       ps("TR-CTR-QTRShort"));
-    addAuto("Right: 3 Shuttle HPC",          auto.right3ShuttleHPC(),           ps("TR-QTRCTRSHORT"));
+    addAuto("Right: 2056 Double HP",          () -> auto.right2056DoubleHP(),          ps("TR-CTR-QTR-BR-TR"));
+    addAuto("Right: 5010 Double",             () -> auto.right5010Double(),            ps("TRSide-CTR-QTR"));
+    addAuto("Right: 5010 Double (Old)",       () -> auto.right5010DoubleOld(),         ps("TRSide-CTR-QTR"));
+    addAuto("Right: 5010 Double (Optimized)", () -> auto.right5010DoubleOptimized(),   ps("TRSide-CTR-QTR"));
+    addAuto("Right: 5010 Double (Short)",     () -> auto.right5010DoubleShort(),       ps("TR-CTR-QTRShort"));
+    addAuto("Right: 3 Shuttle HPC",           () -> auto.right3ShuttleHPC(),           ps("TR-QTRCTRSHORT"));
   }
 
   /** Loads the starting {@link Pose2d} from the first waypoint of a PathPlanner path file. */
