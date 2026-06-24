@@ -501,9 +501,17 @@ public final class RebuiltAutoRoutines {
         .withName("Auto/Right5010DoubleOptimized");
   }
 
-  /** Right 5010 Double (Short): TR-CTR-QTRShort → QTRShort-TR → prep → wait 3 → low → TR-CTR-QTR-BR-HP → prep. */
+  /**
+   * Right 5010 Double (Short): deploy intake immediately, TR-CTR-QTRShort → QTRShort-TR → prep
+   * → wait 3 → low → TR-CTR-QTR-BR-HP → prep.
+   *
+   * <p>The inline {@code intakeCommand} at the top guarantees the hopper deploys at auto start.
+   * The path-embedded {@code intakeIntake} event (at t_ratio=0.232 in TR-CTR-QTRShort) fires
+   * as a second request once the robot is moving — both are harmless when issued together.
+   */
   public Command right5010DoubleShort() {
     return Commands.sequence(
+            intake.intakeCommand(() -> Constants.Intake.INTAKE_IN),
             path("TR-CTR-QTRShort", true),
             path("QTRShort-TR", false),
             launcherPrep(),

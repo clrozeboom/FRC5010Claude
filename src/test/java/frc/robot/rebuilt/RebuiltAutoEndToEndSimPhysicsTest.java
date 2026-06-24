@@ -1,5 +1,6 @@
 package frc.robot.rebuilt;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -106,6 +107,8 @@ class RebuiltAutoEndToEndSimPhysicsTest extends SimTestBase {
     double traveled = 0.0;
     double maxFromStart = 0.0;
     Pose2d prev = drive.getPose();
+    boolean intakeReachedIntaking = false;
+    boolean launcherLeftHammertime = false;
     int c = 0;
     while (c < 1600 && routine.isScheduled()) {
       step();
@@ -114,12 +117,22 @@ class RebuiltAutoEndToEndSimPhysicsTest extends SimTestBase {
       traveled += p.getTranslation().getDistance(prev.getTranslation());
       maxFromStart = Math.max(maxFromStart, p.getTranslation().getDistance(start.getTranslation()));
       prev = p;
+      if (intake.getCurrentState() == RebuiltIntake.IntakeState.INTAKING) {
+        intakeReachedIntaking = true;
+      }
+      if (launcher.getState() != RebuiltLauncher.LauncherState.HAMMERTIME) {
+        launcherLeftHammertime = true;
+      }
       c++;
     }
 
     System.out.println(
         ">> right5010DoubleShort: cycles=" + c + " finished=" + !routine.isScheduled()
-            + " maxFromStart=" + maxFromStart + " traveled=" + traveled);
+            + " maxFromStart=" + maxFromStart + " traveled=" + traveled
+            + " intakeState=" + intake.getCurrentState()
+            + " intakeReachedIntaking=" + intakeReachedIntaking
+            + " launcherState=" + launcher.getState()
+            + " launcherLeftHammertime=" + launcherLeftHammertime);
     assertTrue(c < 1600, "the auto routine must finish, ran " + c);
     // The routine drives out and back (~two ~5 m legs); it must cover real ground...
     assertTrue(maxFromStart > 3.0, "robot must actually drive the routine; maxFromStart=" + maxFromStart);
@@ -128,5 +141,19 @@ class RebuiltAutoEndToEndSimPhysicsTest extends SimTestBase {
     assertTrue(
         traveled < 45.0,
         "tuned following must not loop across the routine; traveled=" + traveled + " m");
+    // The intakeIntake path event must fire, settling the hopper to INTAKING within 0.6 s.
+    assertTrue(
+        intakeReachedIntaking,
+        "intakeIntake event must deploy the hopper and settle to INTAKING; final=" + intake.getCurrentState());
+    // The intakeIntake event unblocks the turret (DEPLOYING is not blocking); launcherPrep/Low must
+    // then push the launcher out of HAMMERTIME before the auto ends.
+    assertTrue(
+        launcherLeftHammertime,
+        "auto must command the launcher out of HAMMERTIME once turret is unblocked; final=" + launcher.getState());
+    // The last command in the sequence is launcherPrep() — launcher must end in PREP.
+    assertEquals(
+        RebuiltLauncher.LauncherState.PREP,
+        launcher.getState(),
+        "auto must end with launcher in PREP (launcherPrep() is the last command); final=" + launcher.getState());
   }
 }
