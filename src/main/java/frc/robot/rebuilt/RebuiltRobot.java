@@ -71,10 +71,7 @@ public class RebuiltRobot extends SwerveRobotContainer {
 
   @Override
   protected void buildAutos() {
-    var auto = new RebuiltAutoRoutines(drive, intake, launcher, indexer);
-    for (var e : auto.allAutos()) {
-      addAuto(e.name(), e.factory(), e.blueStart());
-    }
+    registerAutos(new RebuiltAutoRoutines(drive, intake, launcher, indexer).allAutos());
   }
 
   /**

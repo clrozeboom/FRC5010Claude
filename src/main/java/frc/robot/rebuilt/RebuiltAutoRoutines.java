@@ -10,10 +10,10 @@ import frc.robot.rebuilt.subsystems.RebuiltIndexer;
 import frc.robot.rebuilt.subsystems.RebuiltIntake;
 import frc.robot.rebuilt.subsystems.RebuiltLauncher;
 import java.util.List;
-import java.util.function.Supplier;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import org.frc5010.common.drive.swerve.auto.BLineSwerveAuto;
 import org.frc5010.common.drive.swerve.auto.PathPlannerToBLine;
+import org.frc5010.common.profiles.AutoEntry;
 
 /**
  * The 2026 "Rebuilt" robot's <b>Orbit</b> autonomous routines, ported from the source robot's
@@ -44,9 +44,6 @@ import org.frc5010.common.drive.swerve.auto.PathPlannerToBLine;
  * {@code withDefaultShouldFlip()} so the same routine mirrors onto Red.
  */
 public final class RebuiltAutoRoutines {
-
-  /** Describes one entry in the auto chooser menu: display name, lazy factory, and start pose. */
-  public record AutoEntry(String name, Supplier<Command> factory, Pose2d blueStart) {}
 
   /**
    * Bézier sub-segments per PathPlanner segment when converting. Deliberately <b>sparse</b>: dense
