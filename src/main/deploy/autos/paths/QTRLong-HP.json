@@ -28,8 +28,13 @@
       "libKey": "launcherPrep"
     },
     {
+      "type": "translation",
+      "x_meters": 1.300,
+      "y_meters": 0.800
+    },
+    {
       "type": "waypoint",
-      "translation_target": {"x_meters": 0.475, "y_meters": 0.800},
+      "translation_target": {"x_meters": 1.300, "y_meters": 0.800},
       "rotation_target": {"rotation_radians": -1.5708, "t_ratio": 1.0, "profiled_rotation": true}
     }
   ]

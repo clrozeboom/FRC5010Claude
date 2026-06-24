@@ -73,7 +73,7 @@
     },
     {
       "type": "waypoint",
-      "translation_target": {"x_meters": 0.830, "y_meters": 7.095},
+      "translation_target": {"x_meters": 1.300, "y_meters": 7.095},
       "rotation_target": {"rotation_radians": 1.5708, "t_ratio": 1.0, "profiled_rotation": true}
     }
   ]
