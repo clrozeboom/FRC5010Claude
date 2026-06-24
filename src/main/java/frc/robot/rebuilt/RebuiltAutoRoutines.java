@@ -12,7 +12,6 @@ import frc.robot.rebuilt.subsystems.RebuiltLauncher;
 import java.util.List;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import org.frc5010.common.drive.swerve.auto.BLineSwerveAuto;
-import org.frc5010.common.drive.swerve.auto.PathPlannerToBLine;
 import org.frc5010.common.profiles.AutoEntry;
 
 /**
@@ -44,15 +43,6 @@ import org.frc5010.common.profiles.AutoEntry;
  * {@code withDefaultShouldFlip()} so the same routine mirrors onto Red.
  */
 public final class RebuiltAutoRoutines {
-
-  /**
-   * Bézier sub-segments per PathPlanner segment when converting. Deliberately <b>sparse</b>: dense
-   * sampling makes BLine try to thread every vertex and badly overshoot/loop at the source paths'
-   * sharp corners (a 5 m path was traveling ~22 m, weaving ±1.5 m). Four sub-segments keep enough
-   * curve shape while letting the handoff radius below round the corners smoothly (~2× cleaner
-   * following in sim). See [[frc5010claude-bline-integration]].
-   */
-  private static final int SAMPLES = 4;
 
   /** Handoff radius for the auto paths — larger than the library default so corners round. */
   private static final double HANDOFF_RADIUS_M = 0.45;
@@ -168,9 +158,9 @@ public final class RebuiltAutoRoutines {
 
   // ── auto chooser registration ────────────────────────────────────────────────────────────────
 
-  /** Reads the first waypoint's pose from a PathPlanner path file (cheap — just the anchor). */
+  /** Returns the hard-coded blue-alliance starting pose for the named path. */
   private static Pose2d ps(String pathName) {
-    return PathPlannerToBLine.loadStartPose(pathName);
+    return RebuiltPaths.startPose(pathName);
   }
 
   /**
@@ -209,9 +199,9 @@ public final class RebuiltAutoRoutines {
         new AutoEntry("Right: 3 Shuttle HPC",           this::right3ShuttleHPC,           ps("TR-QTRCTRSHORT")));
   }
 
-  /** Follows a converted PathPlanner path; {@code first} re-anchors odometry to the path start. */
+  /** Follows a native BLine path; {@code first} re-anchors odometry to the path start. */
   private Command path(String name, boolean first) {
-    Path p = PathPlannerToBLine.load(name, SAMPLES);
+    Path p = RebuiltPaths.get(name);
     return (first ? reset : cont).build(p);
   }
 
