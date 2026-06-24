@@ -12,7 +12,6 @@ import frc.robot.lib.BLine.Path.Waypoint;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Native BLine path definitions for all RebuiltRobot autos.
@@ -23,26 +22,24 @@ import java.util.Optional;
  * <ul>
  *   <li>No filesystem I/O at robot startup.</li>
  *   <li>Simpler geometry (anchor points only — no Bezier sub-sampling).</li>
- *   <li>Explicit trench-exit alignment: a low-handoff-radius intermediate point at
- *       the trench opening keeps the robot centred (Y ≈ 0.64 m right / 7.58 m left)
- *       before the sharp turn out of the trench zone, preventing the robot from
- *       cutting the corner into the trench wall.</li>
+ *   <li>BLine default 0.45 m handoff radius everywhere — BLine's speed profiler already slows
+ *       the robot enough to round each corner safely. The 0.10 m "sharp corner" approach was
+ *       discarded after simulation showed it required ~15 g centripetal acceleration at cruise
+ *       speed, causing the robot to overshoot trench-exit corners and clip the inner wall.</li>
+ * </ul>
+ *
+ * <p>Trench safety limits (applied to all anchor/waypoint Y positions):
+ * <ul>
+ *   <li>Right trench: robot centre must stay Y &lt; 1.064 m (inner wall at Y=1.279 − 0.215 m bumper)</li>
+ *   <li>Left trench: robot centre must stay Y &gt; 7.146 m (inner wall at Y=6.931 + 0.215 m bumper)</li>
  * </ul>
  *
  * <p>Element ordering inside each path: {@link Waypoint}/{@link TranslationTarget} (position
  * elements) alternate with {@link RotationTarget}/{@link EventTrigger} (non-position elements).
  * A non-position element fires at {@code t_ratio} along the segment from the preceding position
  * element to the following position element.
- *
- * <p>For trench-exit transitions the alignment point uses a 0.10 m handoff radius (vs the
- * default 0.45 m) so BLine barely rounds the corner, keeping the robot inside the trench
- * opening (Y < 1.065 m for the right trench, Y > 7.165 m for the left trench) while the
- * wall exists.
  */
 public final class RebuiltPaths {
-
-  /** Handoff radius (m) used at trench-exit alignment points to minimise corner-cutting. */
-  private static final double TRENCH_HANDOFF = 0.10;
 
   private static final Map<String, Path> PATHS = buildAll();
 
@@ -79,11 +76,6 @@ public final class RebuiltPaths {
     return new TranslationTarget(x, y);
   }
 
-  /** TranslationTarget with explicit intermediate handoff radius (for trench alignment). */
-  private static TranslationTarget tt(double x, double y, double handoffM) {
-    return new TranslationTarget(new Translation2d(x, y), Optional.of(handoffM));
-  }
-
   private static RotationTarget rt(double tRatio, double deg) {
     return new RotationTarget(Rotation2d.fromDegrees(deg), tRatio);
   }
@@ -105,16 +97,12 @@ public final class RebuiltPaths {
     // ── Left / Orbit-left ───────────────────────────────────────────────────
 
     // TL-QTRH: (4.36,7.41)[0°] → (6.95,7.26) → (7.61,4.90)[-118°]
-    // Left-trench exit alignment: add tt(6.95,7.26,TRENCH_HANDOFF) is already the anchor;
-    // the turn from Y≈7.26 to Y≈4.90 happens at X=6.95–7.61 — add alignment at X=7.61,Y=7.26
-    // with small handoff so robot stays above Y=7.165 until clear of the trench wall.
     // Events: intakeIntake@seg0+43.1%; rot 0°@seg0+28.4%, rot -106.6°@seg1+9.7%
     m.put("TL-QTRH", path(
         wp(4.358, 7.412, 0.0),
         rt(0.284, 0.0),
         et(0.431, "intakeIntake"),
         tt(6.948, 7.259),
-        tt(7.614, 7.259, TRENCH_HANDOFF),   // align at trench exit Y before turning down
         rt(0.097, -106.6),
         wp(7.614, 4.898, -118.2)
     ));
@@ -125,7 +113,6 @@ public final class RebuiltPaths {
         rt(0.284, 0.0),
         et(0.431, "intakeIntake"),
         tt(6.948, 7.259),
-        tt(7.582, 7.259, TRENCH_HANDOFF),
         rt(0.097, -51.6),
         wp(7.582, 4.144, -55.2)
     ));
@@ -163,19 +150,17 @@ public final class RebuiltPaths {
         wp(2.467, 7.160, 18.8)
     ));
 
-    // TL-CTL-QTL: (4.41,7.44)[0.1°] → (7.83,7.10) → (8.02,4.48)[-90°]
-    // Left-trench: add alignment before wp2 turning down
+    // TL-CTL-QTL: (4.41,7.44)[0.1°] → (7.83,7.20) → (8.02,4.48)[-90°]
+    // Left trench: anchor at Y=7.200 keeps robot centre safely above 7.146 m inner-wall limit.
     // Events: intakeIntake@seg0+23.2%
     m.put("TL-CTL-QTL", path(
         wp(4.413, 7.444, 0.1),
         et(0.232, "intakeIntake"),
-        tt(7.827, 7.096),
-        tt(8.019, 7.096, TRENCH_HANDOFF),
+        tt(7.827, 7.200),
         wp(8.019, 4.483, -90.0)
     ));
 
     // QTL-TL: (8.02,4.48)[-90°] → (7.12,7.22) → (1.14,7.22)[-90.1°]
-    // Right trench exit Y adjustment: exit from (7.12,7.22) → align (1.14,7.22)
     // Events: launcherLow@seg0+63.7%; rot 0°@seg1+17.7%
     m.put("QTL-TL", path(
         wp(8.019, 4.483, -90.0),
@@ -185,14 +170,13 @@ public final class RebuiltPaths {
         wp(1.141, 7.215, -90.1)
     ));
 
-    // TLback-CTL-QTL: (3.58,7.46)[0.1°] → (7.83,7.10) → (7.96,4.05)[-90°]
-    // Left-trench alignment before turn
+    // TLback-CTL-QTL: (3.58,7.46)[0.1°] → (7.83,7.20) → (7.96,4.05)[-90°]
+    // Left trench: anchor at Y=7.200 keeps robot centre safely above 7.146 m inner-wall limit.
     // Events: intakeIntake@seg0+23.2%
     m.put("TLback-CTL-QTL", path(
         wp(3.583, 7.455, 0.1),
         et(0.232, "intakeIntake"),
-        tt(7.827, 7.096),
-        tt(7.958, 7.096, TRENCH_HANDOFF),
+        tt(7.827, 7.200),
         wp(7.958, 4.054, -90.0)
     ));
 
@@ -306,15 +290,14 @@ public final class RebuiltPaths {
         wp(0.728, 5.389, -119.4)
     ));
 
-    // TL-CTR-QTL-BL-TL: (4.41,7.44)[0.1°] → (7.61,7.21) → (7.61,4.80) → (6.10,4.56) → (5.63,5.53) → (3.53,5.53) → (1.36,6.31) → (3.02,7.44) → (4.41,7.44)[0.1°]
+    // TL-CTR-QTL-BL-TL: big loop path through left trench; default handoff radius at (7.61,7.21)
     // Events: intakeIntake@seg0+19.4%, launcherPrep@seg5+42.3%, launcherLow@seg7+28.1%
-    // Left-trench: add alignment at (7.61,7.21,TRENCH_HANDOFF) before turn
     m.put("TL-CTR-QTL-BL-TL", path(
         wp(4.413, 7.444, 0.1),
         et(0.194, "intakeIntake"),
         rt(0.458, 0.0),
-        tt(7.607, 7.212, TRENCH_HANDOFF),
-        rt(0.000, -90.0),   // rot at seg1+0% (near trench exit)
+        tt(7.607, 7.212),
+        rt(0.000, -90.0),
         tt(7.607, 4.795),
         rt(0.440, 178.8),
         tt(6.097, 4.561),
@@ -330,13 +313,13 @@ public final class RebuiltPaths {
         wp(4.413, 7.444, 0.1)
     ));
 
-    // TL-CTR-HLF-BL-HP: (4.41,7.44)[0.1°] → (8.12,6.96) → (7.99,4.11) → (6.10,4.34) → (5.83,5.53) → (3.53,5.53) → (0.83,7.10)[90°]
+    // TL-CTR-HLF-BL-HP: (4.41,7.44)[0.1°] → (8.12,7.20) → (7.99,4.11) → …
+    // Left trench: raised to Y=7.200 to stay above 7.146 m inner-wall limit.
     // Events: launcherPrep@seg5+25.1%; many rotations
-    // Left-trench: add alignment (8.12,6.96,TRENCH_HANDOFF) before turn down
     m.put("TL-CTR-HLF-BL-HP", path(
         wp(4.413, 7.444, 0.1),
         rt(0.447, 0.8),
-        tt(8.117, 6.958, TRENCH_HANDOFF),
+        tt(8.117, 7.200),
         rt(0.000, -90.0),
         tt(7.987, 4.113),
         rt(0.588, -102.7),
@@ -353,14 +336,12 @@ public final class RebuiltPaths {
     // ── Right / Orbit-right ─────────────────────────────────────────────────
 
     // TR-CTR-QTR: (4.41,0.49)[90°] → (7.40,0.83) → (7.82,3.60)[90°]
-    // Right-trench exit alignment: add tt(7.822,0.829,TRENCH_HANDOFF) before endpoint
-    // Events: intakeIntake@seg0+17.3%; rot 90.8°@seg0+50.0%, 89.1°→recalc to seg2+9.7%
+    // Events: intakeIntake@seg0+17.3%; rot 90.8°@seg0+50.0%, 89.1°@seg1+9.7%
     m.put("TR-CTR-QTR", path(
         wp(4.413, 0.494, 90.0),
         et(0.173, "intakeIntake"),
         rt(0.500, 90.8),
         tt(7.403, 0.829),
-        tt(7.822, 0.829, TRENCH_HANDOFF),   // align before exit
         rt(0.097, 89.1),
         wp(7.822, 3.596, 90.0)
     ));
@@ -391,21 +372,19 @@ public final class RebuiltPaths {
     m.put("QTRH-HP", path(
         wp(6.216, 3.281, 90.0),
         rt(0.709, 0.0),
-        et(0.046, "launcherPrep"),  // pos 1.046 → seg1+4.6%
+        et(0.046, "launcherPrep"),
         tt(4.663, 0.611),
         rt(0.296, 0.0),
         wp(0.475, 0.800, -90.0)
     ));
 
     // TR-CTR-QTRLong: (3.53,0.62)[0°] → (7.14,1.01) → (7.59,3.74)[90°]
-    // Right-trench alignment: Y=1.01 near limit, add alignment (7.59,1.01,TRENCH_HANDOFF)
-    // Events: intakeIntake@seg0+33.7%; rot 0°@seg0+50%, 89.1°→seg2+9.7%
+    // Events: intakeIntake@seg0+33.7%; rot 0°@seg0+50%, 89.1°@seg1+9.7%
     m.put("TR-CTR-QTRLong", path(
         wp(3.534, 0.615, 0.0),
         et(0.337, "intakeIntake"),
         rt(0.500, 0.0),
         tt(7.144, 1.008),
-        tt(7.592, 1.008, TRENCH_HANDOFF),
         rt(0.097, 89.1),
         wp(7.592, 3.740, 90.0)
     ));
@@ -422,14 +401,12 @@ public final class RebuiltPaths {
     ));
 
     // TR-CTR-QTRAngled: (4.41,0.49)[90°] → (7.46,0.90) → (7.99,3.17)[90°]
-    // Right-trench alignment at exit
-    // Events: intakeIntake@seg0+33.7%; rot 0°@seg0+50%, 90°→seg2+9.7%
+    // Events: intakeIntake@seg0+33.7%; rot 0°@seg0+50%, 90°@seg1+9.7%
     m.put("TR-CTR-QTRAngled", path(
         wp(4.413, 0.494, 90.0),
         et(0.337, "intakeIntake"),
         rt(0.500, 0.0),
         tt(7.461, 0.899),
-        tt(7.986, 0.899, TRENCH_HANDOFF),
         rt(0.097, 90.0),
         wp(7.986, 3.172, 90.0)
     ));
@@ -468,13 +445,11 @@ public final class RebuiltPaths {
     ));
 
     // TR-CTR-QTRShort: (4.41,0.49)[90°] → (7.51,0.88) → (7.75,3.19)[90°]
-    // Right-trench alignment
-    // Events: intakeIntake@seg0+23.2%; rot 89.1°→seg2+9.7%
+    // Events: intakeIntake@seg0+23.2%; rot 89.1°@seg1+9.7%
     m.put("TR-CTR-QTRShort", path(
         wp(4.413, 0.494, 90.0),
         et(0.232, "intakeIntake"),
         tt(7.510, 0.878),
-        tt(7.752, 0.878, TRENCH_HANDOFF),
         rt(0.097, 89.1),
         wp(7.752, 3.188, 90.0)
     ));
@@ -490,13 +465,12 @@ public final class RebuiltPaths {
     ));
 
     // TRSide-CTR-QTR: (3.52,0.65)[-0.1°] → (7.54,0.85) → (7.82,3.60)[90°]
-    // Events: intakeIntake@seg0+0.0%; rot 0°@seg0+69.9%, 89.1°→seg2+9.7%
+    // Events: intakeIntake@seg0+0.0%; rot 0°@seg0+69.9%, 89.1°@seg1+9.7%
     m.put("TRSide-CTR-QTR", path(
         wp(3.522, 0.652, -0.1),
         et(0.000, "intakeIntake"),
         rt(0.699, 0.0),
         tt(7.539, 0.849),
-        tt(7.822, 0.849, TRENCH_HANDOFF),
         rt(0.097, 89.1),
         wp(7.822, 3.596, 90.0)
     ));
@@ -549,14 +523,14 @@ public final class RebuiltPaths {
         wp(0.612, 2.376, 89.0)
     ));
 
-    // TR-CTR-QTR-BR-TR: (3.52,0.65)[-0.1°] → (7.61,0.86) → (7.61,3.28) → (6.10,3.51) → (5.76,2.54) → (3.53,2.54) → (1.36,1.76) → (3.02,0.63) → (3.52,0.65)[-0.1°]
+    // TR-CTR-QTR-BR-TR: big loop path through right trench; default handoff at (7.61,0.86)
+    // Y=0.858 < 1.064 m safe limit; default 0.45 m handoff is sufficient for the 90° turn.
     // Events: intakeIntake@seg0+19.4%, launcherPrep@seg5+24.9%, launcherLow@seg7+28.1%
-    // Right-trench alignment at seg0→seg1 transition
     m.put("TR-CTR-QTR-BR-TR", path(
         wp(3.522, 0.652, -0.1),
         et(0.194, "intakeIntake"),
         rt(0.445, 0.0),
-        tt(7.607, 0.858, TRENCH_HANDOFF),
+        tt(7.607, 0.858),
         rt(0.000, 89.8),
         tt(7.607, 3.275),
         rt(0.662, 90.0),
@@ -574,12 +548,13 @@ public final class RebuiltPaths {
         wp(3.522, 0.652, -0.1)
     ));
 
-    // TR-CTR-HLF-BR-HP: (3.52,0.65)[-0.1°] → (8.12,1.11) → (8.12,4.22) → (6.10,3.73) → (5.81,2.54) → (3.53,2.54) → (0.83,2.15) → (0.47,0.74)[-90.1°]
+    // TR-CTR-HLF-BR-HP: (3.52,0.65)[-0.1°] → (8.12,1.00) → (8.12,4.22) → …
+    // Right trench: lowered to Y=1.000 to keep robot centre safely below 1.064 m inner-wall limit.
     // Events: launcherPrep@seg5+31.5%; many rotations
     m.put("TR-CTR-HLF-BR-HP", path(
         wp(3.522, 0.652, -0.1),
         rt(0.447, -0.8),
-        tt(8.117, 1.112, TRENCH_HANDOFF),
+        tt(8.117, 1.000),
         rt(0.000, 90.0),
         tt(8.117, 4.221),
         rt(0.588, 102.7),
@@ -593,13 +568,13 @@ public final class RebuiltPaths {
         wp(0.470, 0.741, -90.1)
     ));
 
-    // TR-CTR-QTR-BR-HP Longer: (3.53,0.62)[0°] → (7.62,0.92) → (7.62,4.29) → (5.77,2.69) → (3.08,2.46) → (1.36,1.71) → (0.48,0.80)[-90°]
+    // TR-CTR-QTR-BR-HP Longer: (3.53,0.62)[0°] → (7.62,0.92) → (7.62,4.29) → …
     // Events: intakeIntake@seg0+41.1%, launcherPrep@seg4+27.8%; many rotations
     m.put("TR-CTR-QTR-BR-HP Longer", path(
         wp(3.534, 0.615, 0.0),
         et(0.411, "intakeIntake"),
         rt(0.500, 0.0),
-        tt(7.623, 0.923, TRENCH_HANDOFF),
+        tt(7.623, 0.923),
         rt(0.000, 77.6),
         tt(7.623, 4.287),
         rt(0.701, 124.5),
@@ -612,12 +587,13 @@ public final class RebuiltPaths {
         wp(0.475, 0.800, -90.0)
     ));
 
-    // TR-CTR-QTR-BR-HP: (3.53,0.62)[0°] → (8.29,1.10) → (6.81,3.76) → (5.65,2.61) → (3.08,2.46) → (1.36,1.71) → (0.48,0.80)[-90°]
+    // TR-CTR-QTR-BR-HP: (3.53,0.62)[0°] → (8.29,1.00) → (6.81,3.76) → …
+    // Right trench: lowered to Y=1.000 to keep robot centre safely below 1.064 m inner-wall limit.
     // Events: launcherPrep@seg4+27.8%; many rotations
     m.put("TR-CTR-QTR-BR-HP", path(
         wp(3.534, 0.615, 0.0),
         rt(0.500, 0.0),
-        tt(8.292, 1.095, TRENCH_HANDOFF),
+        tt(8.292, 1.000),
         rt(0.000, 111.6),
         tt(6.808, 3.757),
         rt(0.674, -176.9),
@@ -639,19 +615,18 @@ public final class RebuiltPaths {
         et(0.000, "intakeIntake"),
         rt(0.500, 0.0),
         tt(7.636, 0.923),
-        tt(7.909, 0.923, TRENCH_HANDOFF),
         rt(0.097, 89.1),
         et(0.601, "launcherLow"),
         wp(7.909, 3.948, 90.0)
     ));
 
-    // DelayTRS-CTR-QTR-BR-HP Longer: (3.58,0.65)[-2.1°] → (7.72,0.80) → (7.72,3.51) → (5.74,2.46) → (3.08,2.46) → (1.36,1.71) → (0.48,0.80)[-90°]
+    // DelayTRS-CTR-QTR-BR-HP Longer: (3.58,0.65)[-2.1°] → (7.72,0.80) → (7.72,3.51) → …
     // Events: intakeIntake@seg0+52.7%, launcherPrep@seg4+6.9%; many rotations
     m.put("DelayTRS-CTR-QTR-BR-HP Longer", path(
         wp(3.583, 0.654, -2.1),
         et(0.527, "intakeIntake"),
         rt(0.500, 0.0),
-        tt(7.724, 0.800, TRENCH_HANDOFF),
+        tt(7.724, 0.800),
         rt(0.000, 77.6),
         tt(7.724, 3.510),
         rt(0.701, 124.5),
@@ -665,12 +640,12 @@ public final class RebuiltPaths {
     ));
 
     // QTRLeft-HP: (7.91,3.95)[90°] → (7.57,0.95) → (4.63,0.58) → (0.48,0.80)[-90°]
-    // Events: launcherLow@seg0+127.5%→seg1+27.5%, launcherPrep@seg2+32.9%; rot 0°@seg2+5.0%
+    // Events: launcherLow@seg1+27.5%, launcherPrep@seg2+32.9%; rot 0°@seg2+5.0%
     m.put("QTRLeft-HP", path(
         wp(7.909, 3.948, 90.0),
         tt(7.569, 0.953),
-        rt(0.275, 0.0),   // pos 2.050 in 3-seg path → seg2+5.0% → placed after tt(4.63,0.58)
-        et(0.275, "launcherLow"),  // same position
+        rt(0.275, 0.0),
+        et(0.275, "launcherLow"),
         tt(4.632, 0.582),
         et(0.329, "launcherPrep"),
         wp(0.475, 0.800, -90.0)
@@ -716,13 +691,14 @@ public final class RebuiltPaths {
 
     // ── Long multi-waypoint paths ────────────────────────────────────────────
 
-    // StartTR-CTR-HLF-BR-HP: (3.53,0.53)[90°] → (8.27,1.21) → (8.27,4.17) → (6.10,3.73) → (5.83,2.54) → (3.53,2.54) → (0.83,2.15) → (0.48,0.80)[-90°]
+    // StartTR-CTR-HLF-BR-HP: (3.53,0.53)[90°] → (8.27,1.00) → (8.27,4.17) → …
+    // Right trench: lowered to Y=1.000 to keep robot centre safely below 1.064 m inner-wall limit.
     // Events: intakeIntake@seg0+43.5%, launcherPrep@seg5+4.0%; many rotations
     m.put("StartTR-CTR-HLF-BR-HP", path(
         wp(3.529, 0.527, 90.0),
         rt(0.447, 90.9),
         et(0.435, "intakeIntake"),
-        tt(8.270, 1.211),
+        tt(8.270, 1.000),
         rt(0.029, 90.0),
         tt(8.270, 4.169),
         rt(0.588, -162.6),

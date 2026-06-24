@@ -92,7 +92,7 @@ public final class BLineSwerveAuto {
             new PIDController(3.0, 0.0, 0.0),
             new PIDController(2.0, 0.0, 0.0))
         .withDefaultShouldFlip()
-        .withPoseReset(drive::setPose);
+        .withPoseReset(drive::resetSimulationPose);
   }
 
   /**
