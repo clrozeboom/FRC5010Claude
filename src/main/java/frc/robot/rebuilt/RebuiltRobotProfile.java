@@ -10,6 +10,7 @@ import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -58,8 +59,6 @@ public class RebuiltRobotProfile extends RobotProfile {
           .backRightIds(10, 11, 12)
           .build();
 
-  private static final Pose2d BLUE_START = new Pose2d(1.5, 4.0, new Rotation2d());
-
   @Override
   public AkitSwerveDrive createDrive() {
     if (RobotBase.isReal()) {
@@ -68,12 +67,27 @@ public class RebuiltRobotProfile extends RobotProfile {
       throw new UnsupportedOperationException(
           "RebuiltRobotProfile.createDrive() not yet wired for REAL mode — see the TODO.");
     }
-    return SwerveFactory.build(CONSTANTS, BLUE_START);
+    return SwerveFactory.build(CONSTANTS, blueStartPose());
   }
 
   @Override
   public Pose2d getBlueAllianceStartPose() {
-    return BLUE_START;
+    return blueStartPose();
+  }
+
+  /**
+   * Robot starting pose for the blue alliance: bumpers on the starting line (the hub's near face),
+   * centred on the field width, facing the hub.
+   *
+   * <p>Computed at call time (not a static field) so that {@link FieldConstants} is loaded
+   * AFTER {@code AprilTags.setAprilTagFieldLayout()} has been called by the container — that
+   * call happens before {@code createDrive()}, which is the first caller of this method.
+   */
+  private Pose2d blueStartPose() {
+    // Bumpers on the starting line: robot centre = starting-line X − half bumper length (15 in).
+    double x = FieldConstants.LinesVertical.starting - Units.inchesToMeters(15.0);
+    double y = FieldConstants.fieldWidth / 2.0;
+    return new Pose2d(x, y, new Rotation2d()); // 0° = facing the hub (positive-X direction)
   }
 
   /**
