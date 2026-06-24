@@ -1,5 +1,7 @@
 package frc.robot.rebuilt;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.lib.BLine.FollowPath;
@@ -7,6 +9,8 @@ import frc.robot.lib.BLine.Path;
 import frc.robot.rebuilt.subsystems.RebuiltIndexer;
 import frc.robot.rebuilt.subsystems.RebuiltIntake;
 import frc.robot.rebuilt.subsystems.RebuiltLauncher;
+import java.util.List;
+import java.util.function.Supplier;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import org.frc5010.common.drive.swerve.auto.BLineSwerveAuto;
 import org.frc5010.common.drive.swerve.auto.PathPlannerToBLine;
@@ -41,6 +45,9 @@ import org.frc5010.common.drive.swerve.auto.PathPlannerToBLine;
  */
 public final class RebuiltAutoRoutines {
 
+  /** Describes one entry in the auto chooser menu: display name, lazy factory, and start pose. */
+  public record AutoEntry(String name, Supplier<Command> factory, Pose2d blueStart) {}
+
   /**
    * Bézier sub-segments per PathPlanner segment when converting. Deliberately <b>sparse</b>: dense
    * sampling makes BLine try to thread every vertex and badly overshoot/loop at the source paths'
@@ -56,6 +63,7 @@ public final class RebuiltAutoRoutines {
   /** Fraction of max linear speed to cruise at — a touch slower than default for corner margin. */
   private static final double CRUISE_FRACTION = 0.65;
 
+  private final AkitSwerveDrive drive;
   private final RebuiltIntake intake;
   private final RebuiltLauncher launcher;
   private final RebuiltIndexer indexer;
@@ -70,6 +78,7 @@ public final class RebuiltAutoRoutines {
       RebuiltIntake intake,
       RebuiltLauncher launcher,
       RebuiltIndexer indexer) {
+    this.drive = drive;
     this.intake = intake;
     this.launcher = launcher;
     this.indexer = indexer;
@@ -136,6 +145,71 @@ public final class RebuiltAutoRoutines {
   private Command waitUntilIntaking() {
     return Commands.waitUntil(() -> intake.isCurrent(RebuiltIntake.IntakeState.INTAKING))
         .withTimeout(3.0);
+  }
+
+  // ── non-path autos ──────────────────────────────────────────────────────────────────────────
+
+  private Command shootPreload() {
+    return Commands.sequence(
+            intake.intakeCommand(() -> Constants.Intake.INTAKE_IN),
+            Commands.waitUntil(intake::isExtended).withTimeout(2.0),
+            launcher.prepCommand(),
+            Commands.waitSeconds(3.5),
+            launcher.lowSpeedCommand())
+        .withName("Auto/ShootPreload");
+  }
+
+  private Command driveOutShootPreload() {
+    return Commands.sequence(
+            shootPreload(),
+            Commands.run(
+                    () -> drive.runVelocityFieldRelative(new ChassisSpeeds(1.5, 0, 0)), drive)
+                .withTimeout(1.5),
+            Commands.runOnce(drive::stop, drive))
+        .withName("Auto/DriveOutShootPreload");
+  }
+
+  // ── auto chooser registration ────────────────────────────────────────────────────────────────
+
+  /** Reads the first waypoint's pose from a PathPlanner path file (cheap — just the anchor). */
+  private static Pose2d ps(String pathName) {
+    return PathPlannerToBLine.loadStartPose(pathName);
+  }
+
+  /**
+   * Returns all auto menu entries in display order, each with a lazy factory and an optional
+   * blue-alliance start pose. Pass each entry to
+   * {@link org.frc5010.common.profiles.SwerveRobotContainer#addAuto(String,
+   * java.util.function.Supplier, Pose2d)}.
+   */
+  public List<AutoEntry> allAutos() {
+    return List.of(
+        new AutoEntry("Do Nothing", Commands::none, null),
+        new AutoEntry("Shoot Preload", this::shootPreload, null),
+        new AutoEntry("Drive Out + Shoot Preload", this::driveOutShootPreload, null),
+        new AutoEntry("Orbit: Left",                        this::orbitLeft,             ps("TL-QTRH")),
+        new AutoEntry("Orbit: Right",                       this::orbitRight,            ps("TR-CTR-QTR")),
+        new AutoEntry("Orbit: Left 1 Swipe",                this::orbitLeft1Swipe,       ps("TL-QTRHLong")),
+        new AutoEntry("Orbit: Right 1 Swipe",               this::orbitRight1Swipe,      ps("TR-CTR-QTRLong")),
+        new AutoEntry("Orbit: Right 2 Swipe (no HP)",       this::orbitRight2Swipe,      ps("TR-CTR-QTRAngled")),
+        new AutoEntry("Orbit: Churn Right 2 Swipe (no HP)", this::churnOrbitRight2Swipe, ps("TR-CTR-QTRAngled")),
+        new AutoEntry("Delay Trench Neutral Bump HP", this::delayTrenchNeutralBumpHP, ps("StartTR-CTR-HLF-BR-HP")),
+        new AutoEntry("Disrupt",                      this::disrupt,                  ps("RightDisrupt1")),
+        new AutoEntry("Follow: Left Bump Depot",  this::followLeftBumpDepot,  ps("TLBack-CTL-QTL-BL-L")),
+        new AutoEntry("Follow: Left Trench",      this::followLeftTrench,      ps("TLback-CTL-QTL")),
+        new AutoEntry("Follow: Right Bump HP",    this::followRightBumpHP,    ps("DelayTRS-CTR-QTR-BR-HP Longer")),
+        new AutoEntry("Follow: Right Trench HP",  this::followRightTrenchHP,  ps("DelayTR-QTRL")),
+        new AutoEntry("Left: 2056 Double HP", this::left2056DoubleHP, ps("TL-CTR-QTL-BL-TL")),
+        new AutoEntry("Left: 5010 Double",    this::left5010Double,   ps("TL-CTL-QTL")),
+        new AutoEntry("Left: 3 Shuttle HPC",  this::left3ShuttleHPC,  ps("TL-QTLCTLSHORT")),
+        new AutoEntry("Quals 110", this::quals110, ps("TLback-CTL-QTL")),
+        new AutoEntry("Quals 73",  this::quals73,  ps("DelayTR-QTRL")),
+        new AutoEntry("Right: 2056 Double HP",          this::right2056DoubleHP,          ps("TR-CTR-QTR-BR-TR")),
+        new AutoEntry("Right: 5010 Double",             this::right5010Double,            ps("TRSide-CTR-QTR")),
+        new AutoEntry("Right: 5010 Double (Old)",       this::right5010DoubleOld,         ps("TRSide-CTR-QTR")),
+        new AutoEntry("Right: 5010 Double (Optimized)", this::right5010DoubleOptimized,   ps("TRSide-CTR-QTR")),
+        new AutoEntry("Right: 5010 Double (Short)",     this::right5010DoubleShort,       ps("TR-CTR-QTRShort")),
+        new AutoEntry("Right: 3 Shuttle HPC",           this::right3ShuttleHPC,           ps("TR-QTRCTRSHORT")));
   }
 
   /** Follows a converted PathPlanner path; {@code first} re-anchors odometry to the path start. */
