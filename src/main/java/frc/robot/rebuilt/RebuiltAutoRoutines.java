@@ -60,6 +60,9 @@ public final class RebuiltAutoRoutines {
   /** Builder that leaves odometry alone (used for continuation paths, which are linked). */
   private final FollowPath.Builder cont;
 
+  /** Per-path constraints applied to every JSON-loaded path to match the cruise-fraction speed. */
+  private final Path.PathConstraints autoPathConstraints;
+
   public RebuiltAutoRoutines(
       AkitSwerveDrive drive,
       RebuiltIntake intake,
@@ -76,8 +79,26 @@ public final class RebuiltAutoRoutines {
     // handoff + slightly lower cruise speed so BLine rounds the corners instead of weaving through
     // them. These autos are the only BLine consumer in this robot, so a one-time global override is
     // safe (no teleop drive-to-pose binding resets it). Tunable via the constants above.
+    this.autoPathConstraints = buildAutoConstraints(drive);
     applyAutoConstraints(drive);
     registerEvents();
+  }
+
+  /**
+   * Builds per-path constraints matching the global defaults — needed because JSON-loaded paths
+   * read config.json at construction time and ignore {@link Path#setDefaultGlobalConstraints}.
+   */
+  private static Path.PathConstraints buildAutoConstraints(AkitSwerveDrive drive) {
+    double maxV = drive.getMaxLinearSpeed().in(edu.wpi.first.units.Units.MetersPerSecond);
+    double maxOmegaDeg =
+        Math.toDegrees(drive.getMaxAngularSpeed().in(edu.wpi.first.units.Units.RadiansPerSecond));
+    return new Path.PathConstraints()
+        .setMaxVelocityMetersPerSec(maxV * CRUISE_FRACTION)
+        .setMaxAccelerationMetersPerSec2(maxV * 2.0)
+        .setMaxVelocityDegPerSec(maxOmegaDeg)
+        .setMaxAccelerationDegPerSec2(maxOmegaDeg * 2.0)
+        .setEndTranslationToleranceMeters(0.05)
+        .setEndRotationToleranceDeg(3.0);
   }
 
   /** Installs the auto-tuned BLine global constraints (bigger handoff, gentler cruise). */
@@ -158,9 +179,9 @@ public final class RebuiltAutoRoutines {
 
   // ── auto chooser registration ────────────────────────────────────────────────────────────────
 
-  /** Returns the hard-coded blue-alliance starting pose for the named path. */
+  /** Returns the blue-alliance starting pose for the named path (loaded from JSON). */
   private static Pose2d ps(String pathName) {
-    return RebuiltPaths.startPose(pathName);
+    return new Path(pathName).getStartPose();
   }
 
   /**
@@ -201,7 +222,8 @@ public final class RebuiltAutoRoutines {
 
   /** Follows a native BLine path; {@code first} re-anchors odometry to the path start. */
   private Command path(String name, boolean first) {
-    Path p = RebuiltPaths.get(name);
+    Path p = new Path(name);
+    p.setPathConstraints(autoPathConstraints);
     return (first ? reset : cont).build(p);
   }
 
