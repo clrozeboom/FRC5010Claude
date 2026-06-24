@@ -1,0 +1,116 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 6.663626506024096,
+        "y": 3.8383012048192775
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 6.445072289156626,
+        "y": 3.051506024096385
+      },
+      "isLocked": false,
+      "linkedName": "Disrupt1End"
+    },
+    {
+      "anchor": {
+        "x": 6.445072289156626,
+        "y": 1.6090481927710845
+      },
+      "prevControl": {
+        "x": 6.484803196985326,
+        "y": 2.2617702499568617
+      },
+      "nextControl": {
+        "x": 6.368578313253011,
+        "y": 0.35236144578313167
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 3.0465542168674697,
+        "y": 0.6474096385542167
+      },
+      "prevControl": {
+        "x": 5.734771084337349,
+        "y": 0.669265060240964
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "Disruptor2End"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.5,
+      "rotationDegrees": -90.0
+    },
+    {
+      "waypointRelativePos": 1.4058091286307017,
+      "rotationDegrees": 180.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 0,
+      "maxWaypointRelativePos": 1.8004962779156348,
+      "constraints": {
+        "maxVelocity": 1.0,
+        "maxAcceleration": 9.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [
+    {
+      "name": "launcherLow",
+      "waypointRelativePos": 1.3756823821339927,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "launcherLow"
+        }
+      }
+    },
+    {
+      "name": "launcherPrep",
+      "waypointRelativePos": 1.8719602977667555,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "launcherPrep"
+        }
+      }
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 4.0,
+    "maxAcceleration": 9.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": -178.9583733239901
+  },
+  "reversed": false,
+  "folder": null,
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": -117.69947280805494
+  },
+  "useDefaultConstraints": true
+}

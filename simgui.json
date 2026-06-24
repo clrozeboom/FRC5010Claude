@@ -9,6 +9,7 @@
       "/SmartDashboard/Field": "Field2d",
       "/SmartDashboard/PhotonAlerts": "Alerts",
       "/SmartDashboard/RobotMechanisms3D": "Mechanism2d",
+      "/SmartDashboard/VisionSystemSim-vision/Sim Field": "Field2d",
       "/SmartDashboard/VisionSystemSim-vision_left-bagel/Sim Field": "Field2d",
       "/SmartDashboard/VisionSystemSim-vision_photon_front/Sim Field": "Field2d",
       "/SmartDashboard/VisionSystemSim-vision_rear-prometheus/Sim Field": "Field2d",
@@ -281,39 +282,7 @@
           "visible": true
         }
       },
-      "/SmartDashboard/VisionSystemSim-vision_photon_front/Sim Field": {
-        "Robot": {
-          "arrows": false,
-          "image": "src/main/resources/web/robot.png",
-          "length": 0.7620000243186951,
-          "weight": 0.0,
-          "width": 0.7620000243186951
-        },
-        "apriltag": {
-          "arrows": false,
-          "image": "src/main/resources/web/tags/AT1.png",
-          "length": 0.44999998807907104,
-          "width": 0.44999998807907104
-        },
-        "bottom": 1914,
-        "cameras": {
-          "color": [
-            0.9156118035316467,
-            0.6535403728485107,
-            0.015453376807272434,
-            255.0
-          ]
-        },
-        "height": 8.069275856018066,
-        "left": 245,
-        "right": 3942,
-        "top": 118,
-        "visibleTargetPoses": {
-          "arrows": false
-        },
-        "width": 16.54119300842285
-      },
-      "/SmartDashboard/VisionSystemSim-vision_right-raikou/Sim Field": {
+      "/SmartDashboard/VisionSystemSim-vision/Sim Field": {
         "bottom": 1914,
         "height": 8.069275856018066,
         "left": 245,

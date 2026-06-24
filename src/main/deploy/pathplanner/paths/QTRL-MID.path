@@ -1,0 +1,121 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 6.346722891566266,
+        "y": 4.668807228915662
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 6.390433734939759,
+        "y": 5.3463253012048195
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 6.346722891566266,
+        "y": 7.411662650602409
+      },
+      "prevControl": {
+        "x": 7.122590361445783,
+        "y": 7.3898072289156636
+      },
+      "nextControl": {
+        "x": 5.347119402287654,
+        "y": 7.439820495370818
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 4.35787951807229,
+        "y": 7.411662650602409
+      },
+      "prevControl": {
+        "x": 4.851791865998495,
+        "y": 7.392758427352289
+      },
+      "nextControl": {
+        "x": 3.7510031405241824,
+        "y": 7.434890509906926
+      },
+      "isLocked": false,
+      "linkedName": "TLS"
+    },
+    {
+      "anchor": {
+        "x": 2.4673855421686746,
+        "y": 7.16032530120482
+      },
+      "prevControl": {
+        "x": 2.2206309686846835,
+        "y": 7.200477268338867
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": null
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.49543568464731724,
+      "rotationDegrees": 1.0871828014246014
+    },
+    {
+      "waypointRelativePos": 2.2,
+      "rotationDegrees": 0.10378265392839682
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 1.386489479512739,
+      "maxWaypointRelativePos": 2.0,
+      "constraints": {
+        "maxVelocity": 2.0,
+        "maxAcceleration": 6.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [
+    {
+      "name": "launcherPrep",
+      "waypointRelativePos": 2.2,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "launcherPrep"
+        }
+      }
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 4.0,
+    "maxAcceleration": 9.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 18.824710018240136
+  },
+  "reversed": false,
+  "folder": "Left",
+  "idealStartingState": {
+    "velocity": 2.0,
+    "rotation": -90.1883893275273
+  },
+  "useDefaultConstraints": true
+}

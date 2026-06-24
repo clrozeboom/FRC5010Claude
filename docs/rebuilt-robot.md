@@ -192,10 +192,50 @@ operator controller are sim/hardware only.
 
 ## Autos
 
-Registered in `RebuiltRobot.buildAutos`, selectable from SmartDashboard and the web UI:
-**Do Nothing**, **Shoot Preload** (PREP → settle → the coupling feeds the preload), **Drive Out +
-Shoot Preload**. These call the same launcher/indexer building blocks the source's
-`NamedCommandsReg` registers; the full PathPlanner + characterization suite was not ported.
+Registered in `RebuiltRobot.buildAutos`, selectable from SmartDashboard and the web UI.
+
+**Simple routines** (no path following): **Do Nothing**, **Shoot Preload** (PREP → settle → the
+coupling feeds the preload), **Drive Out + Shoot Preload**. These call the same launcher/indexer
+building blocks the source's `NamedCommandsReg` registers.
+
+**Path-following routines** (ported from the source PathPlanner autos to BLine), each the verbatim
+step sequence of the matching source `.auto` file (path follows + launcher/indexer state requests
++ waits), assembled in
+[RebuiltAutoRoutines.java](../src/main/java/frc/robot/rebuilt/RebuiltAutoRoutines.java):
+
+| Family | Routines |
+|---|---|
+| Orbit | Left, Right, Left 1 Swipe, Right 1 Swipe, Right 2 Swipe (no HP), Churn Right 2 Swipe (no HP) |
+| Follow | Left Bump Depot, Left Trench, Right Bump HP, Right Trench HP |
+| Left | 2056 Double HP, 5010 Double, 3 Shuttle HPC |
+| Right | 2056 Double HP, 5010 Double, 5010 Double (Old / Optimized / Short), 3 Shuttle HPC |
+| Other | Delay Trench Neutral Bump HP, Disrupt, Quals 110, Quals 73 |
+
+- **Paths** come from the source PathPlanner files, copied into
+  `src/main/deploy/pathplanner/paths/` (46 `.path` files) and converted to BLine at load time by
+  `PathPlannerToBLine` (Bézier-sampled — see [docs/auto.md](auto.md#importing-pathplanner-paths-pathplannertobline)).
+- **Intake collection happens via the paths' embedded `intakeIntake` event markers** (plus the
+  `intakeIntake` named step some autos run before driving), not extra auto logic —
+  `RebuiltAutoRoutines.registerEvents()` binds those markers (and `launcherLow` / `launcherPrep` /
+  `indexerChurn`) to the ported subsystem commands through `FollowPath.registerEventTrigger`.
+  Firing the preload/collected Fuel is handled by the same always-running coupling loop as teleop,
+  so a `launcherPrep` step spins up, aims, and (in sim) scores with no auto-specific firing logic.
+  `Disrupt` also uses `waitUntilIntaking` (blocks ≤ 3 s until the intake reaches INTAKING).
+- The first path of each auto re-anchors odometry to its start; continuation paths (which are
+  linked end-to-start) do not. For autos that open with `wait`/`intake` steps before the first
+  path, the odometry re-anchor therefore happens when that first path runs. All paths are Blue-side
+  and alliance-mirror via BLine's `withDefaultShouldFlip()`.
+- **Following is tuned for these tight, curved paths.** `RebuiltAutoRoutines` converts at
+  `samplesPerSegment = 4` and installs its own BLine global constraints (`0.45 m` handoff, `0.65×`
+  cruise) instead of the library defaults. Dense Bézier sampling made BLine thread every vertex and
+  loop/overshoot the sharp corners (a 5 m path weaving ~22 m); sparse sampling + a bigger handoff
+  rounds the corners cleanly. See [docs/auto.md](auto.md#importing-pathplanner-paths-pathplannertobline)
+  and the `tunedFollowingDoesNotLoop` / end-to-end regression tests.
+
+Pinned by `OrbitAutoSimPhysicsTest` (Layer 3: a converted path drives the physics robot to its end
+and its event marker fires) and `PathPlannerToBLineTest` (Layer 1: converter structure + every
+deployed `.path` converts). The full PathPlanner characterization/SysId suite and the
+experimental/duplicate competition autos were not ported.
 
 ---
 

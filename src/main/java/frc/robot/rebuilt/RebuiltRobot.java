@@ -83,6 +83,40 @@ public class RebuiltRobot extends SwerveRobotContainer {
             Commands.run(() -> drive.runVelocityFieldRelative(new ChassisSpeeds(1.5, 0, 0)), drive)
                 .withTimeout(1.5),
             Commands.runOnce(drive::stop, drive)));
+
+    // Orbit autos — the source PathPlanner Orbit routines ported to BLine. Each auto follows
+    // Bézier-sampled PathPlanner paths (carrying their embedded intake/launcher event markers)
+    // composed with the same launcher/indexer state requests as the source .auto files.
+    RebuiltAutoRoutines auto = new RebuiltAutoRoutines(drive, intake, launcher, indexer);
+    addAuto("Orbit: Left", auto.orbitLeft());
+    addAuto("Orbit: Right", auto.orbitRight());
+    addAuto("Orbit: Left 1 Swipe", auto.orbitLeft1Swipe());
+    addAuto("Orbit: Right 1 Swipe", auto.orbitRight1Swipe());
+    addAuto("Orbit: Right 2 Swipe (no HP)", auto.orbitRight2Swipe());
+    addAuto("Orbit: Churn Right 2 Swipe (no HP)", auto.churnOrbitRight2Swipe());
+
+    // Delay Trench / Disrupt
+    addAuto("Delay Trench Neutral Bump HP", auto.delayTrenchNeutralBumpHP());
+    addAuto("Disrupt", auto.disrupt());
+    // Follow
+    addAuto("Follow: Left Bump Depot", auto.followLeftBumpDepot());
+    addAuto("Follow: Left Trench", auto.followLeftTrench());
+    addAuto("Follow: Right Bump HP", auto.followRightBumpHP());
+    addAuto("Follow: Right Trench HP", auto.followRightTrenchHP());
+    // Left
+    addAuto("Left: 2056 Double HP", auto.left2056DoubleHP());
+    addAuto("Left: 5010 Double", auto.left5010Double());
+    addAuto("Left: 3 Shuttle HPC", auto.left3ShuttleHPC());
+    // Quals
+    addAuto("Quals 110", auto.quals110());
+    addAuto("Quals 73", auto.quals73());
+    // Right
+    addAuto("Right: 2056 Double HP", auto.right2056DoubleHP());
+    addAuto("Right: 5010 Double", auto.right5010Double());
+    addAuto("Right: 5010 Double (Old)", auto.right5010DoubleOld());
+    addAuto("Right: 5010 Double (Optimized)", auto.right5010DoubleOptimized());
+    addAuto("Right: 5010 Double (Short)", auto.right5010DoubleShort());
+    addAuto("Right: 3 Shuttle HPC", auto.right3ShuttleHPC());
   }
 
   /**

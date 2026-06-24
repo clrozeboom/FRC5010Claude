@@ -156,6 +156,57 @@ For interactive authoring use [BLine-GUI](https://github.com/edanliahovetsky/BLi
 
 ---
 
+## Importing PathPlanner paths (`PathPlannerToBLine`)
+
+Teams with an existing PathPlanner path library can run those paths under BLine without a
+PathPlanner runtime, via
+[PathPlannerToBLine.java](../src/main/java/org/frc5010/common/drive/swerve/auto/PathPlannerToBLine.java)
+(game-agnostic, common library):
+
+```java
+Path path = PathPlannerToBLine.load("TR-CTR-QTR");      // deploy/pathplanner/paths/TR-CTR-QTR.path
+Command follow = BLineSwerveAuto.builder(drive).build(path);
+```
+
+PathPlanner paths are cubic **Bézier** splines; BLine paths are **polylines**. The converter
+**samples** each Bézier segment into `DEFAULT_SAMPLES_PER_SEGMENT` (12) straight sub-segments so
+the polyline follows the spline's curve — pass a second argument to change the density. It
+translates:
+
+| PathPlanner | → BLine | Notes |
+|---|---|---|
+| `waypoints[].anchor` + controls | sampled `TranslationTarget`s | first/last become `Waypoint`s |
+| `idealStartingState.rotation` / `goalEndState.rotation` | start/end `Waypoint` heading | |
+| `rotationTargets[]` | `RotationTarget(rot, t_ratio)` | placed on the sub-segment containing `waypointRelativePos` |
+| `eventMarkers[].name` | `EventTrigger(t_ratio, name)` | register a command for the name (below) |
+
+**Event markers → registered commands.** A path's embedded markers fire registered BLine event
+triggers — the analogue of PathPlanner's `NamedCommands`:
+
+```java
+FollowPath.registerEventTrigger("intakeIntake", intake.intakeCommand(() -> 1.0));
+FollowPath.registerEventTrigger("launcherPrep", launcher.prepCommand());
+```
+
+Copy the source `.path` files into `src/main/deploy/pathplanner/paths/`. Not translated: constraint
+zones, point-towards zones, per-path global constraints (BLine uses its own defaults — see
+`BLineSwerveAuto`), and `reversed` (holonomic drives don't reverse). The 2026 "Rebuilt" robot's
+ported competition autos are a worked example —
+[RebuiltAutoRoutines.java](../src/main/java/frc/robot/rebuilt/RebuiltAutoRoutines.java) and
+[docs/rebuilt-robot.md](rebuilt-robot.md#autos).
+
+> **Sampling density vs. BLine following — don't oversample.** BLine is a polyline follower that
+> rounds corners using its **handoff radius**; it expects relatively *sparse* waypoints. Converting
+> with a high `samplesPerSegment` produces vertices closer together than the handoff radius, so the
+> follower tries to thread every one and badly **overshoots/loops at sharp corners** — in sim a 5 m
+> path traveled ~22 m, weaving ±1.5 m. The fix is **sparse sampling + a larger handoff radius**:
+> `RebuiltAutoRoutines` loads paths at `samplesPerSegment = 4` and overrides the global constraints
+> to a `0.45 m` handoff (vs the `0.30 m` library default) and a slightly gentler cruise — roughly
+> halving the excess travel and removing the looping. Regression-guarded by
+> `OrbitAutoSimPhysicsTest.tunedFollowingDoesNotLoop`.
+
+---
+
 ## Tuning
 
 The BLineSwerveAuto defaults are tuned for the IronMaple physics sim — they pass the

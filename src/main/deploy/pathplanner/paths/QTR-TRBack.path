@@ -1,0 +1,112 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 7.98587951807229,
+        "y": 3.1717108433734937
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 7.905715376658149,
+        "y": 2.255549227211878
+      },
+      "isLocked": false,
+      "linkedName": "QTR"
+    },
+    {
+      "anchor": {
+        "x": 7.122590361445783,
+        "y": 0.8550361445783141
+      },
+      "prevControl": {
+        "x": 7.66962167676118,
+        "y": 0.9714257861347814
+      },
+      "nextControl": {
+        "x": 6.046100462455883,
+        "y": 0.6259957405379102
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.9919156626506025,
+        "y": 0.680192771084337
+      },
+      "prevControl": {
+        "x": 3.8770602409638535,
+        "y": 0.6036987951807236
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "TRBack"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 1.176763485477179,
+      "rotationDegrees": 0.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 1.3598014888337497,
+      "maxWaypointRelativePos": 1.689330024813893,
+      "constraints": {
+        "maxVelocity": 2.0,
+        "maxAcceleration": 6.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [
+    {
+      "name": "launcherLow",
+      "waypointRelativePos": 0.6372208436724653,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "launcherLow"
+        }
+      }
+    },
+    {
+      "name": "launcherPrep",
+      "waypointRelativePos": 1.6734491315136455,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "launcherPrep"
+        }
+      }
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 4.0,
+    "maxAcceleration": 9.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 0.0
+  },
+  "reversed": false,
+  "folder": null,
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 90.0
+  },
+  "useDefaultConstraints": true
+}
