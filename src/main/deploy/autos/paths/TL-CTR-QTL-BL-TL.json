@@ -1,0 +1,100 @@
+{
+  "path_elements": [
+    {
+      "type": "waypoint",
+      "translation_target": {"x_meters": 4.413, "y_meters": 7.444},
+      "rotation_target": {"rotation_radians": 0.0017, "t_ratio": 0.0, "profiled_rotation": true}
+    },
+    {
+      "type": "event",
+      "t_ratio": 0.194,
+      "libKey": "intakeIntake"
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 0.0,
+      "t_ratio": 0.458,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 7.607,
+      "y_meters": 7.212
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": -1.5708,
+      "t_ratio": 0.000,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 7.607,
+      "y_meters": 4.795
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 3.1208,
+      "t_ratio": 0.440,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 6.097,
+      "y_meters": 4.561
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 1.5708,
+      "t_ratio": 0.529,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 5.631,
+      "y_meters": 5.529
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 1.5708,
+      "t_ratio": 0.079,
+      "profiled_rotation": true
+    },
+    {
+      "type": "event",
+      "t_ratio": 0.423,
+      "libKey": "launcherPrep"
+    },
+    {
+      "type": "translation",
+      "x_meters": 3.529,
+      "y_meters": 5.529
+    },
+    {
+      "type": "translation",
+      "x_meters": 1.364,
+      "y_meters": 6.313
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 0.0,
+      "t_ratio": 0.876,
+      "profiled_rotation": true
+    },
+    {
+      "type": "event",
+      "t_ratio": 0.281,
+      "libKey": "launcherLow"
+    },
+    {
+      "type": "translation",
+      "x_meters": 3.018,
+      "y_meters": 7.444
+    },
+    {
+      "type": "waypoint",
+      "translation_target": {"x_meters": 4.413, "y_meters": 7.444},
+      "rotation_target": {"rotation_radians": 0.0017, "t_ratio": 1.0, "profiled_rotation": true}
+    }
+  ]
+}
