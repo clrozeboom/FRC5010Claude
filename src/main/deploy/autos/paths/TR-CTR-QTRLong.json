@@ -18,9 +18,9 @@
       "y_meters": 0.615
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.337,
-      "libKey": "intakeIntake"
+      "lib_key": "intakeIntake"
     },
     {
       "type": "rotation",

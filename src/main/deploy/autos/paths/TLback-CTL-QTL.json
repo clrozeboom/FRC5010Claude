@@ -18,9 +18,9 @@
       "y_meters": 7.455
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.232,
-      "libKey": "intakeIntake"
+      "lib_key": "intakeIntake"
     },
     {
       "type": "translation",

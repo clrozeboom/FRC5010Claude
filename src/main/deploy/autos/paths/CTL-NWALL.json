@@ -18,9 +18,9 @@
       "y_meters": 4.882
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.079,
-      "libKey": "launcherPrep"
+      "lib_key": "launcherPrep"
     },
     {
       "type": "rotation",

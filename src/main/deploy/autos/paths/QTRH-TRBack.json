@@ -30,9 +30,9 @@
       "profiled_rotation": true
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.046,
-      "libKey": "launcherPrep"
+      "lib_key": "launcherPrep"
     },
     {
       "type": "translation",

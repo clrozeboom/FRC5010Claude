@@ -18,9 +18,9 @@
       "y_meters": 0.652
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.194,
-      "libKey": "intakeIntake"
+      "lib_key": "intakeIntake"
     },
     {
       "type": "rotation",
@@ -73,9 +73,9 @@
       "profiled_rotation": true
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.249,
-      "libKey": "launcherPrep"
+      "lib_key": "launcherPrep"
     },
     {
       "type": "translation",
@@ -100,9 +100,9 @@
       "profiled_rotation": true
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.281,
-      "libKey": "launcherLow"
+      "lib_key": "launcherLow"
     },
     {
       "type": "translation",

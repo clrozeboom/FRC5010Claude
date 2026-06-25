@@ -11,9 +11,9 @@
       "y_meters": 6.734
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.450,
-      "libKey": "launcherLow"
+      "lib_key": "launcherLow"
     },
     {
       "type": "translation",
@@ -33,9 +33,9 @@
       "profiled_rotation": true
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.584,
-      "libKey": "launcherPrep"
+      "lib_key": "launcherPrep"
     },
     {
       "type": "translation",

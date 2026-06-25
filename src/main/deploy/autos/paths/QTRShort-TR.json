@@ -11,9 +11,9 @@
       "y_meters": 0.855
     },
     {
-      "type": "event",
+      "type": "event_trigger",
       "t_ratio": 0.394,
-      "libKey": "launcherLow"
+      "lib_key": "launcherLow"
     },
     {
       "type": "translation",
