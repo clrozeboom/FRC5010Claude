@@ -13,6 +13,7 @@ import frc.robot.lib.BLine.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Glue between {@link AkitSwerveDrive} and the BLine path-following library.
@@ -92,7 +93,56 @@ public final class BLineSwerveAuto {
             new PIDController(3.0, 0.0, 0.0),
             new PIDController(2.0, 0.0, 0.0))
         .withDefaultShouldFlip()
-        .withPoseReset(drive::setPose);
+        .withPoseReset(drive::resetSimulationPose);
+  }
+
+  /**
+   * Wires BLine's internal logging callbacks to AdvantageKit so BLine's setpoint poses,
+   * path geometry, and state flags appear in {@code .wpilog} files and survive replay.
+   *
+   * <p>BLine logs under keys like {@code "BLine/TargetPose"}, {@code "BLine/PathPoints"},
+   * {@code "BLine/Finished"}, and {@code "BLine/RemainingDistance"}. Call this <em>once</em>
+   * from your {@code robotInit()} (or your robot container's constructor) after AdvantageKit is
+   * initialised. Do NOT call it from tests — tests install their own consumers to capture
+   * telemetry signals for assertions.
+   *
+   * <p>Example:
+   * <pre>{@code
+   * // In Robot.robotInit() or your RobotContainer constructor:
+   * BLineSwerveAuto.installAkitLogging();
+   * }</pre>
+   */
+  public static void installAkitLogging() {
+    FollowPath.setPoseLoggingConsumer(
+        pair -> Logger.recordOutput(pair.getFirst(), pair.getSecond()));
+    FollowPath.setTranslationListLoggingConsumer(
+        pair -> Logger.recordOutput(pair.getFirst(), pair.getSecond()));
+    FollowPath.setBooleanLoggingConsumer(
+        pair -> Logger.recordOutput(pair.getFirst(), pair.getSecond()));
+    FollowPath.setDoubleLoggingConsumer(
+        pair -> Logger.recordOutput(pair.getFirst(), pair.getSecond()));
+  }
+
+  /**
+   * Returns a command that rotates all swerve modules to the direction BLine will need at the
+   * start of {@code firstPath}, without driving. Schedule this during the disabled period (it
+   * runs with {@code ignoringDisable(true)}) so modules are pre-aligned when autonomous begins.
+   *
+   * <p>BLine's {@link Path#getInitialModuleDirection(java.util.function.Supplier)} accounts for
+   * alliance-side mirroring by reading the current robot pose from the drive.
+   *
+   * <p>Example usage in {@code autonomousInit} or the robot container:
+   * <pre>{@code
+   * BLineSwerveAuto.preAlignForAuto(drive, new Path("TR-CTR-QTRShort"))
+   *     .ignoringDisable(true)
+   *     .schedule();
+   * }</pre>
+   */
+  public static Command preAlignForAuto(AkitSwerveDrive drive, Path firstPath) {
+    return Commands.runOnce(
+            () -> drive.preAlignModules(firstPath.getInitialModuleDirection(drive::getPose)),
+            drive)
+        .withName("BLine/PreAlignModules");
   }
 
   /**

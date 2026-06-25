@@ -18,7 +18,10 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Supplier;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import org.frc5010.common.input.DriveVector;
 import org.frc5010.common.input.XboxConfigurableController;
@@ -84,14 +87,27 @@ public abstract class SwerveRobotContainer {
   /** Web UI control facade. Non-null only when {@code -PwebUI} is set. */
   protected WebControl webControl = null;
 
-  /** Auto routines registered by name, in display order. Populated by {@link #buildAutos()}. */
-  protected final LinkedHashMap<String, Command> autos = new LinkedHashMap<>();
+  /**
+   * Lazy auto factories registered by name, in display order. Populated by {@link #buildAutos()}.
+   * Each factory is invoked at most once per selection change; the result is cached in
+   * {@link #builtAutoCommand}.
+   */
+  protected final LinkedHashMap<String, Supplier<Command>> autoFactories = new LinkedHashMap<>();
 
-  /** SmartDashboard chooser mirroring {@link #autos}. Published by {@link #finalizeAutos()}. */
-  protected final SendableChooser<Command> autoChooser = new SendableChooser<>();
+  /** Blue-alliance start pose for each auto that declares one. Used by {@link #resetToAllianceStart()} in sim. */
+  private final Map<String, Pose2d> autoStartPoses = new LinkedHashMap<>();
+
+  /** SmartDashboard chooser for auto selection (stores names; factory is invoked lazily). */
+  protected final SendableChooser<String> autoChooser = new SendableChooser<>();
 
   /** Auto selected from the web UI driver-station panel. Written by the web-select callback. */
   private volatile String webSelectedAuto;
+
+  /** Name of the most recently built auto, or {@code null} if none has been built yet. */
+  private String builtAutoName = null;
+
+  /** The most recently built autonomous command (lazy-built from the factory on selection change). */
+  private Command builtAutoCommand = null;
 
   /**
    * Close handles for mechanism subsystems registered via {@link #registerMechanism(Runnable)}.
@@ -235,8 +251,8 @@ public abstract class SwerveRobotContainer {
 
   /**
    * Returns the field length for this year's game.
-   * Defaults to the value from the {@link RobotProfile} when one was provided, or
-   * Arena2026Rebuilt (16.540988 m) otherwise. Override to use a different year's field.
+   * Defaults to the value from the {@link RobotProfile} when one was provided, or the
+   * 2026 field length (16.540988 m) otherwise. Override to use a different year's field.
    */
   protected Distance getFieldLength() {
     return profile != null ? profile.getFieldLength() : Meters.of(16.540988);
@@ -257,8 +273,7 @@ public abstract class SwerveRobotContainer {
     if (Boolean.getBoolean("visualTest")) {
       return SwerveVisualTest.build(drive, vision, this::getAllianceStartPose);
     }
-    if (webControl != null && webSelectedAuto != null) return autos.get(webSelectedAuto);
-    return autoChooser.getSelected();
+    return builtAutoCommand;
   }
 
   /**
@@ -330,33 +345,102 @@ public abstract class SwerveRobotContainer {
     // routine gated on a not-yet-constructed field. Leading with waitSeconds(0) pushes the
     // build onto the first run() tick, which is genuinely after construction completes.
     // ignoringDisable(true) ensures this runs while the robot is still disabled at startup.
+    // Sequence: wait one tick (so subclass constructor fields are set) → build & register
+    // all factories → then poll every cycle to build the selected auto lazily.
+    // pollAndBuildSelectedAuto() is also called immediately after finalizeAutos() to build
+    // the default selection on the very first tick (required by autonomousCommandIsNonNull test).
     CommandScheduler.getInstance().schedule(
         Commands.sequence(
                 Commands.waitSeconds(0),
                 Commands.runOnce(() -> {
                   buildAutos();
                   finalizeAutos();
-                }))
+                  pollAndBuildSelectedAuto();
+                }),
+                Commands.run(this::pollAndBuildSelectedAuto))
             .ignoringDisable(true)
-            .withName("BuildAutos"));
+            .withName("BuildAndPollAutos"));
   }
 
   /**
-   * Registers a named autonomous routine.
+   * Registers a named autonomous routine with a lazy factory.
    *
-   * <p>Call this from {@link #buildAutos()} to add each routine. The first call sets the
-   * SmartDashboard chooser default; subsequent calls add options in insertion order.
+   * <p>The factory is invoked only when this auto is selected (polled each cycle while disabled),
+   * not at registration time — so expensive work like loading PathPlanner path files is deferred
+   * until the operator actually picks the routine. The first call sets the SmartDashboard chooser
+   * default; subsequent calls add options in insertion order.
+   *
+   * @param name    display name shown in the chooser and web UI dropdown
+   * @param factory called once per selection change to build the autonomous command
+   */
+  protected void addAuto(String name, Supplier<Command> factory) {
+    if (autoFactories.isEmpty()) {
+      autoChooser.setDefaultOption(name, name);
+    } else {
+      autoChooser.addOption(name, name);
+    }
+    autoFactories.put(name, factory);
+  }
+
+  /**
+   * Registers a named autonomous routine with a lazy factory and its blue-alliance starting pose.
+   *
+   * <p>In simulation, {@link #resetToAllianceStart()} teleports the robot to this pose
+   * (mirrored for Red alliance) rather than the profile's generic starting pose. Use this
+   * overload for path-following autos whose first waypoint is known at build time.
+   *
+   * @param name          display name shown in the chooser and web UI dropdown
+   * @param factory       called once per selection change to build the autonomous command
+   * @param blueStartPose blue-alliance starting pose (the path's first waypoint)
+   */
+  protected void addAuto(String name, Supplier<Command> factory, Pose2d blueStartPose) {
+    addAuto(name, factory);
+    if (blueStartPose != null) {
+      autoStartPoses.put(name, blueStartPose);
+    }
+  }
+
+  /**
+   * Registers a named autonomous routine (eager overload for backward compatibility).
+   *
+   * <p>The command is wrapped as {@code () -> cmd} so the same lazy polling path is used.
+   * Since the command object is already constructed, the "build" cost is trivial.
    *
    * @param name display name shown in the chooser and web UI dropdown
-   * @param cmd  the command to schedule when this auto is selected
+   * @param cmd  the already-constructed command to schedule when this auto is selected
    */
   protected void addAuto(String name, Command cmd) {
-    if (autos.isEmpty()) {
-      autoChooser.setDefaultOption(name, cmd);
-    } else {
-      autoChooser.addOption(name, cmd);
+    addAuto(name, () -> cmd);
+  }
+
+  /**
+   * Registers a named autonomous routine with its blue-alliance starting pose (eager overload).
+   *
+   * @param name          display name shown in the chooser and web UI dropdown
+   * @param cmd           the already-constructed command to schedule when this auto is selected
+   * @param blueStartPose blue-alliance starting pose (the path's first waypoint)
+   */
+  protected void addAuto(String name, Command cmd, Pose2d blueStartPose) {
+    addAuto(name, () -> cmd, blueStartPose);
+  }
+
+  /**
+   * Registers all entries from an {@link AutoEntry} list in one call.
+   *
+   * <p>Convenience for {@link #buildAutos()} implementations that return a list (e.g. from a
+   * helper class):
+   * <pre>{@code
+   * protected void buildAutos() {
+   *   registerAutos(new MyAutoRoutines(drive, ...).allAutos());
+   * }
+   * }</pre>
+   *
+   * @param entries the auto entries to register, in display order
+   */
+  protected final void registerAutos(Collection<AutoEntry> entries) {
+    for (AutoEntry e : entries) {
+      addAuto(e.name(), e.factory(), e.blueStart());
     }
-    autos.put(name, cmd);
   }
 
   /**
@@ -374,12 +458,12 @@ public abstract class SwerveRobotContainer {
    */
   private void finalizeAutos() {
     SmartDashboard.putData("Auto Mode", autoChooser);
-    webSelectedAuto = autos.isEmpty() ? null : autos.keySet().iterator().next();
-    if (webControl != null && !autos.isEmpty()) {
+    webSelectedAuto = autoFactories.isEmpty() ? null : autoFactories.keySet().iterator().next();
+    if (webControl != null && !autoFactories.isEmpty()) {
       webControl.bindAutos(
-          autos.keySet().toArray(new String[0]),
+          autoFactories.keySet().toArray(new String[0]),
           webSelectedAuto,
-          name -> { if (autos.containsKey(name)) webSelectedAuto = name; });
+          name -> { if (autoFactories.containsKey(name)) webSelectedAuto = name; });
     }
   }
 
@@ -398,18 +482,48 @@ public abstract class SwerveRobotContainer {
 
   /**
    * Teleports the physics body and pose estimator to the alliance-correct starting pose.
+   * In simulation, prefers the selected auto's registered start pose (set via
+   * {@link #addAuto(String, Command, Pose2d)}) over the profile's generic start.
    * Call this from {@code autonomousInit()} and {@code teleopInit()} in simulation.
    */
   public void resetToAllianceStart() {
-    drive.resetSimulationPose(getAllianceStartPose());
+    Pose2d blueStart = getSelectedAutoBlueStart();
+    drive.resetSimulationPose(blueStart != null ? mirrorForAlliance(blueStart) : getAllianceStartPose());
+  }
+
+  /** Returns the name of the currently selected auto (web UI takes priority over chooser). */
+  private String getSelectedAutoName() {
+    if (webControl != null && webSelectedAuto != null) return webSelectedAuto;
+    return autoChooser.getSelected();
   }
 
   /**
-   * Computes the alliance-correct starting pose from {@link #getBlueAllianceStartPose()}.
-   * On Red alliance, mirrors x across the field centre and adds 180° to the heading.
+   * Polls the auto selection and builds the selected auto if it has changed since the last poll.
+   * Invoked each scheduler cycle by the always-running {@code BuildAndPollAutos} command, and
+   * also called once immediately after {@link #finalizeAutos()} to build the default selection.
    */
-  protected final Pose2d getAllianceStartPose() {
-    Pose2d blue = getBlueAllianceStartPose();
+  private void pollAndBuildSelectedAuto() {
+    String name = getSelectedAutoName();
+    if (name == null || name.equals(builtAutoName)) return;
+    Supplier<Command> factory = autoFactories.get(name);
+    if (factory == null) return;
+    builtAutoCommand = factory.get();
+    builtAutoName = name;
+  }
+
+  /**
+   * Returns the blue-alliance start pose registered for the currently selected auto,
+   * or {@code null} if no pose was registered for it (falls back to the profile start).
+   */
+  private Pose2d getSelectedAutoBlueStart() {
+    return autoStartPoses.get(getSelectedAutoName());
+  }
+
+  /**
+   * Applies alliance mirroring to a blue-alliance pose: flips X across the field centre
+   * and rotates heading 180° for Red; returns the pose unchanged for Blue.
+   */
+  private Pose2d mirrorForAlliance(Pose2d blue) {
     if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red) {
       return new Pose2d(
           getFieldLength().in(Meters) - blue.getX(),
@@ -417,5 +531,13 @@ public abstract class SwerveRobotContainer {
           blue.getRotation().plus(Rotation2d.fromDegrees(180)));
     }
     return blue;
+  }
+
+  /**
+   * Computes the alliance-correct starting pose from {@link #getBlueAllianceStartPose()}.
+   * On Red alliance, mirrors x across the field centre and adds 180° to the heading.
+   */
+  protected final Pose2d getAllianceStartPose() {
+    return mirrorForAlliance(getBlueAllianceStartPose());
   }
 }

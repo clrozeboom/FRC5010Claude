@@ -19,6 +19,7 @@ import org.frc5010.examples.mechanisms.ExampleProfiledTurret;
 import org.frc5010.examples.mechanisms.ExampleShooter;
 import org.frc5010.examples.mechanisms.ExampleTurret;
 import java.util.List;
+import org.frc5010.common.drive.swerve.auto.BLineSwerveAuto;
 import org.frc5010.common.profiles.SwerveRobotContainer;
 
 /**
@@ -54,6 +55,10 @@ public class ExampleRobot extends SwerveRobotContainer {
 
   public ExampleRobot() {
     super(SwerveRobotContainer.selectProfile("org.frc5010.examples.ExampleRobotProfile"));
+    // Route BLine's path-following telemetry (target pose, path points, finished/remaining)
+    // into AdvantageKit so it lands in .wpilog files and survives replay. Opt-in static call;
+    // safe to run once here since AdvantageKit is initialised before the container is built.
+    BLineSwerveAuto.installAkitLogging();
   }
 
   @Override
