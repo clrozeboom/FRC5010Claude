@@ -1,0 +1,64 @@
+{
+  "path_elements": [
+    {
+      "type": "waypoint",
+      "translation_target": {
+        "x_meters": 7.909,
+        "y_meters": 3.948
+      },
+      "rotation_target": {
+        "rotation_radians": 1.5708,
+        "t_ratio": 0.0,
+        "profiled_rotation": true
+      }
+    },
+    {
+      "type": "translation",
+      "x_meters": 7.516,
+      "y_meters": 2.461
+    },
+    {
+      "type": "event_trigger",
+      "t_ratio": 0.275,
+      "lib_key": "launcherLow"
+    },
+    {
+      "type": "translation",
+      "x_meters": 4.544,
+      "y_meters": 2.461
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 1.5708,
+      "t_ratio": 0.7,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 2.249,
+      "y_meters": 2.145
+    },
+    {
+      "type": "event_trigger",
+      "t_ratio": 0.355,
+      "lib_key": "launcherPrep"
+    },
+    {
+      "type": "translation",
+      "x_meters": 0.475,
+      "y_meters": 0.8
+    },
+    {
+      "type": "waypoint",
+      "translation_target": {
+        "x_meters": 0.475,
+        "y_meters": 0.8
+      },
+      "rotation_target": {
+        "rotation_radians": -1.5708,
+        "t_ratio": 1.0,
+        "profiled_rotation": true
+      }
+    }
+  ]
+}

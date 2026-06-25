@@ -1,0 +1,125 @@
+{
+  "path_elements": [
+    {
+      "type": "waypoint",
+      "translation_target": {
+        "x_meters": 3.522,
+        "y_meters": 0.652
+      },
+      "rotation_target": {
+        "rotation_radians": -0.0017,
+        "t_ratio": 0.0,
+        "profiled_rotation": true
+      }
+    },
+    {
+      "type": "translation",
+      "x_meters": 3.522,
+      "y_meters": 0.652
+    },
+    {
+      "type": "event_trigger",
+      "t_ratio": 0.194,
+      "lib_key": "intakeIntake"
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 0.0,
+      "t_ratio": 0.445,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 7.0,
+      "y_meters": 0.858
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 1.5672,
+      "t_ratio": 0.0,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 7.607,
+      "y_meters": 3.275
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 1.5708,
+      "t_ratio": 0.662,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 6.097,
+      "y_meters": 3.509
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": -3.1208,
+      "t_ratio": 0.44,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 5.755,
+      "y_meters": 2.541
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": -1.5708,
+      "t_ratio": 0.0,
+      "profiled_rotation": true
+    },
+    {
+      "type": "event_trigger",
+      "t_ratio": 0.249,
+      "lib_key": "launcherPrep"
+    },
+    {
+      "type": "translation",
+      "x_meters": 3.529,
+      "y_meters": 2.541
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": -1.5708,
+      "t_ratio": 0.0,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 1.364,
+      "y_meters": 1.757
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 0.0,
+      "t_ratio": 0.876,
+      "profiled_rotation": true
+    },
+    {
+      "type": "event_trigger",
+      "t_ratio": 0.281,
+      "lib_key": "launcherLow"
+    },
+    {
+      "type": "translation",
+      "x_meters": 3.018,
+      "y_meters": 0.626
+    },
+    {
+      "type": "waypoint",
+      "translation_target": {
+        "x_meters": 3.522,
+        "y_meters": 0.652
+      },
+      "rotation_target": {
+        "rotation_radians": -0.0017,
+        "t_ratio": 1.0,
+        "profiled_rotation": true
+      }
+    }
+  ]
+}

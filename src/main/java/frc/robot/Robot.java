@@ -12,6 +12,7 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGReader;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+import org.frc5010.common.drive.swerve.auto.BLineSwerveAuto;
 
 public class Robot extends LoggedRobot {
   private Command m_autonomousCommand;
@@ -57,6 +58,7 @@ public class Robot extends LoggedRobot {
     }
 
     Logger.start();
+    BLineSwerveAuto.installAkitLogging();
     m_robotContainer = new RobotContainer();
   }
 

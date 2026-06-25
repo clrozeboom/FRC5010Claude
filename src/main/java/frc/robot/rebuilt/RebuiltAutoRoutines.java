@@ -12,7 +12,6 @@ import frc.robot.rebuilt.subsystems.RebuiltLauncher;
 import java.util.List;
 import org.frc5010.common.drive.swerve.akit.AkitSwerveDrive;
 import org.frc5010.common.drive.swerve.auto.BLineSwerveAuto;
-import org.frc5010.common.drive.swerve.auto.PathPlannerToBLine;
 import org.frc5010.common.profiles.AutoEntry;
 
 /**
@@ -45,15 +44,6 @@ import org.frc5010.common.profiles.AutoEntry;
  */
 public final class RebuiltAutoRoutines {
 
-  /**
-   * Bézier sub-segments per PathPlanner segment when converting. Deliberately <b>sparse</b>: dense
-   * sampling makes BLine try to thread every vertex and badly overshoot/loop at the source paths'
-   * sharp corners (a 5 m path was traveling ~22 m, weaving ±1.5 m). Four sub-segments keep enough
-   * curve shape while letting the handoff radius below round the corners smoothly (~2× cleaner
-   * following in sim). See [[frc5010claude-bline-integration]].
-   */
-  private static final int SAMPLES = 4;
-
   /** Handoff radius for the auto paths — larger than the library default so corners round. */
   private static final double HANDOFF_RADIUS_M = 0.45;
 
@@ -69,6 +59,9 @@ public final class RebuiltAutoRoutines {
   private final FollowPath.Builder reset;
   /** Builder that leaves odometry alone (used for continuation paths, which are linked). */
   private final FollowPath.Builder cont;
+
+  /** Per-path constraints applied to every JSON-loaded path to match the cruise-fraction speed. */
+  private final Path.PathConstraints autoPathConstraints;
 
   public RebuiltAutoRoutines(
       AkitSwerveDrive drive,
@@ -86,8 +79,26 @@ public final class RebuiltAutoRoutines {
     // handoff + slightly lower cruise speed so BLine rounds the corners instead of weaving through
     // them. These autos are the only BLine consumer in this robot, so a one-time global override is
     // safe (no teleop drive-to-pose binding resets it). Tunable via the constants above.
+    this.autoPathConstraints = buildAutoConstraints(drive);
     applyAutoConstraints(drive);
     registerEvents();
+  }
+
+  /**
+   * Builds per-path constraints matching the global defaults — needed because JSON-loaded paths
+   * read config.json at construction time and ignore {@link Path#setDefaultGlobalConstraints}.
+   */
+  private static Path.PathConstraints buildAutoConstraints(AkitSwerveDrive drive) {
+    double maxV = drive.getMaxLinearSpeed().in(edu.wpi.first.units.Units.MetersPerSecond);
+    double maxOmegaDeg =
+        Math.toDegrees(drive.getMaxAngularSpeed().in(edu.wpi.first.units.Units.RadiansPerSecond));
+    return new Path.PathConstraints()
+        .setMaxVelocityMetersPerSec(maxV * CRUISE_FRACTION)
+        .setMaxAccelerationMetersPerSec2(maxV * 2.0)
+        .setMaxVelocityDegPerSec(maxOmegaDeg)
+        .setMaxAccelerationDegPerSec2(maxOmegaDeg * 2.0)
+        .setEndTranslationToleranceMeters(0.05)
+        .setEndRotationToleranceDeg(3.0);
   }
 
   /** Installs the auto-tuned BLine global constraints (bigger handoff, gentler cruise). */
@@ -168,9 +179,9 @@ public final class RebuiltAutoRoutines {
 
   // ── auto chooser registration ────────────────────────────────────────────────────────────────
 
-  /** Reads the first waypoint's pose from a PathPlanner path file (cheap — just the anchor). */
+  /** Returns the blue-alliance starting pose for the named path (loaded from JSON). */
   private static Pose2d ps(String pathName) {
-    return PathPlannerToBLine.loadStartPose(pathName);
+    return new Path(pathName).getStartPose();
   }
 
   /**
@@ -209,9 +220,10 @@ public final class RebuiltAutoRoutines {
         new AutoEntry("Right: 3 Shuttle HPC",           this::right3ShuttleHPC,           ps("TR-QTRCTRSHORT")));
   }
 
-  /** Follows a converted PathPlanner path; {@code first} re-anchors odometry to the path start. */
+  /** Follows a native BLine path; {@code first} re-anchors odometry to the path start. */
   private Command path(String name, boolean first) {
-    Path p = PathPlannerToBLine.load(name, SAMPLES);
+    Path p = new Path(name);
+    p.setPathConstraints(autoPathConstraints);
     return (first ? reset : cont).build(p);
   }
 
@@ -489,9 +501,17 @@ public final class RebuiltAutoRoutines {
         .withName("Auto/Right5010DoubleOptimized");
   }
 
-  /** Right 5010 Double (Short): TR-CTR-QTRShort → QTRShort-TR → prep → wait 3 → low → TR-CTR-QTR-BR-HP → prep. */
+  /**
+   * Right 5010 Double (Short): deploy intake immediately, TR-CTR-QTRShort → QTRShort-TR → prep
+   * → wait 3 → low → TR-CTR-QTR-BR-HP → prep.
+   *
+   * <p>The inline {@code intakeCommand} at the top guarantees the hopper deploys at auto start.
+   * The path-embedded {@code intakeIntake} event (at t_ratio=0.232 in TR-CTR-QTRShort) fires
+   * as a second request once the robot is moving — both are harmless when issued together.
+   */
   public Command right5010DoubleShort() {
     return Commands.sequence(
+            intake.intakeCommand(() -> Constants.Intake.INTAKE_IN),
             path("TR-CTR-QTRShort", true),
             path("QTRShort-TR", false),
             launcherPrep(),

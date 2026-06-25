@@ -1,0 +1,95 @@
+{
+  "path_elements": [
+    {
+      "type": "waypoint",
+      "translation_target": {
+        "x_meters": 3.583,
+        "y_meters": 7.455
+      },
+      "rotation_target": {
+        "rotation_radians": 0.0017,
+        "t_ratio": 0.0,
+        "profiled_rotation": true
+      }
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 0.0,
+      "t_ratio": 0.5,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 8.064,
+      "y_meters": 7.158
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": -1.9478,
+      "t_ratio": 0.246,
+      "profiled_rotation": true
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": -2.5794,
+      "t_ratio": 0.674,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 6.74,
+      "y_meters": 3.655
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 1.5655,
+      "t_ratio": 0.897,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 5.755,
+      "y_meters": 5.456
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 1.5708,
+      "t_ratio": 0.0,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 3.189,
+      "y_meters": 5.456
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 1.5708,
+      "t_ratio": 0.0,
+      "profiled_rotation": true
+    },
+    {
+      "type": "translation",
+      "x_meters": 0.738,
+      "y_meters": 5.302
+    },
+    {
+      "type": "rotation",
+      "rotation_radians": 2.2776,
+      "t_ratio": 0.855,
+      "profiled_rotation": true
+    },
+    {
+      "type": "waypoint",
+      "translation_target": {
+        "x_meters": 0.552,
+        "y_meters": 7.309
+      },
+      "rotation_target": {
+        "rotation_radians": 1.5708,
+        "t_ratio": 1.0,
+        "profiled_rotation": true
+      }
+    }
+  ]
+}

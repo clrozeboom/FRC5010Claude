@@ -299,6 +299,21 @@ public class AkitSwerveDrive extends SubsystemBase {
   }
 
   /**
+   * Rotates all four swerve modules to {@code direction} with zero drive voltage.
+   *
+   * <p>Call this during the disabled period before autonomous starts so modules are already
+   * facing the right way when the first path command runs. Use
+   * {@link org.frc5010.common.drive.swerve.auto.BLineSwerveAuto#preAlignForAuto} to obtain the
+   * correct direction from a BLine {@code Path}.
+   */
+  public void preAlignModules(Rotation2d direction) {
+    SwerveModuleState state = new SwerveModuleState(0.0, direction);
+    for (Module module : modules) {
+      module.runSetpoint(state);
+    }
+  }
+
+  /**
    * Stops and locks wheels in an X-pattern to resist pushing.
    * Modules return to normal orientation on next nonzero velocity command.
    */

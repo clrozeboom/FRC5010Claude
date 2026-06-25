@@ -133,15 +133,27 @@ changing call sites.
 ## JSON path schema
 
 BLine reads paths from `deploy/autos/paths/<name>.json` (resolved on robot via
-`Filesystem.getDeployDirectory()`). Minimum structure:
+`Filesystem.getDeployDirectory()`). Full element type reference:
 
 ```json
 {
   "path_elements": [
+    // Waypoint — defines a pose the robot must pass through.
+    // First waypoint: t_ratio 0.0. Last waypoint: t_ratio 1.0.
     { "type": "waypoint",
       "translation_target": { "x_meters": 1.5, "y_meters": 2.0 },
       "rotation_target": { "rotation_radians": 0.0, "t_ratio": 0.0, "profiled_rotation": true } },
+
+    // TranslationTarget — an intermediate via-point (no heading constraint).
     { "type": "translation", "x_meters": 2.25, "y_meters": 2.0 },
+
+    // RotationTarget — heading goal injected at a fractional progress along the path.
+    // t_ratio is relative to the progress between surrounding waypoints (0.0–1.0).
+    { "type": "rotation", "rotation_radians": 1.5708, "t_ratio": 0.5, "profiled_rotation": true },
+
+    // EventTrigger — fires a registered command at the given path progress.
+    { "type": "event", "t_ratio": 0.25, "libKey": "intakeIntake" },
+
     { "type": "waypoint",
       "translation_target": { "x_meters": 3.0, "y_meters": 2.0 },
       "rotation_target": { "rotation_radians": 0.0, "t_ratio": 1.0, "profiled_rotation": true } }
@@ -149,10 +161,29 @@ BLine reads paths from `deploy/autos/paths/<name>.json` (resolved on robot via
 }
 ```
 
-Global constraint defaults live in `deploy/autos/config.json` and use the
-`default_*` key prefix (e.g. `default_max_velocity_meters_per_sec`).
+Global constraint defaults live in `deploy/autos/config.json`:
+
+```json
+{
+  "default_max_velocity_meters_per_sec": 3.25,
+  "default_max_acceleration_meters_per_sec2": 10.0,
+  "default_max_velocity_deg_per_sec": 540.0,
+  "default_max_acceleration_deg_per_sec2": 1080.0,
+  "default_end_translation_tolerance_meters": 0.05,
+  "default_end_rotation_tolerance_deg": 3.0,
+  "default_intermediate_handoff_radius_meters": 0.45
+}
+```
+
+> **Critical:** `new Path("name")` reads `config.json` at construction time and **ignores**
+> `Path.setDefaultGlobalConstraints()` set at runtime. If you need runtime-derived speed
+> limits (e.g. `maxV * CRUISE_FRACTION`), call `path.setPathConstraints(constraints)` after
+> loading. `RebuiltAutoRoutines` does this — see its `buildAutoConstraints()` + `path()` method
+> as a reference.
 
 For interactive authoring use [BLine-GUI](https://github.com/edanliahovetsky/BLine-GUI).
+All 46 "Rebuilt" competition paths are in `deploy/autos/paths/` as JSON — see
+[docs/rebuilt-robot.md](rebuilt-robot.md#autos) for the full list.
 
 ---
 
@@ -223,3 +254,81 @@ to hardware:
 The Layer 3 test ([BLineFollowPathSimPhysicsTest](../src/test/java/org/frc5010/common/subsystem/BLineFollowPathSimPhysicsTest.java))
 is a smoke test of the integration plumbing, not a tuning regression — it asserts the robot
 reaches within 0.30 m of the goal, which is generous on purpose.
+
+---
+
+## Pre-match module orientation
+
+Before auto starts, swerve modules are typically at 0° (straight forward). If the first path
+segment curves immediately, the modules spend the first few hundred milliseconds rotating —
+costing distance and time. BLine exposes `Path.getInitialModuleDirection()` to address this:
+it returns the `Rotation2d` all four modules should face at path start.
+
+Use `BLineSwerveAuto.preAlignForAuto(drive, firstPath)` to build a command that pre-aligns
+modules. Schedule it **during the disabled period** with `.ignoringDisable(true)`:
+
+```java
+// In your auto-chooser selection callback or autonomousInit:
+BLineSwerveAuto.preAlignForAuto(drive, new Path("TR-CTR-QTRShort"))
+    .ignoringDisable(true)
+    .schedule();
+```
+
+`preAlignForAuto` calls `Path.getInitialModuleDirection(drive::getPose)` — the overload that
+takes a pose supplier accounts for alliance-side mirroring (if the robot is on Red, BLine reads
+the live pose to decide whether to flip the direction). It then calls
+`AkitSwerveDrive.preAlignModules(Rotation2d)`, which commands all four modules to the target
+angle at zero drive speed via `Module.runSetpoint(new SwerveModuleState(0, direction))`.
+
+**Note:** `preAlignModules` requires the DriverStation to be attached (not necessarily enabled)
+for TalonFX steer motors to accept commands. In sim, call it at or after `simulationInit`.
+
+---
+
+## AdvantageKit logging
+
+BLine emits internal telemetry — setpoint poses, path geometry, numeric error, and boolean
+state — through four static consumer hooks. `BLineSwerveAuto.builder()` wires all four to
+`Logger.recordOutput` automatically, so you get full BLine telemetry in your `.wpilog` and
+during replay with no extra code.
+
+Logged keys (all under the `"BLine/"` prefix):
+
+| Key | Type | Contents |
+|---|---|---|
+| `BLine/TargetPose` | `Pose2d` | Current setpoint pose BLine is chasing |
+| `BLine/PathPoints` | `Translation2d[]` | Remaining path waypoints (shrinks as robot progresses) |
+| `BLine/Finished` | `boolean` | Whether the path has been completed |
+| `BLine/RemainingDistance` | `double` | Distance (m) left to the path end |
+
+These appear in AdvantageScope under the **Poses** layer (`BLine/TargetPose`) and the
+**Trajectories** layer (`BLine/PathPoints`). In replay mode they come from the log, so
+BLine's internal state is fully reproducible.
+
+Call `BLineSwerveAuto.installAkitLogging()` once from your `Robot.java` constructor
+**after** `Logger.start()` — AKit must be running before logging consumers are installed:
+
+```java
+Logger.start();
+BLineSwerveAuto.installAkitLogging();  // wire BLine telemetry into AKit replay log
+m_robotContainer = new RobotContainer();
+```
+
+`installAkitLogging()` is idempotent (calling it again just replaces the same lambdas).
+**Do not call it from tests** — `AutoRoutinesSimPhysicsTest` installs its own consumers on the
+same static hooks to capture BLine telemetry for assertions; overwriting them silently breaks
+the test's tracking logic.
+
+If you need BLine telemetry in a context where you can't call `installAkitLogging()` first
+(e.g. a standalone `FollowPath.Builder`), call the static setters directly:
+
+```java
+FollowPath.setPoseLoggingConsumer(
+    pair -> Logger.recordOutput(pair.getFirst(), pair.getSecond()));
+FollowPath.setTranslationListLoggingConsumer(
+    pair -> Logger.recordOutput(pair.getFirst(), pair.getSecond()));
+FollowPath.setBooleanLoggingConsumer(
+    pair -> Logger.recordOutput(pair.getFirst(), pair.getSecond()));
+FollowPath.setDoubleLoggingConsumer(
+    pair -> Logger.recordOutput(pair.getFirst(), pair.getSecond()));
+```
