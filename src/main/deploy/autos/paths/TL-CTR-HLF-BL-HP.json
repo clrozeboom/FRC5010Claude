@@ -2,24 +2,31 @@
   "path_elements": [
     {
       "type": "waypoint",
-      "translation_target": {"x_meters": 4.413, "y_meters": 7.444},
-      "rotation_target": {"rotation_radians": 0.0017, "t_ratio": 0.0, "profiled_rotation": true}
+      "translation_target": {
+        "x_meters": 4.413,
+        "y_meters": 7.444
+      },
+      "rotation_target": {
+        "rotation_radians": 0.0017,
+        "t_ratio": 0.0,
+        "profiled_rotation": true
+      }
     },
     {
       "type": "rotation",
-      "rotation_radians": 0.0140,
+      "rotation_radians": 0.014,
       "t_ratio": 0.447,
       "profiled_rotation": true
     },
     {
       "type": "translation",
       "x_meters": 8.117,
-      "y_meters": 7.200
+      "y_meters": 7.2
     },
     {
       "type": "rotation",
       "rotation_radians": -1.5708,
-      "t_ratio": 0.000,
+      "t_ratio": 0.0,
       "profiled_rotation": true
     },
     {
@@ -41,7 +48,7 @@
     {
       "type": "rotation",
       "rotation_radians": 3.0527,
-      "t_ratio": 0.440,
+      "t_ratio": 0.44,
       "profiled_rotation": true
     },
     {
@@ -52,7 +59,7 @@
     {
       "type": "rotation",
       "rotation_radians": 1.5708,
-      "t_ratio": 0.090,
+      "t_ratio": 0.09,
       "profiled_rotation": true
     },
     {
@@ -68,13 +75,20 @@
     {
       "type": "rotation",
       "rotation_radians": 1.5708,
-      "t_ratio": 0.000,
+      "t_ratio": 0.0,
       "profiled_rotation": true
     },
     {
       "type": "waypoint",
-      "translation_target": {"x_meters": 1.300, "y_meters": 7.095},
-      "rotation_target": {"rotation_radians": 1.5708, "t_ratio": 1.0, "profiled_rotation": true}
+      "translation_target": {
+        "x_meters": 0.83,
+        "y_meters": 7.095
+      },
+      "rotation_target": {
+        "rotation_radians": 1.5708,
+        "t_ratio": 1.0,
+        "profiled_rotation": true
+      }
     }
   ]
 }
